@@ -1,0 +1,21 @@
+{
+  "name": "schatzkarten-spiel-2",
+  "version": "1.0.0",
+  "description": "Schatzkartenspiel - A pixel-art RPG treasure hunt adventure",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "phaser": "^3.80.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21"
+  }
+}

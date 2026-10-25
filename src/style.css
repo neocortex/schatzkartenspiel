@@ -1,0 +1,36 @@
+/* Global page + UI overlay styles. */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0b1a2a;
+  font-family: "Fredoka", system-ui, sans-serif;
+  color: #fff;
+}
+
+#game canvas {
+  display: block;
+}
+
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+#fade {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  opacity: 1;
+  pointer-events: none;
+  z-index: 100;
+}

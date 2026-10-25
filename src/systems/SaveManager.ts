@@ -7,7 +7,7 @@ import { QuestManager } from "./QuestManager";
 import { InventoryManager } from "./InventoryManager";
 
 /** Bump this when save format or game layout changes to invalidate old saves. */
-const SAVE_VERSION = 2;
+const SAVE_VERSION = 3;
 
 interface SaveData {
   version: number;

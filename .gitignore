@@ -7,6 +7,9 @@ dist-ssr/
 
 # Tool caches and reports
 .vite/
+.voice-cache/
+.playwright-mcp/
+scripts/e2e/out/
 coverage/
 .eslintcache
 *.tsbuildinfo

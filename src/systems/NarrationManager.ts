@@ -1,9 +1,33 @@
 /**
- * Browser text-to-speech manager for narrator voice output.
- * Uses the Web Speech API and keeps a persistent enabled/disabled preference.
+ * Text-to-speech manager for spoken dialogue.
+ * Prefers natural neural voices from the local voice server (one voice per
+ * character, see scripts/voice/tts_server.py) and falls back to the browser's
+ * Web Speech API. Keeps a persistent enabled/disabled preference.
  */
 
 const STORAGE_KEY = "schatzkarten_narration";
+
+/** Give up on the neural voice for a line after this long (e.g. a voice model still downloading). */
+const NEURAL_TIMEOUT_MS = 6000;
+
+/** Neural voice id per speaker name (lower case); unknown speakers use the narrator. */
+const SPEAKER_VOICES: Record<string, string> = {
+  erzähler: "narrator",
+  steintafel: "narrator",
+  schild: "narrator",
+  tadeo: "tadeo",
+  pico: "parrot",
+  "kleine mia": "child",
+  dorfältester: "elder",
+  "opa kalle": "elder",
+  "weiser mann": "wiseman",
+  "weise frau": "wisewoman",
+  "bäckerin lina": "baker",
+  "fischer jonas": "villager",
+  oger: "ogre",
+  geist: "ghost",
+  fuchs: "child",
+};
 
 interface NarrationPrefs {
   enabled: boolean;
@@ -14,6 +38,7 @@ type VoiceRole = "narrator" | "hero" | "elder" | "enemy" | "neutral";
 interface PendingSpeech {
   text: string;
   role: VoiceRole;
+  voice: string;
 }
 
 interface VoicePickOptions {
@@ -33,6 +58,9 @@ export class NarrationManager {
   private statusEl: HTMLElement | null = null;
   private hasUserInteraction = false;
   private pendingSpeech: PendingSpeech | null = null;
+  private currentAudio: HTMLAudioElement | null = null;
+  /** Increments with every new line so late neural audio for an old line is dropped. */
+  private speechToken = 0;
 
   private constructor() {}
 
@@ -67,7 +95,7 @@ export class NarrationManager {
     if (!this.enabled || !this.isSupported()) return;
     const trimmed = text.trim();
     if (!trimmed) return;
-    this.queueOrSpeak(trimmed, this.resolveRole(speaker));
+    this.queueOrSpeak(trimmed, this.resolveRole(speaker), this.resolveVoice(speaker));
   }
 
   /** Speak a narrator-style line. */
@@ -75,13 +103,32 @@ export class NarrationManager {
     if (!this.enabled || !this.isSupported()) return;
     const trimmed = text.trim();
     if (!trimmed) return;
-    this.queueOrSpeak(trimmed, "narrator");
+    this.queueOrSpeak(trimmed, "narrator", "narrator");
   }
 
   /** Stop current narration immediately. */
   stop(): void {
+    this.speechToken++;
+    this.currentAudio?.pause();
+    this.currentAudio = null;
     if (!this.isSupported()) return;
     window.speechSynthesis.cancel();
+  }
+
+  /**
+   * Render lines on the voice server ahead of time (one at a time, in the
+   * background) so they play instantly later. Stops quietly if no server runs.
+   */
+  async prefetch(lines: { text: string; speaker: string }[]): Promise<void> {
+    for (const line of lines) {
+      try {
+        const res = await fetch(this.neuralUrl(line.text.trim(), this.resolveVoice(line.speaker)));
+        if (!res.ok) return;
+        await res.arrayBuffer();
+      } catch {
+        return;
+      }
+    }
   }
 
   /** Enable/disable narration and persist it. */
@@ -127,13 +174,42 @@ export class NarrationManager {
     this.markUserInteraction();
   };
 
-  private queueOrSpeak(text: string, role: VoiceRole): void {
+  private queueOrSpeak(text: string, role: VoiceRole, voice: string): void {
     if (!this.hasUserInteraction) {
       // Reason: some browsers require a direct user gesture before speech can start
-      this.pendingSpeech = { text, role };
+      this.pendingSpeech = { text, role, voice };
       return;
     }
-    this.speakText(text, role);
+    this.speakText(text, role, voice);
+  }
+
+  private resolveVoice(speaker: string): string {
+    return SPEAKER_VOICES[speaker.trim().toLocaleLowerCase("de-DE")] ?? "narrator";
+  }
+
+  private neuralUrl(text: string, voice: string): string {
+    return `/tts?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(text)}`;
+  }
+
+  /** Play a line from the neural voice server. Resolves false if it is unavailable. */
+  private async playNeural(text: string, voice: string, token: number): Promise<boolean> {
+    try {
+      const res = await fetch(this.neuralUrl(text, voice), { signal: AbortSignal.timeout(NEURAL_TIMEOUT_MS) });
+      if (!res.ok) return false;
+      const rate = Number(res.headers.get("X-Playback-Rate") ?? "1") || 1;
+      const blob = await res.blob();
+      if (token !== this.speechToken) return true;
+      const el = new Audio(URL.createObjectURL(blob));
+      // Reason: the server pitches some voices by playback speed (e.g. Tadeo's young voice)
+      el.preservesPitch = false;
+      el.playbackRate = rate;
+      el.addEventListener("ended", () => URL.revokeObjectURL(el.src));
+      this.currentAudio = el;
+      await el.play();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private resolveRole(speaker: string): VoiceRole {
@@ -268,11 +344,19 @@ export class NarrationManager {
     if (this.enabled && this.pendingSpeech) {
       const pending = this.pendingSpeech;
       this.pendingSpeech = null;
-      this.speakText(pending.text, pending.role);
+      this.speakText(pending.text, pending.role, pending.voice);
     }
   }
 
-  private speakText(text: string, role: VoiceRole): void {
+  private speakText(text: string, role: VoiceRole, voice: string): void {
+    this.stop();
+    const token = this.speechToken;
+    void this.playNeural(text, voice, token).then((ok) => {
+      if (!ok && token === this.speechToken) this.speakBrowser(text, role);
+    });
+  }
+
+  private speakBrowser(text: string, role: VoiceRole): void {
     const synth = window.speechSynthesis;
     synth.cancel();
 

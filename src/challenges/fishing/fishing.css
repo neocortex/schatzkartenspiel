@@ -1,0 +1,188 @@
+/* Fishing minigame overlays: catch card, bite alert, controls hint and status pill slots. */
+
+.fish-hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ── Catch card ───────────────────────────────────────────── */
+.fish-card {
+  position: absolute;
+  right: 6%;
+  top: 15%;
+  width: 330px;
+  opacity: 0;
+  transform: scale(0.4) rotate(-8deg);
+  transition: transform 0.5s cubic-bezier(0.2, 1.6, 0.4, 1), opacity 0.25s;
+}
+.fish-card.show {
+  opacity: 1;
+  transform: scale(1) rotate(-2deg);
+}
+.fish-card .rays {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  width: 560px;
+  height: 560px;
+  margin: -280px 0 0 -280px;
+  background: repeating-conic-gradient(rgba(255, 236, 160, 0.5) 0deg 10deg, transparent 10deg 24deg);
+  mask-image: radial-gradient(circle, #000 0%, transparent 62%);
+  -webkit-mask-image: radial-gradient(circle, #000 0%, transparent 62%);
+  animation: fish-spin 10s linear infinite;
+}
+.fish-card.rare .rays {
+  background: repeating-conic-gradient(rgba(255, 215, 90, 0.85) 0deg 8deg, transparent 8deg 18deg);
+}
+@keyframes fish-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.fish-card .box {
+  position: relative;
+  padding: 10px 22px 18px;
+  border-radius: 26px;
+  background: linear-gradient(180deg, var(--parchment), var(--parchment-dark));
+  border: 5px solid var(--wood);
+  box-shadow: 0 7px 0 var(--wood-dark), 0 20px 40px rgba(0, 0, 0, 0.35), inset 0 0 0 3px rgba(255, 255, 255, 0.55);
+  text-align: center;
+  color: var(--ink);
+}
+.fish-card.rare .box {
+  background: linear-gradient(180deg, #fff6c8, #ffd66b);
+  border-color: #c98a12;
+}
+.fish-card .icon {
+  width: 170px;
+  height: 170px;
+  margin: -64px auto -8px;
+  display: block;
+  filter: drop-shadow(0 8px 6px rgba(0, 0, 0, 0.3));
+  animation: fish-wiggle 0.9s ease-in-out infinite;
+}
+@keyframes fish-wiggle {
+  50% {
+    transform: rotate(7deg) translateY(-6px);
+  }
+}
+.fish-card .name {
+  font-size: 44px;
+  font-weight: 600;
+  line-height: 1.05;
+  color: var(--gold);
+  -webkit-text-stroke: 3px var(--wood-dark);
+  paint-order: stroke fill;
+  text-shadow: 0 5px 0 var(--wood-dark);
+  white-space: nowrap;
+}
+.fish-card .size {
+  margin-top: 8px;
+  font-size: 24px;
+  font-weight: 600;
+}
+.fish-card .badge {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 14px;
+  border-radius: 999px;
+  background: var(--red);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 600;
+  box-shadow: 0 3px 0 #9c1f2a;
+  animation: fish-pulse 0.7s ease-in-out infinite;
+}
+.fish-card .badge:empty {
+  display: none;
+}
+@keyframes fish-pulse {
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+/* ── Bite alert "!" ───────────────────────────────────────── */
+.fish-alert {
+  position: absolute;
+  width: 74px;
+  height: 74px;
+  margin: -112px 0 0 -37px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff7b0, var(--gold) 60%);
+  border: 5px solid var(--wood-dark);
+  box-shadow: 0 6px 0 var(--wood-dark), 0 0 30px rgba(255, 220, 90, 0.9);
+  display: none;
+  place-items: center;
+  color: var(--red);
+  font-size: 54px;
+  font-weight: 600;
+  line-height: 1;
+  -webkit-text-stroke: 2px var(--wood-dark);
+  paint-order: stroke fill;
+  animation: fish-alert 0.32s ease-in-out infinite alternate;
+}
+.fish-alert.show {
+  display: grid;
+}
+@keyframes fish-alert {
+  from {
+    transform: scale(0.92) rotate(-8deg);
+  }
+  to {
+    transform: scale(1.12) rotate(8deg);
+  }
+}
+
+/* ── Controls hint ────────────────────────────────────────── */
+.fish-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  transform: translate(-50%, 20px);
+  padding: 8px 18px;
+  border-radius: 16px;
+  background: rgba(255, 246, 224, 0.92);
+  border: 3px solid var(--wood);
+  box-shadow: 0 4px 0 var(--wood-dark);
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 600;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.fish-hint.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ── Status pill slots ────────────────────────────────────── */
+.fish-slots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.fish-slot {
+  width: 44px;
+  height: 44px;
+}
+.fish-slot.empty {
+  width: 30px;
+  height: 30px;
+  margin: 0 7px;
+  border-radius: 50%;
+  border: 3px dashed rgba(94, 58, 31, 0.45);
+}
+.fish-slot.new {
+  animation: fish-pop 0.6s cubic-bezier(0.2, 1.8, 0.4, 1);
+}
+@keyframes fish-pop {
+  from {
+    transform: scale(0.2) rotate(-40deg);
+  }
+}

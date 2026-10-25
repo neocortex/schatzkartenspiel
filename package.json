@@ -1,20 +1,25 @@
 {
   "name": "schatzkarten-spiel-2",
-  "version": "1.0.0",
-  "description": "Schatzkartenspiel - A pixel-art RPG treasure hunt adventure",
+  "version": "2.0.0",
+  "description": "Schatzkartenspiel - A 3D treasure hunt adventure on a toon island (Three.js)",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "node scripts/e2e/all.mjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "phaser": "^3.80.1"
+    "@fontsource/fredoka": "^5.3.0",
+    "postprocessing": "^6.39.5",
+    "three": "^0.186.1"
   },
   "devDependencies": {
+    "@types/three": "^0.186.0",
+    "playwright": "^1.64.1",
     "typescript": "^5.9.3",
     "vite": "^5.4.21"
   }

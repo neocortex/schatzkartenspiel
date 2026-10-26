@@ -3,7 +3,8 @@
  * Singleton — access via AudioManager.getInstance().
  */
 
-const STORAGE_KEY = "schatzkarten_audio";
+// Reason: own key so the 3D game's mute setting on the same localhost port doesn't apply here
+const STORAGE_KEY = "schatzkarten_audio_classic";
 
 interface AudioPrefs {
   muted: boolean;

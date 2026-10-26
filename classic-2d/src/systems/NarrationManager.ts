@@ -3,7 +3,8 @@
  * Uses the Web Speech API and keeps a persistent enabled/disabled preference.
  */
 
-const STORAGE_KEY = "schatzkarten_narration";
+// Reason: own key so the 3D game's narrator setting on the same localhost port doesn't apply here
+const STORAGE_KEY = "schatzkarten_narration_classic";
 
 interface NarrationPrefs {
   enabled: boolean;

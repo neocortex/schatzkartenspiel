@@ -18,7 +18,9 @@ interface SaveData {
   timestamp: number;
 }
 
-const SAVE_KEY = "schatzkarten_save";
+// Reason: the 3D game saves under "schatzkarten_save" and can run on the same localhost port,
+// so the classic game keeps its own key to never load a 3D save.
+const SAVE_KEY = "schatzkarten_save_classic";
 
 export class SaveManager {
   private static instance: SaveManager;

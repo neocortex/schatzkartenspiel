@@ -2,7 +2,7 @@
 
 ## 2.0.0
 
-The game is rebuilt in 3D with Three.js (the Phaser 2D version is in the git history).
+The game is rebuilt in 3D with Three.js (the Phaser 2D version is kept in `classic-2d/`).
 
 ### Added
 

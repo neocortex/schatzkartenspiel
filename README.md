@@ -103,6 +103,17 @@ node scripts/e2e/volcano.mjs  # likewise: cave, forest, ogre, village, mountain,
                               # treasure, fishing, hens
 ```
 
+## Classic 2D version
+
+The original Phaser 2D pixel-art game (1.0.0) is kept for nostalgia in `classic-2d/`. It is a
+frozen, self-contained snapshot with its own dependencies:
+
+```bash
+cd classic-2d
+npm install
+npm run dev        # http://localhost:3000 (or the next free port)
+```
+
 ## Project structure
 
 ```text
@@ -121,4 +132,5 @@ src/
 scripts/
   e2e/             # end-to-end tests
   voice/           # local neural TTS server
+classic-2d/        # the original Phaser 2D game (frozen snapshot)
 ```

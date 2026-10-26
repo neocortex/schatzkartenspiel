@@ -27,6 +27,8 @@ Graphics quality ("wow") and joy matter more than anything else; it is played lo
 - Helpers used by several challenges go to `src/challenges/shared/`, not into another challenge's folder.
   Sibling challenges built as a pair reuse each other's files (sea → ogre kit, forest → cave materials,
   mountain → `volcano/kit`); a third user of such a file is the moment to move it to `shared/`.
+- `classic-2d/` is the original Phaser 2D game, kept as a frozen snapshot for nostalgia. It has its own
+  `package.json` and is not part of the type-check, build or E2E runs. Don't change it.
 
 ## Conventions
 

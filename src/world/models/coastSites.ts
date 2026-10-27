@@ -35,7 +35,7 @@ interface PierInfo {
  * Build a pier from the shore near `landward` out to `end`, register its deck
  * and moor a boat beside the head on side `boatSide` (+1/-1 across the pier).
  */
-function buildPier(
+export function buildPier(
   ctx: LandmarkContext,
   site: Site,
   landward: P2,

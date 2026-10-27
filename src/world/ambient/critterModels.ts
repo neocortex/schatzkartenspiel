@@ -9,17 +9,17 @@ import * as THREE from "three";
 import { part, merge, ColorFn, Xform } from "../../core/geo";
 import { tagPart } from "./CritterMesh";
 
-type V3 = [number, number, number];
+export type V3 = [number, number, number];
 
 /** A painted primitive with zero UVs and an animation part id. */
-function piece(geo: THREE.BufferGeometry, color: THREE.ColorRepresentation | ColorFn, partId: number, x: Xform = {}): THREE.BufferGeometry {
+export function piece(geo: THREE.BufferGeometry, color: THREE.ColorRepresentation | ColorFn, partId: number, x: Xform = {}): THREE.BufferGeometry {
   const g = part(geo, color, x);
   g.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
   return tagPart(g, partId);
 }
 
 /** Flat convex polygon (fan-triangulated) — wings, tails and fins. Pass `uvs` to texture it. */
-function flat(points: V3[], color: THREE.ColorRepresentation, partId: number, uvs?: [number, number][]): THREE.BufferGeometry {
+export function flat(points: V3[], color: THREE.ColorRepresentation, partId: number, uvs?: [number, number][]): THREE.BufferGeometry {
   const pos: number[] = [];
   const uv: number[] = [];
   for (let i = 1; i < points.length - 1; i++) {
@@ -42,13 +42,13 @@ function flat(points: V3[], color: THREE.ColorRepresentation, partId: number, uv
 }
 
 /** Polygon plus its mirror image across the x = 0 plane. */
-function mirrored(points: V3[], color: THREE.ColorRepresentation, partId: number, uvs?: [number, number][]): THREE.BufferGeometry[] {
+export function mirrored(points: V3[], color: THREE.ColorRepresentation, partId: number, uvs?: [number, number][]): THREE.BufferGeometry[] {
   const mirror = points.map(([x, y, z]) => [-x, y, z] as V3);
   return [flat(points, color, partId, uvs), flat(mirror, color, partId, uvs)];
 }
 
-const sphere = (r: number, w = 10, h = 8) => new THREE.SphereGeometry(r, w, h);
-const along = (rx = Math.PI / 2): V3 => [rx, 0, 0];
+export const sphere = (r: number, w = 10, h = 8) => new THREE.SphereGeometry(r, w, h);
+export const along = (rx = Math.PI / 2): V3 => [rx, 0, 0];
 
 /** Butterfly: dark body + two textured wing quads (part 1). Wingspan ≈ 0.6. */
 export function butterflyModel(): THREE.BufferGeometry {

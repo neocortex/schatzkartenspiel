@@ -85,6 +85,7 @@ export class Plaza {
       // Reason: the shared landmark/smoke materials only read uTime; the terrain textures are unused here
       uHeightTex: { value: owned.add(new THREE.Texture()) },
       uMaskTex: { value: owned.add(new THREE.Texture()) },
+      uRegionTex: { value: owned.add(new THREE.Texture()) },
       uSunDir: { value: sunDir },
     };
     this.smoke = new SmokeSystem(this.world);

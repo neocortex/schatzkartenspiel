@@ -88,3 +88,50 @@ export const CAT_ANIM = /* glsl */ `
     p.xz *= 1.0 + sin(a) * 0.02;
   }
 `;
+
+/**
+ * Sea turtles: `a` ≥ 0 is the crawl phase (front flippers (1) and back flippers (2) paddle in turns);
+ * `a` < 0 pulls the head (3) into the shell.
+ */
+export const TURTLE_ANIM = /* glsl */ `
+  float crawl = max(a, 0.0);
+  if (part > 0.5 && part < 2.5) {
+    float back = step(1.5, part);
+    float th = sin(crawl + back * 3.14159) * (0.45 - back * 0.15) * sign(p.x);
+    vec3 pivot = vec3(sign(p.x) * 0.2, 0.0, mix(0.18, -0.25, back));
+    vec3 q = p - pivot;
+    float c = cos(th), s = sin(th);
+    p = pivot + vec3(q.x * c + q.z * s, q.y, -q.x * s + q.z * c);
+    n = vec3(n.x * c + n.z * s, n.y, -n.x * s + n.z * c);
+  } else if (part > 2.5) {
+    p.z -= clamp(-a, 0.0, 1.0) * 0.2;
+    p.y += sin(crawl * 0.5) * 0.01;
+  }
+`;
+
+/** Frogs: `a` > 0 stretches the back legs (1) out behind for a leap; `a` < 0 puffs up the throat sac (2). */
+export const FROG_ANIM = /* glsl */ `
+  if (part > 0.5 && part < 1.5) {
+    p.z -= max(a, 0.0) * 0.13;
+    p.y -= max(a, 0.0) * 0.03;
+  } else if (part > 1.5) {
+    vec3 c = vec3(0.0, 0.075, 0.135);
+    p = c + (p - c) * (1.0 + max(-a, 0.0) * 0.9);
+  }
+`;
+
+/** Sheep: `a` = graze angle; the head (part 1) dips forward/down around the neck. */
+export const SHEEP_ANIM = /* glsl */ `
+  if (part > 0.5) {
+    vec3 pivot = vec3(0.0, 0.58, 0.28);
+    vec3 q = p - pivot;
+    float c = cos(a), s = sin(a);
+    p = pivot + vec3(q.x, q.y * c - q.z * s, q.y * s + q.z * c);
+    n = vec3(n.x, n.y * c - n.z * s, n.y * s + n.z * c);
+  }
+`;
+
+/** Dolphins: `a` = swim phase; the rear body and the flukes (part 1) beat up and down. */
+export const DOLPHIN_ANIM = /* glsl */ `
+  p.y += sin(a) * max(-p.z - 0.3, 0.0) * 0.3;
+`;

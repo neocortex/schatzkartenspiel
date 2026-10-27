@@ -124,6 +124,7 @@ export class TreasureStage {
       // Reason: the shared landmark/smoke materials only read uTime; the terrain textures are unused here
       uHeightTex: { value: this.owned.add(new THREE.Texture()) },
       uMaskTex: { value: this.owned.add(new THREE.Texture()) },
+      uRegionTex: { value: this.owned.add(new THREE.Texture()) },
       uSunDir: { value: this.daylight.sunDir },
     };
     this.director = new Director(this.camera);

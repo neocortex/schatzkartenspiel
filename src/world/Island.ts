@@ -34,6 +34,7 @@ export class Island {
       uTime: { value: 0 },
       uHeightTex: { value: this.hf.heightTexture },
       uMaskTex: { value: this.hf.maskTexture },
+      uRegionTex: { value: this.hf.regionTexture },
       uSunDir: { value: this.sunDir },
     };
 

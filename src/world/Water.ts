@@ -142,6 +142,10 @@ void main() {
   float bandMask = smoothstep(3.5, 0.8, shoreDist) * smoothstep(0.88, 0.97, bands) * smoothstep(0.8, 0.2, depth) * sloped;
   float breakup = smoothstep(0.3, 0.7, vnoise(p * 2.4 - uTime * 0.25));
   float foam = max(lip, bandMask * breakup * 0.8) * step(0.001, depth);
+  // Swamp ponds and puddles are still and a little greener: hardly any foam
+  float swamp = hfRegion(p).b;
+  foam *= 1.0 - swamp * 0.85;
+  col = mix(col, col * vec3(0.72, 0.95, 0.78), swamp * 0.6);
   col = mix(col, uFoam * 1.05, foam * 0.92);
 
   float alpha = mix(0.6, 1.0, smoothstep(0.05, 2.5, depth));

@@ -1,13 +1,13 @@
 /**
- * Fireflies in the enchanted forest: glowing additive sprites that drift on
- * slow looping paths between the trees and blink on their own rhythms, bright
- * enough to bloom. Positions are scattered once over the forest mask; all the
- * motion happens in the vertex shader.
+ * Fireflies in the enchanted forest (and over the swamp pond): glowing
+ * additive sprites that drift on slow looping paths and blink on their own
+ * rhythms, bright enough to bloom. Positions are scattered once over the
+ * swarm's area; all the motion happens in the vertex shader.
  */
 
 import * as THREE from "three";
 import { Heightfield } from "../Heightfield";
-import { LANDMARKS } from "../layout";
+import { LANDMARKS, P2 } from "../layout";
 import { WorldUniforms } from "../Terrain";
 import { BILLBOARD_GLSL, particleMaterial, particleMesh, quadGeometry, RENDER_ORDER } from "./particles";
 import { GLOW_FRAG } from "./Smoke";
@@ -41,18 +41,35 @@ void main() {
 }
 `;
 
+/** Where a swarm lives: object name, centre, scatter radius, size, and which spots qualify. */
+export interface FireflyArea {
+  name: string;
+  at: P2;
+  radius: number;
+  count: number;
+  ok: (x: number, z: number) => boolean;
+}
+
 export class Fireflies {
   readonly object: THREE.Mesh;
 
-  constructor(hf: Heightfield, world: WorldUniforms) {
-    const base = new Float32Array(COUNT * 4);
-    const [fx, fz] = LANDMARKS.forest;
+  /** Without an `area` the swarm fills the enchanted forest. */
+  constructor(hf: Heightfield, world: WorldUniforms, area?: FireflyArea) {
+    const { name, at, radius, count, ok } = area ?? {
+      name: "fireflies",
+      at: LANDMARKS.forest,
+      radius: RADIUS,
+      count: COUNT,
+      ok: (x: number, z: number) => hf.maskAt(x, z, 1) >= 0.45 && hf.heightAt(x, z) >= 0.4,
+    };
+    const base = new Float32Array(count * 4);
     let n = 0;
-    for (let tries = 0; n < COUNT && tries < COUNT * 40; tries++) {
-      const x = fx + rnd(-RADIUS, RADIUS);
-      const z = fz + rnd(-RADIUS, RADIUS);
-      if (hf.maskAt(x, z, 1) < 0.45 || hf.heightAt(x, z) < 0.4) continue;
-      base.set([x, hf.heightAt(x, z) + rnd(0.4, 2.8), z, Math.random() * 100], n * 4);
+    for (let tries = 0; n < count && tries < count * 40; tries++) {
+      const x = at[0] + rnd(-radius, radius);
+      const z = at[1] + rnd(-radius, radius);
+      if (!ok(x, z)) continue;
+      // Reason: over water the swarm hovers above the surface, not the lake bed
+      base.set([x, Math.max(hf.heightAt(x, z), 0) + rnd(0.4, 2.8), z, Math.random() * 100], n * 4);
       n++;
     }
     const mat = particleMaterial({
@@ -62,6 +79,6 @@ export class Fireflies {
       additive: true,
     });
     this.object = particleMesh(quadGeometry(n, { aBase: [base, 4] }), mat, RENDER_ORDER.glow);
-    this.object.name = "fireflies";
+    this.object.name = name;
   }
 }

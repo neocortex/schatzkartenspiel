@@ -309,8 +309,8 @@ export class Game {
     this.startCinematic((t) => {
       const a = 0.9 + t * 0.045;
       return {
-        pos: new THREE.Vector3(Math.cos(a) * 165, 72 + Math.sin(t * 0.2) * 6, 6 + Math.sin(a) * 125),
-        look: new THREE.Vector3(0, 4, 6),
+        pos: new THREE.Vector3(18 + Math.cos(a) * 205, 88 + Math.sin(t * 0.2) * 6, 28 + Math.sin(a) * 165),
+        look: new THREE.Vector3(18, 4, 28),
       };
     });
     await this.engine.setScene(this.island, 1400);

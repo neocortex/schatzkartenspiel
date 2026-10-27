@@ -1,14 +1,14 @@
 /**
- * Life on the lake: every few seconds a fish leaps out of the water in an arc
- * (with expanding splash rings and a spray of droplets where it leaves and
- * re-enters), and dragonflies hover over the shallows, darting from spot to
- * spot. Splashes are GPU-animated from their start time; the CPU only
- * schedules them.
+ * Life on the lake (and on the lagoon and the swamp pond): every few seconds a
+ * fish leaps out of the water in an arc (with expanding splash rings and a
+ * spray of droplets where it leaves and re-enters), and dragonflies hover
+ * over the shallows, darting from spot to spot. Splashes are GPU-animated
+ * from their start time; the CPU only schedules them.
  */
 
 import * as THREE from "three";
 import { Heightfield } from "../Heightfield";
-import { LANDMARKS } from "../layout";
+import { LANDMARKS, P2 } from "../layout";
 import { WorldUniforms } from "../Terrain";
 import { CritterMesh } from "./CritterMesh";
 import { dragonflyModel, fishModel } from "./critterModels";
@@ -109,6 +109,13 @@ interface Dragonfly {
   seed: number;
 }
 
+/** A body of water: its centre, how far the shallows reach, and how deep the water must be for a fish to leap. */
+export interface LakeArea {
+  at: P2;
+  radius: number;
+  deep: number;
+}
+
 export class Lake {
   readonly group = new THREE.Group();
   private splashData: THREE.InstancedBufferAttribute[] = [];
@@ -119,13 +126,16 @@ export class Lake {
   private flyMesh: CritterMesh;
   private flies: Dragonfly[] = [];
   private spot = new THREE.Vector2();
-  private readonly cx = LANDMARKS.lake[0];
-  private readonly cz = LANDMARKS.lake[1];
+  private readonly cx: number;
+  private readonly cz: number;
 
+  /** Without an `area` this is the big lake in the middle of the island. */
   constructor(
     private hf: Heightfield,
     world: WorldUniforms,
+    private area: LakeArea = { at: LANDMARKS.lake, radius: LAKE_RADIUS, deep: -1.2 },
   ) {
+    [this.cx, this.cz] = area.at;
     this.buildSplashes(world);
     this.fishMesh = new CritterMesh({ name: "fish", geometry: fishModel(), count: FISH, animate: FISH_ANIM, doubleSided: true, selfLit: 0.2 });
     this.flyMesh = new CritterMesh({ name: "dragonflies", geometry: dragonflyModel(), count: DRAGONFLIES, animate: DRAGONFLY_ANIM, doubleSided: true, selfLit: 0.15 });
@@ -185,7 +195,7 @@ export class Lake {
     drops.needsUpdate = true;
   }
 
-  private isDeepWater = (x: number, z: number): boolean => this.hf.heightAt(x, z) < -1.2;
+  private isDeepWater = (x: number, z: number): boolean => this.hf.heightAt(x, z) < this.area.deep;
 
   update(dt: number, time: number): void {
     this.updateFish(dt, time);
@@ -197,7 +207,7 @@ export class Lake {
     if (this.nextJump <= 0) {
       this.nextJump = rnd(2.5, 6);
       const j = this.jumps.find((q) => !q.active);
-      if (j && findSpot(this.cx, this.cz, 0, 11, 8, this.isDeepWater, this.spot)) {
+      if (j && findSpot(this.cx, this.cz, 0, this.area.radius * 0.61, 8, this.isDeepWater, this.spot)) {
         Object.assign(j, {
           active: true,
           start: time,
@@ -244,7 +254,7 @@ export class Lake {
       const h = this.hf.heightAt(x, z);
       return h < 0.3 && h > -1.6;
     };
-    if (findSpot(this.cx, this.cz, 8, LAKE_RADIUS, 10, shallow, this.spot)) {
+    if (findSpot(this.cx, this.cz, this.area.radius * 0.44, this.area.radius, 10, shallow, this.spot)) {
       f.tx = this.spot.x;
       f.tz = this.spot.y;
       f.ty = rnd(0.6, 1.5);

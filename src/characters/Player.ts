@@ -36,7 +36,7 @@ export class Player {
   private dir = new THREE.Vector3();
   private prev = new THREE.Vector3();
 
-  constructor(private world: WalkableWorld) {
+  constructor(readonly world: WalkableWorld) {
     this.avatar = createTadeo();
   }
 

@@ -14,7 +14,7 @@ import { glowTexture, puffTexture } from "./textures";
 /** Direction the wind blows smoke (matches the grass sway and drifting clouds). */
 export const WIND = new THREE.Vector3(0.9, 0, 0.4).normalize();
 
-export type SmokeStyle = "chimney" | "steam" | "campfire" | "volcano" | "seaSteam";
+export type SmokeStyle = "chimney" | "steam" | "campfire" | "volcano" | "seaSteam" | "mist";
 
 interface SmokeParams {
   /** Puffs alive per source. */
@@ -36,6 +36,8 @@ interface SmokeParams {
   glow?: THREE.ColorRepresentation;
   /** Intermittent bursts (rad/s); 0 = steady stream. */
   pulse?: number;
+  /** Puffs closer to the camera than this fade out (0 = never). */
+  nearFade?: number;
 }
 
 const STYLES: Record<SmokeStyle, SmokeParams> = {
@@ -47,6 +49,9 @@ const STYLES: Record<SmokeStyle, SmokeParams> = {
     colorA: "#2e2a29", colorB: "#d8d3cf", opacity: 0.9, glow: "#ff5a14",
   },
   seaSteam: { puffs: 14, life: 6, rise: 8, spread: 2, size: [1.2, 6], wind: 6, turb: 0.8, colorA: "#f4f6f8", colorB: "#ffffff", opacity: 0.32, pulse: 0.35 },
+  // Low jungle mist: big faint banks that barely rise and creep along with the wind. They fade out within
+  // the follow camera's reach (≈ 15 units), so the mist hangs between the far trees and Tadeo's ground stays clear
+  mist: { puffs: 5, life: 18, rise: 0.4, spread: 5, size: [8, 16], wind: 5, turb: 1, colorA: "#eef6ef", colorB: "#ffffff", opacity: 0.08, nearFade: 34 },
 };
 
 const SMOKE_VERT = /* glsl */ `
@@ -58,6 +63,7 @@ uniform vec2 uSize;
 uniform vec3 uWind;
 uniform float uTurb;
 uniform float uPulse;
+uniform float uNearFade;
 attribute vec4 aSource;  // xyz origin, w seed
 attribute vec4 aParams;  // x phase, y size multiplier, z spin, w spread angle
 varying vec2 vUv;
@@ -89,6 +95,8 @@ void main() {
   vUv = rotateUv(uv, aParams.z + age * 0.5 * sign(aParams.z));
 
   vec4 mv = viewMatrix * vec4(p, 1.0);
+  // Reason: big puffs right in front of the camera read as flat grey discs, so close ones fade out
+  if (uNearFade > 0.0) vAlpha *= smoothstep(uNearFade * 0.35, uNearFade, -mv.z);
   mv.xy += position.xy * size;
   // Reason: nudge big puffs towards the camera so they don't slice into nearby terrain
   mv.z += size * 0.3;
@@ -211,6 +219,7 @@ export class SmokeSystem {
         uWind: { value: WIND.clone().multiplyScalar(s.wind) },
         uTurb: { value: s.turb },
         uPulse: { value: s.pulse ?? 0 },
+        uNearFade: { value: s.nearFade ?? 0 },
         uTex: { value: puffTexture() },
         uColorA: { value: new THREE.Color(s.colorA) },
         uColorB: { value: new THREE.Color(s.colorB) },

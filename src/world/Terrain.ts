@@ -24,6 +24,13 @@ export const TERRAIN_COLORS = {
   ash: new THREE.Color("#3d3438"),
   ashLight: new THREE.Color("#6a5a55"),
   lava: new THREE.Color("#ff5a1a"),
+  lagoonSand: new THREE.Color("#fff3d6"),
+  jungle: new THREE.Color("#1f7a3a"),
+  jungleLight: new THREE.Color("#49a83a"),
+  swamp: new THREE.Color("#5f9638"),
+  swampMud: new THREE.Color("#6e5a3a"),
+  hills: new THREE.Color("#8fcf4a"),
+  hillsLight: new THREE.Color("#c8e46a"),
 };
 
 /** Uniforms shared by every shader that reads the heightfield or animates with time. */
@@ -31,6 +38,8 @@ export interface WorldUniforms {
   uTime: { value: number };
   uHeightTex: { value: THREE.Texture };
   uMaskTex: { value: THREE.Texture };
+  /** Region weights (lagoon, jungle, swamp, flower hills), see world/regions.ts. */
+  uRegionTex: { value: THREE.Texture };
   uSunDir: { value: THREE.Vector3 };
 }
 
@@ -91,10 +100,17 @@ export function createTerrain(hf: Heightfield, world: WorldUniforms): THREE.Mesh
 
 /** Grass colour at a world position — shared by the terrain and the grass blades so they blend. */
 export const GRASS_COLOR_GLSL = /* glsl */ `
-vec3 grassColor(vec2 xz, float forest) {
+vec3 grassColor(vec2 xz, float forest, vec4 region) {
   float a = fbm3(xz * 0.12);
   vec3 g = mix(uC_grassDark, uC_grass, smoothstep(0.25, 0.7, a));
   g = mix(g, uC_grassLight, smoothstep(0.55, 0.85, fbm3(xz * 0.035 + 3.0)) * 0.55);
+  // Regions: deep lush jungle, olive swamp, bright flower hills
+  vec3 jungle = mix(uC_jungle, uC_jungleLight, smoothstep(0.3, 0.75, fbm3(xz * 0.09 + 5.0)));
+  g = mix(g, jungle, region.g);
+  vec3 swamp = mix(uC_swampMud, uC_swamp, smoothstep(0.2, 0.65, fbm3(xz * 0.1 - 2.0)));
+  g = mix(g, swamp, region.b);
+  vec3 hills = mix(uC_hills, uC_hillsLight, smoothstep(0.45, 0.8, fbm3(xz * 0.05 + 9.0)));
+  g = mix(g, hills, region.a);
   g *= 0.9 + 0.2 * vnoise(xz * 1.1);
   return mix(g, uC_forest * (0.85 + 0.3 * vnoise(xz * 0.7)), forest * 0.85);
 }
@@ -119,13 +135,17 @@ const TERRAIN_COLOR_GLSL = /* glsl */ `
   float n2 = vnoise(xz * 1.1);
   float n3 = vnoise(xz * 4.3);
 
-  vec3 grass = grassColor(xz, m.g);
+  vec4 region = hfRegion(xz);
+  vec3 grass = grassColor(xz, m.g, region);
 
-  // Beach sand: dry above, darker wet band right at the waterline
-  float sandLine = 1.05 + (n1 - 0.5) * 0.7;
-  float sandW = 1.0 - smoothstep(sandLine - 0.2, sandLine + 0.2, h);
+  // Beach sand: dry above, darker wet band right at the waterline. The lagoon
+  // has wider, whiter beaches; the swamp has mud instead of sand.
+  float sandLine = 1.05 + (n1 - 0.5) * 0.7 + region.r * 0.55;
+  float sandW = (1.0 - smoothstep(sandLine - 0.2, sandLine + 0.2, h)) * (1.0 - region.b);
   vec3 sand = mix(uC_sandWet, uC_sand, smoothstep(0.0, 0.45, h)) * (0.94 + 0.12 * n3);
+  sand = mix(sand, mix(uC_sandWet * 1.1, uC_lagoonSand, smoothstep(0.0, 0.3, h)) * (0.96 + 0.08 * n3), region.r);
   vec3 col = mix(grass, sand, sandW);
+  col = mix(col, uC_swampMud * (0.85 + 0.3 * n2), region.b * (1.0 - smoothstep(0.15, 0.6, h)));
 
   // Dirt paths with pebbly variation
   float pathW = smoothstep(0.47, 0.53, m.r + (vnoise(xz * 0.9) - 0.5) * 0.18 + (n3 - 0.5) * 0.06);

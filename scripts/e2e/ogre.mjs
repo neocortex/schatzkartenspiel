@@ -3,11 +3,14 @@
  *
  * Opens `?challenge=ogre`, advances dialogues with Space and fights the whole
  * battle with real key presses on the card menu (← → to pick, Space to go).
- * It reads the live state (`window.engine.scene.phase / rules / menu`) only
- * to decide what to pick: try the locked special once (gentle hint), block
- * when the ogre winds up, heal once after taking damage, use the special when
- * charged, otherwise attack. Passes when the game is back on the island with
- * no page errors.
+ * It reads the live state (`window.engine.scene.phase / rules / menu /
+ * blocker`) only to decide what to press: try the locked special once
+ * (gentle hint), heal once after taking damage, use the special when charged,
+ * otherwise attack. During the ogre's swings it presses Space when the shield
+ * ring turns green. On the first swing it presses too early once ("Zu früh!")
+ * and then lets the swing hit on purpose; every later swing is blocked,
+ * including the big slam (BOING). Passes when the game is back on the island
+ * with no page errors.
  *
  * Run:  node scripts/e2e/ogre.mjs [baseUrl]
  * Out:  scripts/e2e/out/ogre/*.png + summary.json
@@ -57,6 +60,8 @@ const state = () =>
       next: s.rules.nextOgreMove,
       choosing: s.menu.isChoosing,
       highlighted: s.menu.highlighted,
+      ring: !!document.querySelector(".og-block.show"),
+      blockNow: s.blocker.now,
       dialogue: !!document.querySelector(".dialogue.open"),
     };
   });
@@ -86,15 +91,15 @@ async function skipDialogues(shotName = null) {
   }
 }
 
-const ORDER = ["attack", "defend", "heal", "special"];
+const ORDER = ["attack", "heal", "special"];
 
 /** Walk the highlight to `action` with arrow keys and press Space. */
 async function pick(action) {
   for (let i = 0; i < 6; i++) {
     const s = await state();
     if (s.highlighted === action) break;
-    const d = (ORDER.indexOf(action) - ORDER.indexOf(s.highlighted) + 4) % 4;
-    await page.keyboard.press(d <= 2 ? "ArrowRight" : "ArrowLeft");
+    const d = (ORDER.indexOf(action) - ORDER.indexOf(s.highlighted) + ORDER.length) % ORDER.length;
+    await page.keyboard.press(d === 1 ? "ArrowRight" : "ArrowLeft");
     await sleep(160);
   }
   if ((await state()).highlighted !== action) throw new Error(`could not highlight ${action}`);
@@ -105,9 +110,49 @@ async function pick(action) {
 
 let passed = false;
 let fps = 0;
-const used = { attack: 0, defend: 0, heal: 0, special: 0 };
+const used = { attack: 0, heal: 0, special: 0 };
+const swings = { seen: 0, blocked: 0, missed: 0, boing: false, early: false };
 let turns = 0;
 let lockedHint = false;
+const taken = new Set();
+
+/** One ogre swing: the shield ring is up. Block it (or not), then wait until it's gone. */
+async function handleSwing() {
+  swings.seen++;
+  const n = swings.seen;
+  // Reason: read before the swing lands — the rules only move on to the next move at impact
+  const slam = await page.evaluate(() => window.engine.scene.rules.nextOgreMove === "slam");
+  log(`swing ${n} (${slam ? "slam" : "swipe"}): ring up`);
+  if (n === 1) {
+    await sleep(120);
+    await shot("07_shield_ring");
+    // Edge case: pressing before the ring turns green only shows "Zu früh!"
+    await page.keyboard.press("Space");
+    await waitFor(() => page.evaluate(() => document.body.innerText.includes("Zu früh")), "too-early hint", 3000);
+    swings.early = true;
+    log("too early → hint, try again");
+  }
+  if (n === 1) {
+    // Failure case: no proper press — Tadeo gets hit, nothing else happens
+    swings.missed++;
+    log("swing 1: no second press (takes the hit)");
+  } else {
+    await waitFor(async () => (await state())?.blockNow, "green window", 5000);
+    await sleep(80);
+    if (swings.blocked === 0) await shot("08_ring_green");
+    await page.keyboard.press("Space");
+    swings.blocked++;
+  }
+  await waitFor(async () => !(await state())?.ring, "ring gone", 6000);
+  if (slam) {
+    const boing = await page.evaluate(() => document.body.innerText.includes("BOING"));
+    if (boing && !swings.boing) {
+      swings.boing = true;
+      await sleep(80);
+      await shot("09_slam_boing");
+    }
+  }
+}
 try {
   await page.goto(`${BASE}/?challenge=ogre`);
   await waitFor(async () => (await state())?.phase === "intro", "ogre scene", 20000);
@@ -155,26 +200,28 @@ try {
       await skipDialogues();
       continue;
     }
+    if (s.ring) {
+      await handleSwing();
+      continue;
+    }
     if (!s.choosing) {
-      await sleep(120);
+      await sleep(60);
       continue;
     }
     let action = "attack";
-    if (s.next === "slam") action = "defend";
-    else if (used.heal === 0 && s.heroHp <= 25) action = "heal";
+    if (used.heal === 0 && s.heroHp <= 25) action = "heal";
     else if (s.specialReady) action = "special";
     turns++;
     used[action]++;
     log(`turn ${turns}: hero ${s.heroHp} ogre ${s.ogreHp} charge ${s.charge} next ${s.next} → ${action}`);
-    if (action === "defend" && used.defend === 1) await shot("07_windup_warning");
+    if (s.next === "slam" && !taken.has("06b")) {
+      taken.add("06b");
+      await shot("06b_windup_warning");
+    }
     await pick(action);
     if (action === "attack" && used.attack === 1) {
       await sleep(820);
-      await shot("08_sword_hit");
-    } else if (action === "defend" && used.defend === 1) {
-      await waitFor(() => page.evaluate(() => document.body.innerText.includes("BOING")), "slam bounce", 15000);
-      await sleep(120);
-      await shot("09_slam_boing");
+      await shot("08b_sword_hit");
     } else if (action === "special" && used.special === 1) {
       await sleep(1700);
       await shot("10_special_spin");
@@ -184,15 +231,15 @@ try {
     }
     await waitFor(async () => !(await state())?.choosing, "menu closed", 5000);
   }
-  log(`fight won in ${turns} turns: ${JSON.stringify(used)}`);
-  if (used.defend < 1 || used.special < 1 || used.heal < 1 || used.attack < 1) throw new Error("not every action was used");
+  log(`fight won in ${turns} turns: ${JSON.stringify(used)}, swings ${JSON.stringify(swings)}`);
+  if (used.special < 1 || used.heal < 1 || used.attack < 1) throw new Error("not every action was used");
+  if (!swings.early || swings.blocked < 1 || swings.missed < 1 || !swings.boing) throw new Error("shield timing not fully exercised");
 
   await waitFor(dialogueOpen, "ogre_defeat dialogue", 20000);
   await sleep(600);
   await shot("12_ogre_defeated");
   // Walk through the friendly ending, taking a few snapshots on the way
   const text = () => page.evaluate(() => document.body.innerText);
-  const taken = new Set();
   const once = async (name) => {
     if (taken.has(name)) return;
     taken.add(name);
@@ -237,6 +284,7 @@ const summary = {
   fps: Math.round(fps * 10) / 10,
   turns,
   used,
+  swings,
   lockedHint,
   errors,
   steps,

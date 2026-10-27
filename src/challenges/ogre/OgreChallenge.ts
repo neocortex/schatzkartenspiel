@@ -1,9 +1,10 @@
 /**
  * Quest 6 — the ogre on the river bridge. A turn-based boss fight in a sunny
- * gorge: Tadeo picks Angreifen / Verteidigen / Heilen / Spezial from big
- * cards, the ogre answers with club swipes and a telegraphed slam. Lots of
- * juice (hit-stop, slow motion, shake, sparks, numbers) and no game over:
- * the magic berries revive Tadeo. In the end the ogre sits down, gets a
+ * gorge: Tadeo picks Angreifen / Heilen / Spezial from big cards, the ogre
+ * answers with club swipes and a telegraphed slam. Each swing can be blocked
+ * with Space at the right moment (a ring closes over Tadeo and turns green).
+ * Lots of juice (hit-stop, slow motion, shake, sparks, numbers) and no game
+ * over: the magic berries revive Tadeo. In the end the ogre sits down, gets a
  * berry, becomes friendly and lets Tadeo cross.
  */
 
@@ -19,10 +20,11 @@ import { Gorge } from "./Gorge";
 import { createOgre, Ogre } from "./Ogre";
 import { Hero } from "./hero";
 import { FightUI } from "./FightUI";
+import { BlockPrompt } from "./blockPrompt";
 import { FightRules, HeroAction, HERO_MAX, OGRE_MAX } from "./fight";
 import { ogrePortrait } from "./portrait";
 import { deckAt } from "./gorgeShape";
-import { Stage, setX, shots, heroAttack, heroDefend, heroHeal, heroSpecial, heroRevive, ogreTurn, ogreDefeat } from "./moves";
+import { Stage, setX, shots, heroAttack, heroHeal, heroSpecial, heroRevive, raiseShield, ogreTurn, ogreDefeat } from "./moves";
 import { intro, outro } from "./story";
 
 export type OgrePhase = "intro" | "menu" | "act" | "outro" | "done";
@@ -47,6 +49,8 @@ export class OgreChallenge implements Challenge {
   phase: OgrePhase = "intro";
   readonly rules = new FightRules();
   readonly menu: FightUI;
+  /** The shield timing ring (its `now` is read by the E2E test). */
+  readonly blocker: BlockPrompt;
 
   private resolve!: () => void;
   private bin = new Bin();
@@ -76,6 +80,7 @@ export class OgreChallenge implements Challenge {
     // Reason: the shared dialogue box looks portraits up by key; register the ogre's at runtime
     ctx.ui.portraits.ogre = portrait;
     this.menu = new FightUI(ctx.ui, portrait);
+    this.blocker = new BlockPrompt(ctx.ui, this.camera);
 
     const bridge = this.gorge.bridge;
     bridge.add(this.hero.root, this.ogre.root);
@@ -107,6 +112,7 @@ export class OgreChallenge implements Challenge {
         this.slowLeft = s;
       },
       onHealth: () => this.showHealth(),
+      block: (lead, slow) => this.blocker.run(this.stage, lead, () => this.hero.root.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.95, 0)), slow, () => raiseShield(this.stage)),
     };
     shots.wide(this.stage);
     this.cam.cut(new THREE.Vector3(-9, 21, -10), new THREE.Vector3(-3, 8, -30));
@@ -119,6 +125,7 @@ export class OgreChallenge implements Challenge {
 
   exit(): void {
     this.menu.destroy();
+    this.blocker.destroy();
     this.popups.clear();
     this.ctx.ui.status(null);
     this.ctx.ui.dialogue.onLine = null;
@@ -136,6 +143,8 @@ export class OgreChallenge implements Challenge {
       sdt = dt * 0.03;
     }
     this.sceneTime += sdt;
+    // Reason: latch Space for the shield ring before the timeline runs this frame's steps
+    if (this.engine) this.blocker.update(this.engine.input);
     this.tl.update(sdt);
     this.gorge.update(sdt, this.sceneTime);
     this.ogre.update(sdt);
@@ -179,15 +188,17 @@ export class OgreChallenge implements Challenge {
       this.phase = "menu";
       this.hero.pose = "stance";
       const slamNext = r.nextOgreMove === "slam";
-      this.menu.warn(slamNext ? "Der Oger holt aus! Wähle: Verteidigen! 🛡️" : null);
-      const action = await this.menu.choose(slamNext ? "defend" : null);
+      this.menu.warn(slamNext ? "Gleich haut der Oger zu! Pass gut auf! 🛡️" : null);
+      const action = await this.menu.choose();
       this.menu.warn(null);
       this.phase = "act";
       await this.heroTurn(action);
       if (r.won) break;
-      const res = r.ogre();
-      this.holdHeroZero = res.revived;
-      await ogreTurn(s, res);
+      const res = await ogreTurn(s, r.nextOgreMove, (blocked) => {
+        const result = r.ogre(blocked);
+        this.holdHeroZero = result.revived;
+        return result;
+      });
       this.hero.setShield(false);
       this.menu.setCharge(r.charge);
       if (res.revived) {
@@ -203,8 +214,7 @@ export class OgreChallenge implements Challenge {
     const s = this.stage;
     if (action === "attack") await heroAttack(s, value);
     else if (action === "special") await heroSpecial(s, value);
-    else if (action === "heal") await heroHeal(s, value);
-    else await heroDefend(s);
+    else await heroHeal(s, value);
   }
 
   private showHealth(): void {

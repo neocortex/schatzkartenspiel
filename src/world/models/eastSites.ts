@@ -179,7 +179,14 @@ export function buildWaterfall(ctx: LandmarkContext): void {
 export function buildSignposts(ctx: LandmarkContext): void {
   const site = ctx.site("signposts");
   const posts: { at: P2; arrows: { label: string; to: P2 }[] }[] = [
-    { at: [57.2, 4.4], arrows: [{ label: "Dorf", to: [56, 14] }, { label: "Berg", to: [56, -10] }, { label: "See", to: [32, 1] }] },
+    {
+      at: [57.2, 4.4],
+      arrows: [{ label: "Dorf", to: [56, 14] }, { label: "Berg", to: [56, -10] }, { label: "See", to: [32, 1] }, { label: "Windmühle", to: [70, 7] }],
+    },
+    { at: [56.4, 50.4], arrows: [{ label: "Lagune", to: [59, 60] }, { label: "Trittsteine", to: [48, 48] }] },
+    { at: [27.6, 51.0], arrows: [{ label: "Dschungel", to: [24, 64] }, { label: "See", to: [22, 40] }, { label: "Dorf", to: [38, 50] }] },
+    { at: [-3.4, 98.6], arrows: [{ label: "Sumpf", to: [-20, 102] }, { label: "Trittsteine", to: [14, 90] }] },
+    { at: [-38.6, 93.0], arrows: [{ label: "Strand", to: [-50, 82] }, { label: "Dschungel", to: [-36, 98] }] },
     { at: [-21.2, 5.0], arrows: [{ label: "Vulkan", to: [-30, 4] }, { label: "Wald", to: LANDMARKS.forestGate }] },
     { at: [4.6, -19.4], arrows: [{ label: "Steg", to: [-6, -30] }, { label: "See", to: LANDMARKS.lake }] },
   ];

@@ -15,7 +15,7 @@ import { Colliders } from "../../world/Colliders";
 import { rnd, turnToward, yawTo } from "../../world/ambient/spawn";
 import { Coop } from "./coop";
 import { Disposable } from "./dispose";
-import { HenKind, HenLook, HenModel } from "./henModel";
+import { HenKind, HenLook, HenModel } from "../../characters/HenModel";
 import { CHICK_START, HAY, HEN_STARTS, P2, RAMP_FOOT, YARD } from "./layout";
 
 export type HenState = "hidden" | "idle" | "flee" | "tired" | "follow" | "hide" | "dash" | "flying" | "home";
@@ -48,7 +48,7 @@ export const HENS: HenSpec[] = [
   { name: "Berta", look: { kind: "hen", body: "#fbf8f1", wing: "#ece6da", tail: "#e3dccd" }, start: HEN_STARTS[0], scale: 1 },
   { name: "Frieda", look: { kind: "hen", body: "#b8642e", wing: "#93491f", tail: "#3d2a1f", chest: "#d48a4f" }, start: HEN_STARTS[1], scale: 1 },
   { name: "Lotte", look: { kind: "hen", body: "#3d3b48", wing: "#2c3d44", tail: "#1f3d3a", chest: "#4c4a58" }, start: HEN_STARTS[2], scale: 1 },
-  { name: "Henni", look: { kind: "hen", body: "#ece6d9", wing: "#bfb7a8", tail: "#54504c", speckle: "#4a423c" }, start: HEN_STARTS[3], scale: 0.95 },
+  { name: "Hilde", look: { kind: "hen", body: "#ece6d9", wing: "#bfb7a8", tail: "#54504c", speckle: "#4a423c" }, start: HEN_STARTS[3], scale: 0.95 },
   { name: "Rosi", look: { kind: "hen", body: "#e8a24a", wing: "#cf7f2c", tail: "#7a3f1c", chest: "#f2c27a" }, start: HEN_STARTS[4], scale: 1 },
   { name: "Piepsi", look: { kind: "chick", body: "#ffd84a", wing: "#ffc928", tail: "#ffc928" }, start: CHICK_START, scale: 0.62 },
   { name: "Goldi", look: { kind: "golden", body: "#ffc93c", wing: "#ffe08a", tail: "#ffb21a", chest: "#ffd766" }, start: HAY[0].at, scale: 1.1 },

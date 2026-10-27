@@ -15,7 +15,7 @@ export interface FloraModel {
   doubleSided?: boolean;
 }
 
-function canopy(
+export function canopy(
   rand: () => number,
   center: THREE.Vector3,
   blobs: number,
@@ -40,7 +40,7 @@ function canopy(
   return parts;
 }
 
-function trunk(height: number, r0: number, r1: number, color: THREE.ColorRepresentation, lean = 0): THREE.BufferGeometry {
+export function trunk(height: number, r0: number, r1: number, color: THREE.ColorRepresentation, lean = 0): THREE.BufferGeometry {
   const g = new THREE.CylinderGeometry(r1, r0, height, 7, 3);
   g.translate(0, height / 2, 0);
   const pos = g.attributes.position as THREE.BufferAttribute;

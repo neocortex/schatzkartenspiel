@@ -7,12 +7,18 @@
 import * as THREE from "three";
 import { Heightfield } from "./Heightfield";
 import { Colliders } from "./Colliders";
-import { LANDMARKS, P2, WORLD_HALF } from "./layout";
+import { LANDMARKS, SPOTS, P2, WORLD_HALF } from "./layout";
 import { Noise2D, mulberry32, smoothstep } from "../core/noise";
 import { UNFLIPPED_NORMAL_GLSL } from "../core/glsl";
 import { WorldUniforms } from "./Terrain";
 import { patchXray } from "./xray";
 import * as flora from "./models/flora";
+import * as regionFlora from "./models/regionFlora";
+import { REGION_INDEX } from "./regions";
+import { RegionName } from "./layout";
+
+type RegionKey = RegionName;
+const REGION_KEYS = Object.keys(REGION_INDEX) as RegionKey[];
 
 interface Species {
   models: flora.FloraModel[];
@@ -20,6 +26,8 @@ interface Species {
   collider: number;
   shadows: boolean;
   glow?: THREE.ColorRepresentation;
+  /** Floats on the water surface instead of standing on the ground. */
+  onWater?: boolean;
 }
 
 /** Places where nothing may grow (props and quest spots go there). */
@@ -39,6 +47,16 @@ const KEEP_OUT: { at: P2; r: number }[] = [
   // Where the north pier actually meets the shore
   { at: [-24, -50], r: 6 },
   { at: LANDMARKS.treasureIsland, r: 4 },
+  // Set pieces of the newer regions (world/models/regionSites.ts)
+  { at: SPOTS.lagoonBeach, r: 6 },
+  { at: SPOTS.lagoonJetty, r: 4 },
+  { at: SPOTS.ford, r: 7 },
+  { at: SPOTS.jungleRuin, r: 7 },
+  { at: SPOTS.junglePool, r: 9 },
+  { at: SPOTS.frogIslet, r: 3.5 },
+  { at: SPOTS.boardwalk, r: 6 },
+  { at: SPOTS.boardwalkEnd, r: 6 },
+  { at: SPOTS.windmill, r: 7 },
 ];
 
 export class Vegetation {
@@ -65,6 +83,17 @@ export class Vegetation {
       deadTree: { models: [0, 1].map((s) => flora.deadTree(s)), scale: [0.9, 1.3], collider: 0.3, shadows: true },
       mushroom: { models: [0, 1].map((s) => flora.mushroom(s, false)), scale: [0.8, 1.6], collider: 0, shadows: false },
       glowShroom: { models: [flora.mushroom(3, true)], scale: [0.9, 1.8], collider: 0, shadows: false, glow: "#3fd9ff" },
+      bamboo: { models: [0, 1, 2].map((s) => regionFlora.bamboo(s)), scale: [0.85, 1.25], collider: 0.5, shadows: true },
+      bigLeaf: { models: [0, 1, 2].map((s) => regionFlora.bigLeaf(s)), scale: [0.8, 1.4], collider: 0.3, shadows: true },
+      fern: { models: [0, 1].map((s) => regionFlora.fern(s)), scale: [0.8, 1.4], collider: 0, shadows: false },
+      giantFlower: { models: [0, 1, 2, 3, 4].map((s) => regionFlora.giantFlower(s)), scale: [0.9, 1.5], collider: 0, shadows: true },
+      hibiscus: { models: [0, 1, 2].map((s) => regionFlora.hibiscus(s)), scale: [0.8, 1.2], collider: 0.5, shadows: true },
+      mangrove: { models: [0, 1].map((s) => regionFlora.mangrove(s)), scale: [0.85, 1.25], collider: 0.6, shadows: true },
+      reeds: { models: [0, 1].map((s) => regionFlora.reeds(s)), scale: [0.8, 1.3], collider: 0, shadows: false },
+      beachGrass: { models: [0, 1].map((s) => regionFlora.reeds(s + 4, true)), scale: [0.8, 1.3], collider: 0, shadows: false },
+      lilyPad: { models: [0, 1, 2, 3].map((s) => regionFlora.lilyPad(s)), scale: [0.8, 1.3], collider: 0, shadows: false, onWater: true },
+      flowerPatch: { models: [0, 1, 2, 3, 4, 5].map((s) => regionFlora.flowerPatch(s)), scale: [1.4, 2.2], collider: 0, shadows: false },
+      lightTree: { models: [0, 1, 2].map((s) => regionFlora.lightTree(s)), scale: [0.85, 1.3], collider: 0.4, shadows: true },
     };
     this.scatter();
     this.build();
@@ -88,6 +117,11 @@ export class Vegetation {
     const hf = this.hf;
     if (KEEP_OUT.some((k) => Math.hypot(x - k.at[0], z - k.at[1]) < k.r)) return null;
     const h = hf.heightAt(x, z);
+    const region = this.region(x, z, rand);
+    if (region) {
+      const kind = this.pickRegional(region, x, z, h, rand);
+      if (kind !== undefined) return kind;
+    }
     if (h < 0.1) return null;
     const slope = hf.slopeAt(x, z);
     const path = hf.maskAt(x, z, 0);
@@ -133,12 +167,82 @@ export class Vegetation {
     return null;
   }
 
+  /**
+   * Which newer region (if any) decides what grows here. Borders between a region
+   * and the original island are dithered so the plant mix blends over a few metres.
+   */
+  private region(x: number, z: number, rand: () => number): RegionKey | null {
+    let best: RegionKey | null = null;
+    let weight = 0;
+    REGION_KEYS.forEach((key, i) => {
+      const w = this.hf.regionAt(x, z, i as 0 | 1 | 2 | 3);
+      if (w > weight) [best, weight] = [key, w];
+    });
+    if (weight <= 0) return null;
+    return rand() < smoothstep(0.25, 0.75, weight) ? best : null;
+  }
+
+  /** True when water deeper than −3 lies within 8 units: the open sea's surf, not a pond or puddle. */
+  private nearSea(x: number, z: number): boolean {
+    for (const r of [4, 8]) {
+      for (let k = 0; k < 8; k++) if (this.hf.heightAt(x + Math.cos(k * 0.785) * r, z + Math.sin(k * 0.785) * r) < -3) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Plants of a newer region. Returns undefined to fall back to the original
+   * island's rules (paths, cliffs, mountain slopes).
+   */
+  private pickRegional(region: RegionKey, x: number, z: number, h: number, rand: () => number): string | null | undefined {
+    const hf = this.hf;
+    const r = rand();
+    // Water plants first: lily pads on still water in the swamp and the jungle pool
+    if (h < 0.1) {
+      const pool = region === "jungle" && Math.hypot(x - SPOTS.junglePool[0], z - SPOTS.junglePool[1]) < 8;
+      const still = region === "swamp" || pool;
+      return still && h < -0.15 && h > -1.5 && r < (region === "swamp" ? 0.45 : 0.3) && !this.nearSea(x, z) ? "lilyPad" : null;
+    }
+    if (hf.maskAt(x, z, 0) > 0.3 || hf.slopeAt(x, z) > 0.75 || h > 9) return undefined;
+    const grove = this.noise.fbm(x * 0.03, z * 0.03, 3);
+    if (region === "lagoon") {
+      const beach = h < 1.6;
+      if (r < (beach ? 0.07 : 0.06)) return "palm";
+      if (r < (beach ? 0.09 : 0.11)) return "hibiscus";
+      if (r < (beach ? 0.14 : 0.16)) return "beachGrass";
+      if (!beach && r < 0.19) return "tree";
+      return null;
+    }
+    if (region === "jungle") {
+      if (grove > 0.15 && r < 0.14) return "bamboo";
+      if (r < 0.2) return "bigLeaf";
+      if (r < 0.31) return "fern";
+      if (r < 0.35) return "giantFlower";
+      if (r < 0.4) return grove < -0.1 ? "palm" : "tree";
+      return null;
+    }
+    if (region === "swamp") {
+      if (h < 0.95 && r < 0.09) return "mangrove";
+      if (r < (h < 0.6 ? 0.3 : 0.14)) return "reeds";
+      if (r < 0.17) return "bush";
+      if (r < 0.2) return "mushroom";
+      return null;
+    }
+    // Flower hills: pale trees in groves, flower clumps everywhere
+    const trees = smoothstep(0.1, 0.45, grove) * 0.25 + 0.01;
+    if (r < trees) return "lightTree";
+    if (r < trees + 0.13) return "flowerPatch";
+    if (r < trees + 0.15) return "bush";
+    if (r < trees + 0.16) return "rock";
+    return null;
+  }
+
   private place(kind: string, x: number, z: number, rand: () => number): void {
     const sp = this.species[kind];
     const model = sp.models[Math.floor(rand() * sp.models.length)];
     const s = sp.scale[0] + rand() * (sp.scale[1] - sp.scale[0]);
     if (sp.collider > 0 && this.colliders.hits(x, z, sp.collider * s)) return;
-    const y = this.hf.heightAt(x, z) - 0.08 * s;
+    const y = sp.onWater ? 0.02 : this.hf.heightAt(x, z) - 0.08 * s;
     const m = new THREE.Matrix4().compose(
       new THREE.Vector3(x, y, z),
       new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * Math.PI * 2),
@@ -153,11 +257,12 @@ export class Vegetation {
   private build(): void {
     const tint = new THREE.Color();
     const rand = mulberry32(77);
-    for (const sp of Object.values(this.species)) {
+    for (const [kind, sp] of Object.entries(this.species)) {
       for (const model of sp.models) {
         const list = this.placements.get(model);
         if (!list?.length) continue;
         const mesh = new THREE.InstancedMesh(model.geometry, this.material(model, sp.glow), list.length);
+        mesh.name = `flora:${kind}`;
         list.forEach((m, i) => {
           mesh.setMatrixAt(i, m);
           mesh.setColorAt(i, tint.setScalar(0.85 + rand() * 0.25));

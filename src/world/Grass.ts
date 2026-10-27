@@ -39,7 +39,8 @@ vec2 fieldXZ() {
 float fieldScale(vec2 xz) {
   float density = hfMask(xz).a;
 #ifdef PATCHY
-  density *= smoothstep(0.45, 0.72, fbm3(xz * 0.045 + 11.0));
+  // Flowers grow in patches, and in whole fields on the flower hills
+  density *= max(smoothstep(0.45, 0.72, fbm3(xz * 0.045 + 11.0)), hfRegion(xz).a * 0.85);
 #endif
   float edge = 1.0 - smoothstep(uWindow * 0.34, uWindow * 0.5, length(xz - uCenter));
   return aParams.x * step(aOffset.w, density) * edge * smoothstep(0.0, 0.85, density);
@@ -199,7 +200,7 @@ function flowerGeometry(): THREE.BufferGeometry {
 
 const GRASS_FRAG = /* glsl */ `
   vec4 gm = hfMask(vXZ);
-  vec3 base = grassColor(vXZ, gm.g);
+  vec3 base = grassColor(vXZ, gm.g, hfRegion(vXZ));
   vec3 tip = mix(base * 1.35 + vec3(0.04, 0.05, 0.0), uC_grassLight * 1.1, 0.35 + vTint * 0.3);
   // Occasional dry, golden blades
   tip = mix(tip, vec3(0.75, 0.62, 0.22), step(0.93, vTint) * 0.6);

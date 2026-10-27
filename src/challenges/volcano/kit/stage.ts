@@ -55,6 +55,8 @@ export class Stage {
       uTime: { value: 0 },
       uHeightTex: { value: this.heightTex },
       uMaskTex: { value: this.maskTex },
+      // Reason: the same neutral texel means "no island region" for the shared terrain shader
+      uRegionTex: { value: this.maskTex },
       uSunDir: { value: this.sunDir },
     };
 

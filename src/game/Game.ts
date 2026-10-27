@@ -13,8 +13,8 @@ import { Bubble } from "../ui/Hud";
 import { Beacon } from "./Beacon";
 import { Npcs, Npc } from "./Npcs";
 import { Title } from "./Title";
-import { Pico } from "../characters/Pico";
-import { PICO_INTRO, PICO_HINTS, PICO_CHEERS } from "./picoLines";
+import { Henni } from "../characters/Henni";
+import { HENNI_INTRO, HENNI_HINTS, HENNI_CHEERS } from "./henniLines";
 import { Coins, COIN_COUNT } from "./Coins";
 import { Wardrobe } from "./Wardrobe";
 import { SIDE_GAMES, SIDE_GAME_LINES, SideGame } from "./sideGames";
@@ -69,7 +69,7 @@ const SIGN_TEXT: DialogueScript = [
 
 const TABLET_DIALOGUES = ["lake_tablet1", "lake_tablet2", "lake_tablet3"];
 const TALK_RANGE = 2.8;
-/** Seconds without progress before Pico offers a hint. */
+/** Seconds without progress before Henni offers a hint. */
 const HINT_AFTER = 45;
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -81,8 +81,8 @@ export class Game {
   private beacon = new Beacon();
   private npcs: Npcs;
   private bubble: Bubble;
-  private pico: Pico;
-  private picoBubble: Bubble;
+  private henni: Henni;
+  private henniBubble: Bubble;
   private hintTimer = 0;
   private coins: Coins;
   private wardrobe: Wardrobe;
@@ -99,14 +99,15 @@ export class Game {
 
   constructor(private engine: Engine) {
     this.npcs = new Npcs(this.island.island.hf, this.island.island.colliders);
-    this.pico = new Pico(this.island.player.avatar);
-    this.island.scene.add(this.npcs.group, this.beacon.group, this.pico.root);
+    this.henni = new Henni(this.island.player);
+    this.henni.snap();
+    this.island.scene.add(this.npcs.group, this.beacon.group, this.henni.root);
     this.bubble = new Bubble(this.ui.layer);
-    this.picoBubble = new Bubble(this.ui.layer);
+    this.henniBubble = new Bubble(this.ui.layer);
     // Reason: coins come after the NPCs so none lands inside a villager
     this.coins = new Coins(this.island.island.hf, this.island.island.colliders);
     this.island.scene.add(this.coins.group);
-    this.wardrobe = new Wardrobe(this.island.player.avatar, this.pico, this.ui, (t) => this.picoSay(t));
+    this.wardrobe = new Wardrobe(this.island.player.avatar, this.henni, this.ui, (t) => this.henniSay(t));
     this.wardrobe.dress(this.coins.collected);
     const { landmarks, hf, colliders } = this.island.island;
     this.sightings = new Sightings((x, z) => landmarks.surfaceHeight(x, z) ?? hf.heightAt(x, z), colliders, this.ui.layer);
@@ -118,13 +119,13 @@ export class Game {
     const narration = NarrationManager.getInstance();
     narration.init();
     // Reason: render every known line on the voice server in the background so speech starts instantly
-    const picoLines = [...Object.values(PICO_HINTS), ...Object.values(PICO_CHEERS)].map((text) => ({ text, speaker: "Pico" }));
+    const henniLines = [...Object.values(HENNI_HINTS), ...Object.values(HENNI_CHEERS)].map((text) => ({ text, speaker: "Henni" }));
     void narration.prefetch([
       ...DIALOGUES.intro,
-      ...PICO_INTRO,
+      ...HENNI_INTRO,
       ...SIGN_TEXT,
       ...Object.values(DIALOGUES).flat(),
-      ...picoLines,
+      ...henniLines,
       ...this.npcs.list.flatMap((n) => n.chatter),
       ...SIDE_GAME_LINES,
     ]);
@@ -216,15 +217,15 @@ export class Game {
 
     if (this.coins.update(dt, time, player.position)) this.wardrobe.onCoins(this.coins.collected);
 
-    // Pico flies along; he offers a hint when nothing has happened for a while
-    this.pico.update(dt, Math.hypot(player.velocity.x, player.velocity.z), player.facing);
-    this.pico.talking = this.picoBubble.speaking;
-    const pp = this.pico.position;
-    const beak = this.project(pp.x, pp.y + 0.75, pp.z);
-    this.picoBubble.place(beak.behind ? null : this.pixels(beak));
+    // Henni comes along; she offers a hint when nothing has happened for a while
+    this.henni.update(dt);
+    this.henni.talking = this.henniBubble.speaking;
+    const hp = this.henni.position;
+    const beak = this.project(hp.x, hp.y + 0.75, hp.z);
+    this.henniBubble.place(beak.behind ? null : this.pixels(beak));
     this.hintTimer = free ? this.hintTimer + dt : 0;
-    if (this.hintTimer > HINT_AFTER && PICO_HINTS[this.quest.currentMilestone]) {
-      this.picoSay(PICO_HINTS[this.quest.currentMilestone]);
+    if (this.hintTimer > HINT_AFTER && HENNI_HINTS[this.quest.currentMilestone]) {
+      this.henniSay(HENNI_HINTS[this.quest.currentMilestone]);
       this.hintTimer = -HINT_AFTER;
     }
 
@@ -308,8 +309,8 @@ export class Game {
     this.startCinematic((t) => {
       const a = 0.9 + t * 0.045;
       return {
-        pos: new THREE.Vector3(Math.cos(a) * 165, 72 + Math.sin(t * 0.2) * 6, 6 + Math.sin(a) * 125),
-        look: new THREE.Vector3(0, 4, 6),
+        pos: new THREE.Vector3(18 + Math.cos(a) * 205, 88 + Math.sin(t * 0.2) * 6, 28 + Math.sin(a) * 165),
+        look: new THREE.Vector3(18, 4, 28),
       };
     });
     await this.engine.setScene(this.island, 1400);
@@ -362,7 +363,7 @@ export class Game {
     await wait(2400);
     this.endCinematic(1.8);
     await this.talk("intro");
-    await this.talk(PICO_INTRO);
+    await this.talk(HENNI_INTRO);
     this.ui.hud.setVisible(true);
     this.busy = false;
   }
@@ -430,12 +431,12 @@ export class Game {
     this.hintTimer = 0;
     audio.playSfx("sfx_victory_fanfare", 0.6);
     await this.ui.hud.showBanner(`Neue Aufgabe · ${this.quest.currentMilestone} von ${QUESTS.length}`, this.quest.currentQuest.name);
-    if (PICO_CHEERS[finished]) this.picoSay(PICO_CHEERS[finished]);
+    if (HENNI_CHEERS[finished]) this.henniSay(HENNI_CHEERS[finished]);
   }
 
-  private picoSay(text: string): void {
-    this.picoBubble.say(text, 4800);
-    NarrationManager.getInstance().speakLine(text, "Pico");
+  private henniSay(text: string): void {
+    this.henniBubble.say(text, 4800);
+    NarrationManager.getInstance().speakLine(text, "Henni");
   }
 
   private async ending(): Promise<void> {
@@ -488,14 +489,14 @@ export class Game {
     this.placePlayer(x, z);
   }
 
-  /** Teleport Tadeo and bring the camera and Pico along. */
+  /** Teleport Tadeo and bring the camera and Henni along. */
   private placePlayer(x: number, z: number, facing?: number): void {
     const p = this.island.player;
     p.teleport(x, z, facing);
     p.avatar.root.updateMatrixWorld(true);
     this.island.rig.follow(p.position, p.velocity);
     this.island.rig.snap();
-    this.pico.snap();
+    this.henni.snap();
   }
 
   private islandAudio(): void {

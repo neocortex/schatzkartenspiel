@@ -38,9 +38,9 @@ export function pier(spec: PierSpec): Model {
   // Stringers and posts down to the seabed
   for (const side of [-1, 1]) {
     m.solid.push(box(L - HL, 0.24, 0.2, PAL.woodDark, { pos: [(L - HL) / 2, -0.24, side * (W / 2 - 0.12)] }));
-    m.solid.push(box(HL, 0.24, 0.2, PAL.woodDark, { pos: [L - HL / 2, -0.24, side * (HW / 2 - 0.12)] }));
+    if (HL > 0) m.solid.push(box(HL, 0.24, 0.2, PAL.woodDark, { pos: [L - HL / 2, -0.24, side * (HW / 2 - 0.12)] }));
   }
-  m.solid.push(box(0.2, 0.24, HW, PAL.woodDark, { pos: [L - HL, -0.24, 0] }));
+  if (HL > 0) m.solid.push(box(0.2, 0.24, HW, PAL.woodDark, { pos: [L - HL, -0.24, 0] }));
   m.solid.push(box(0.2, 0.24, HW, PAL.woodDark, { pos: [L - 0.1, -0.24, 0] }));
   const postStep = 2.4;
   const railPosts: [number, number, number][] = [];
@@ -67,7 +67,7 @@ export function pier(spec: PierSpec): Model {
     if (Math.sign(a[2]) === Math.sign(b[2])) m.solid.push(rope(a, b, 0.2, 0.04));
   }
   // Mooring head: bollards and corner posts
-  for (const side of [-1, 1]) {
+  for (const side of HL > 0 ? [-1, 1] : []) {
     for (const s of [L - HL + 0.6, L - 0.6]) {
       m.solid.push(cyl(0.2, 0.24, 0.55, PAL.woodDark, { pos: [s, 0.27, side * (HW / 2 - 0.35)] }, 9));
       m.solid.push(cyl(0.26, 0.26, 0.08, PAL.iron, { pos: [s, 0.52, side * (HW / 2 - 0.35)] }, 9));

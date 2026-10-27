@@ -57,7 +57,7 @@ VOICES: dict[str, Voice] = {
     # Reason: no German child voice exists; a female voice pitched up ~3 semitones reads as a young boy
     "tadeo": Voice("de_DE-kerstin-low", length=1.18, rate=1.18),
     "child": Voice("de_DE-kerstin-low", length=1.3, rate=1.3),
-    "parrot": Voice("de_DE-thorsten_emotional-medium", speaker="amused", length=1.4, rate=1.45),
+    "hen": Voice("de_DE-ramona-low", length=1.12, rate=1.22),
     "elder": Voice("de_DE-karlsson-low", length=1.05, rate=0.95),
     "wiseman": Voice("de_DE-karlsson-low", length=1.1, rate=1.02),
     "wisewoman": Voice("de_DE-ramona-low", length=1.08),

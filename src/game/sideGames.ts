@@ -23,7 +23,7 @@ export interface SideGame {
   again: DialogueScript;
   prize: OutfitId;
   prizeName: string;
-  /** What Pico says about the prize. */
+  /** What Henni says about the prize. */
   cheer: string;
 }
 
@@ -45,7 +45,7 @@ export const SIDE_GAMES: SideGame[] = [
     again: [jonas("Na, Meisterangler? Noch eine Runde auf dem Steg?"), tadeo("Klar!")],
     prize: "fishingHat",
     prizeName: "Anglerhut",
-    cheer: "Krah! Mit dem Anglerhut fängst du jeden Fisch, Tadeo!",
+    cheer: "Gack! Mit dem Anglerhut fängst du jeden Fisch, Tadeo!",
   },
   {
     challenge: "hens",

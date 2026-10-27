@@ -11,13 +11,16 @@ Graphics quality ("wow") and joy matter more than anything else; it is played lo
 
 - `npm run dev` — dev server on :3000, also starts the voice server (`uv run scripts/voice/tts_server.py`)
 - `npx tsc --noEmit -p .` — type-check (must be clean)
-- E2E: start `npx vite --port 5199`, then `node scripts/e2e/<name>.mjs` (island, volcano, cave, forest,
+- E2E: start `npx vite --port 5199`, then `node scripts/e2e/<name>.mjs` (world, island, volcano, cave, forest,
   ogre, village, mountain, sea, treasure, fishing, hens). Proof goes to `scripts/e2e/out/<name>/`.
 
 ## Architecture
 
 - `core/Engine.ts` runs one `GameScene` at a time (scene, camera, optional `post` settings) with
   fades between them. `Engine.onFrame` runs before the scene update; `Game` uses it for the UI and flow.
+- The island is the old ellipse plus four region lobes (lagoon, jungle, swamp, hills); `world/regions.ts`
+  owns the lobes and their terrain, and `hf.regionAt(x, z, REGION_INDEX.<name>)` says where a region is.
+  Landmarks sit at their `SPOTS` entry in `world/layout.ts`, which also feeds the vegetation keep-outs.
 - `game/Game.ts` is the adventure flow on the island (title, intro, objectives, NPC talks, coins,
   launching challenges, rewards, saving). Keep it under ~550 lines: put new features in their own
   module in `game/` (see `Sightings.ts`, `sideGames.ts`, `Wardrobe.ts`).

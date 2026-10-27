@@ -14,7 +14,7 @@ import { Popups } from "./popups";
 import { Hero } from "./hero";
 import { Ogre, OgrePose, OgreMood } from "./Ogre";
 import { deckAt } from "./gorgeShape";
-import { OgreResult } from "./fight";
+import { OgreMove, OgreResult } from "./fight";
 
 export interface Stage {
   tl: Timeline;
@@ -33,7 +33,15 @@ export interface Stage {
   hitStop(seconds: number): void;
   slowmo(scale: number, seconds: number): void;
   onHealth(): void;
+  /**
+   * Show the shield timing ring until the ogre's swing lands in `lead` seconds
+   * (slow motion `slow` in the green window); resolves with whether Tadeo blocked.
+   */
+  block(lead: number, slow: number): Promise<boolean>;
 }
+
+/** Works out the ogre's swing once it lands: damage, block, bounce. */
+export type Strike = (blocked: boolean) => OgreResult;
 
 const GRUMBLES = ["Grrr! Meine Brücke!", "Hmpf!", "Na warte!", "Ich hab Hunger!", "Grummel…"];
 const OUCHES = ["Aua!", "Uff!", "Das kitzelt!", "Autsch!", "Oho!"];
@@ -212,17 +220,6 @@ export async function heroSpecial(s: Stage, damage: number): Promise<void> {
   ogre.mood = s.ogreRest.mood;
 }
 
-export async function heroDefend(s: Stage): Promise<void> {
-  const { hero, fx } = s;
-  hero.pose = "block";
-  hero.setShield(true);
-  audio.playSfx("sfx_defend");
-  fx.ring(hero.root.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.06, 0)), 2.6, "#7fdcff", 0.7, true);
-  fx.glow.emit({ at: chest(hero.root), count: 16, speed: [1, 2.5], spread: 2, drag: 2, life: [0.4, 0.8], size: [0.25, 0.05], color: ["#7fdcff", "#ffffff"], intensity: 2.5, shape: 1 });
-  s.pop.show("Schild!", chest(hero.root, 2.0), { color: "#7fdcff", size: 44 });
-  await s.tl.wait(0.6);
-}
-
 export async function heroHeal(s: Stage, amount: number): Promise<void> {
   const { hero, fx, tl } = s;
   shots.hero(s);
@@ -282,6 +279,15 @@ async function ogreWalk(s: Stage, to: number, dur: number): Promise<void> {
   o.walk = 0;
 }
 
+/** Tadeo snaps his magic shield up (Space in the green window). */
+export function raiseShield(s: Stage): void {
+  const { hero, fx } = s;
+  hero.pose = "block";
+  hero.setShield(true);
+  audio.playSfx("sfx_defend");
+  fx.glow.emit({ at: chest(hero.root), count: 14, speed: [1, 2.5], spread: 2, drag: 2, life: [0.3, 0.6], size: [0.25, 0.05], color: ["#7fdcff", "#ffffff"], intensity: 2.5, shape: 1 });
+}
+
 async function hitHero(s: Stage, res: OgreResult, at: THREE.Vector3, big: boolean): Promise<void> {
   const { hero, fx } = s;
   if (res.blocked) {
@@ -304,23 +310,28 @@ async function hitHero(s: Stage, res: OgreResult, at: THREE.Vector3, big: boolea
   await heroHop(s, s.heroHome - (big ? 1.1 : 0.6), 0.35, 0.5);
 }
 
-export async function ogreTurn(s: Stage, res: OgreResult): Promise<void> {
-  if (res.move === "windup") return ogreWindup(s);
-  if (res.move === "swipe") return ogreSwipe(s, res);
-  return ogreSlam(s, res);
+/** The ogre's move; `strike` turns the swing into a result once it lands (after the timing ring). */
+export async function ogreTurn(s: Stage, move: OgreMove, strike: Strike): Promise<OgreResult> {
+  if (move === "windup") {
+    await ogreWindup(s);
+    return strike(false);
+  }
+  return move === "swipe" ? ogreSwipe(s, strike) : ogreSlam(s, strike);
 }
 
-async function ogreSwipe(s: Stage, res: OgreResult): Promise<void> {
+async function ogreSwipe(s: Stage, strike: Strike): Promise<OgreResult> {
   const { ogre, hero, tl } = s;
   shots.action(s, hero.root.position.x + 1.6);
   ogre.mood = "angry";
   if (Math.random() < 0.7) say(s, pick(GRUMBLES));
   await ogreWalk(s, hero.root.position.x + 3.1, 1.0);
-  ogre.setPose("swipeWind", 5);
-  await tl.wait(0.55);
+  ogre.setPose("swipeWind", 4);
+  // Reason: a slower wind-up than before gives Tadeo time to react to the ring
+  const landed = s.block(0.95, 0.5);
+  await tl.wait(0.82);
   audio.playSfx("sfx_enemy_attack");
   ogre.setPose("swipe", 20);
-  await tl.wait(0.13);
+  const res = strike(await landed);
   await hitHero(s, res, chest(hero.root, 0.9).add(new THREE.Vector3(0.4, 0, 0)), false);
   ogre.bounce(0.3);
   await tl.wait(0.45);
@@ -330,6 +341,7 @@ async function ogreSwipe(s: Stage, res: OgreResult): Promise<void> {
   void heroRecover(s);
   await ogreWalk(s, s.ogreHome, 1.1);
   shots.wide(s);
+  return res;
 }
 
 async function ogreWindup(s: Stage): Promise<void> {
@@ -356,18 +368,19 @@ async function ogreWindup(s: Stage): Promise<void> {
   await tl.wait(0.4);
 }
 
-async function ogreSlam(s: Stage, res: OgreResult): Promise<void> {
+async function ogreSlam(s: Stage, strike: Strike): Promise<OgreResult> {
   const { ogre, hero, fx, tl } = s;
   shots.action(s, hero.root.position.x + 1.4);
   // Big hop towards Tadeo with the club held high
   const from = ogre.root.position.x;
   const to = hero.root.position.x + 2.6;
   audio.playSfx("sfx_enemy_attack", 1, 0.8);
-  await tl.tween(0.55, (k) => setX(ogre.root, lerp(from, to, ease.inOut(k)), hump(k) * 1.1));
+  const landed = s.block(0.95, 0.4);
+  await tl.tween(0.8, (k) => setX(ogre.root, lerp(from, to, ease.inOut(k)), hump(k) * 1.3));
   fx.dust(ogre.root.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.1, 0)), 0.8, 8);
   ogre.bounce(0.4);
   ogre.setPose("slam", 22);
-  await tl.wait(0.14);
+  const res = strike(await landed);
   const tip = ogre.clubTip();
   if (res.blocked) {
     await hitHero(s, res, tip, true);
@@ -399,6 +412,7 @@ async function ogreSlam(s: Stage, res: OgreResult): Promise<void> {
   await ogreWalk(s, s.ogreHome, 1.1);
   ogre.mood = "grumpy";
   shots.wide(s);
+  return res;
 }
 
 async function heroRecover(s: Stage): Promise<void> {

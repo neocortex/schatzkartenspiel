@@ -7,10 +7,11 @@
 
 import * as THREE from "three";
 import { Noise2D, smoothstep, lerp, clamp } from "../core/noise";
-import { ISLAND, LANDMARKS, PATHS, RIVER, VILLAGE, WORLD_HALF, WORLD_SIZE, P2 } from "./layout";
+import { LANDMARKS, PATHS, RIVER, SPOTS, VILLAGE, WORLD_HALF, WORLD_SIZE, P2 } from "./layout";
+import { coastDistance, regionWeights, regionInland, regionWater } from "./regions";
 
 /** Samples per side. Grid spacing = WORLD_SIZE / (N - 1). */
-export const HF_N = 513;
+export const HF_N = 641;
 const CELL = WORLD_SIZE / (HF_N - 1);
 
 /** Deepest water the player can wade through. */
@@ -23,14 +24,19 @@ export class Heightfield {
   readonly heights = new Float32Array(HF_N * HF_N);
   /** RGBA: path, forest, ash, grass density (0-255). */
   readonly masks = new Uint8Array(HF_N * HF_N * 4);
+  /** RGBA: lagoon, jungle, swamp, flower hills (0-255), see world/regions.ts. */
+  readonly regions = new Uint8Array(HF_N * HF_N * 4);
   readonly slopes = new Float32Array(HF_N * HF_N);
   private walkable = new Uint8Array(HF_N * HF_N);
   private noise = new Noise2D(1337);
   private pathDist = new Float32Array(HF_N * HF_N).fill(99);
   private riverDist = new Float32Array(HF_N * HF_N).fill(99);
 
+  private weights: [number, number, number, number] = [0, 0, 0, 0];
+
   heightTexture!: THREE.DataTexture;
   maskTexture!: THREE.DataTexture;
+  regionTexture!: THREE.DataTexture;
 
   constructor() {
     this.stampDistances(PATHS, this.pathDist, 6);
@@ -72,6 +78,13 @@ export class Heightfield {
     const ix = clamp(Math.round((x + WORLD_HALF) / CELL), 0, HF_N - 1);
     const iz = clamp(Math.round((z + WORLD_HALF) / CELL), 0, HF_N - 1);
     return this.masks[(iz * HF_N + ix) * 4 + channel] / 255;
+  }
+
+  /** How much (x, z) belongs to a region (0 lagoon, 1 jungle, 2 swamp, 3 flower hills), in [0, 1]. */
+  regionAt(x: number, z: number, region: 0 | 1 | 2 | 3): number {
+    const ix = clamp(Math.round((x + WORLD_HALF) / CELL), 0, HF_N - 1);
+    const iz = clamp(Math.round((z + WORLD_HALF) / CELL), 0, HF_N - 1);
+    return this.regions[(iz * HF_N + ix) * 4 + region] / 255;
   }
 
   slopeAt(x: number, z: number): number {
@@ -133,26 +146,28 @@ export class Heightfield {
         const x = ix * CELL - WORLD_HALF;
         const z = iz * CELL - WORLD_HALF;
         const i = iz * HF_N + ix;
-        this.heights[i] = this.heightFn(x, z, this.pathDist[i], this.riverDist[i]);
+        const w = this.weights;
+        regionWeights(x, z, this.noise, w);
+        for (let k = 0; k < 4; k++) this.regions[i * 4 + k] = Math.round(w[k] * 255);
+        this.heights[i] = this.heightFn(x, z, this.pathDist[i], this.riverDist[i], w);
       }
     }
   }
 
   /** The island's shape: coast + hills + landmarks carved/raised on top. */
-  private heightFn(x: number, z: number, pathD: number, riverD: number): number {
+  private heightFn(x: number, z: number, pathD: number, riverD: number, regions: readonly number[]): number {
     const n = this.noise;
 
-    // Coastline: noisy ellipse
-    const dx = (x - ISLAND.cx) / ISLAND.rx;
-    const dz = (z - ISLAND.cz) / ISLAND.rz;
-    let d = Math.sqrt(dx * dx + dz * dz);
+    // Coastline: the original ellipse plus the region lobes, with noise
+    let d = coastDistance(x, z, n);
     d += n.fbm(x * 0.017, z * 0.017, 4) * 0.12 + n.fbm(x * 0.07, z * 0.07, 2) * 0.025;
 
     const land = smoothstep(1.0, 0.84, d);
     const hills = n.fbm(x * 0.028 + 7, z * 0.028 - 3, 3) * 1.8 + n.fbm(x * 0.09, z * 0.09, 2) * 0.35;
-    const inland = 1.5 + smoothstep(0.85, 0.45, d) * 1.6 + hills * smoothstep(0.9, 0.6, d);
+    const inland = regionInland(x, z, n, regions, 1.5 + smoothstep(0.85, 0.45, d) * 1.6 + hills * smoothstep(0.9, 0.6, d), d);
     const seaFloor = -1.4 - smoothstep(0.9, 1.12, d) * 14;
     let h = lerp(seaFloor, Math.max(inland, 0.5), land);
+    h = regionWater(h, x, z, n, regions, pathD);
 
     // Volcano rising out of the western sea
     const rv = dist2(x, z, LANDMARKS.volcano);
@@ -185,10 +200,15 @@ export class Heightfield {
       h = lerp(h, -2.6, smoothstep(shore + 4, shore - 4, rl));
     }
 
-    // River channel
+    // Gentle banks around the ford: the ground rises at most 0.3 per unit away from it
+    const fordD = dist2(x, z, SPOTS.ford);
+    if (fordD < 30) h = lerp(h, Math.min(h, 1.1 + Math.max(0, fordD - 5) * 0.3), smoothstep(30, 24, fordD));
+
+    // River channel, shallow enough to wade through at the ford
     if (riverD < 10) {
       const w = 3.0 + n.noise(x * 0.05, z * 0.05) * 0.8;
-      h = lerp(h, -1.5, smoothstep(w + 3.5, w - 1, riverD));
+      const bed = lerp(-1.5, -0.3, smoothstep(6, 3.5, fordD));
+      h = lerp(h, bed, smoothstep(w + 3.5, w - 1, riverD));
     }
 
     // Flatten the village plateau
@@ -248,8 +268,13 @@ export class Heightfield {
         const ash = smoothstep(30, 22, ashD);
 
         const height = h[i];
+        // Reason: the lagoon's white beaches reach higher than other beaches (see the terrain sand line)
+        const lagoonSand = (this.regions[i * 4] / 255) * (1 - smoothstep(1.45, 1.95, height));
+        // The swamp has no beaches, so grass grows right down to the water
+        const grassLine = lerp(0.9, 0.3, this.regions[i * 4 + 2] / 255);
         const grass =
-          smoothstep(0.9, 1.5, height) *
+          (1 - lagoonSand) *
+          smoothstep(grassLine, grassLine + 0.6, height) *
           smoothstep(0.75, 0.45, slope) *
           smoothstep(24, 18, height) *
           smoothstep(0.62, 0.4, path) *
@@ -276,6 +301,11 @@ export class Heightfield {
     this.maskTexture.magFilter = THREE.LinearFilter;
     this.maskTexture.minFilter = THREE.LinearFilter;
     this.maskTexture.needsUpdate = true;
+
+    this.regionTexture = new THREE.DataTexture(this.regions, HF_N, HF_N, THREE.RGBAFormat, THREE.UnsignedByteType);
+    this.regionTexture.magFilter = THREE.LinearFilter;
+    this.regionTexture.minFilter = THREE.LinearFilter;
+    this.regionTexture.needsUpdate = true;
   }
 }
 
@@ -283,9 +313,12 @@ export class Heightfield {
 export const HF_GLSL = /* glsl */ `
 uniform sampler2D uHeightTex;
 uniform sampler2D uMaskTex;
+uniform sampler2D uRegionTex;
 vec2 hfUv(vec2 xz) {
   return (xz + ${WORLD_HALF.toFixed(1)}) / ${WORLD_SIZE.toFixed(1)} * ${((HF_N - 1) / HF_N).toFixed(6)} + ${(0.5 / HF_N).toFixed(6)};
 }
 float hfHeight(vec2 xz) { return texture(uHeightTex, hfUv(xz)).r; }
 vec4 hfMask(vec2 xz) { return texture(uMaskTex, hfUv(xz)); }
+/** Region weights: lagoon, jungle, swamp, flower hills. */
+vec4 hfRegion(vec2 xz) { return texture(uRegionTex, hfUv(xz)); }
 `;

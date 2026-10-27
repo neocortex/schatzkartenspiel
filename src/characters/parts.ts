@@ -4,6 +4,7 @@
  */
 
 import * as THREE from "three";
+import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 const materialCache = new Map<string, THREE.MeshStandardMaterial>();
 
@@ -99,11 +100,72 @@ export function buildFace(r: number, opts: { brow: THREE.ColorRepresentation; sk
   return { group, eyes, mouth };
 }
 
+export type HairStyle = "spiky" | "fringe" | "bun" | "short" | "bald" | "long";
+
+/**
+ * A smooth helmet of hair with a fringe: it hangs over the forehead in rounded
+ * locks down to the brows, covers the sides above the ears and the back down
+ * to the nape. The lower edge curls inwards under the shell so the hair reads
+ * as thick from every angle.
+ */
+function fringeGeometry(r: number): THREE.BufferGeometry {
+  const AROUND = 96;
+  const DOWN = 18;
+  const LOCKS = 5;
+  const SPREAD = 1.45; // radians of azimuth covered by the fringe locks, centred on the face
+  const pos: number[] = [];
+  for (let j = 0; j <= DOWN + 1; j++) {
+    for (let i = 0; i <= AROUND; i++) {
+      const az = (i / AROUND) * Math.PI * 2; // 0 = front (+z)
+      const front = Math.cos(az);
+      // How far down the hair reaches (polar angle from the crown): brows at the front, above the ears, nape at the back
+      let edge = front >= 0 ? THREE.MathUtils.lerp(1.42, 1.1, front ** 0.8) : THREE.MathUtils.lerp(1.42, 2.05, (-front) ** 1.2);
+      const a = Math.atan2(Math.sin(az), Math.cos(az));
+      let lockBulge = 0;
+      if (Math.abs(a) < SPREAD / 2) {
+        // Reason: |cos|^0.6 gives rounded lock tips with sharp notches between them
+        const lock = Math.abs(Math.cos(((a / SPREAD) * LOCKS + 0.5) * Math.PI)) ** 0.6;
+        const fade = 1 - (Math.abs(a) / (SPREAD / 2)) ** 3;
+        edge += 0.2 * lock * fade;
+        lockBulge = lock * fade;
+      }
+      const tuck = j > DOWN;
+      const t = tuck ? 1 : j / DOWN;
+      const polar = t * edge;
+      // Fuller on top, puffed out over the forehead with every lock rounding outwards; the tucked row slips under
+      const puff = 1.07 + 0.08 * Math.sin(t * Math.PI) + 0.03 * Math.max(front, 0) * t + 0.04 * lockBulge * t ** 3;
+      const rad = r * (tuck ? 0.95 : puff);
+      pos.push(rad * Math.sin(polar) * Math.sin(az), rad * Math.cos(polar), rad * Math.sin(polar) * Math.cos(az));
+    }
+  }
+  const index: number[] = [];
+  for (let j = 0; j <= DOWN; j++) {
+    for (let i = 0; i < AROUND; i++) {
+      const a = j * (AROUND + 1) + i;
+      const b = a + AROUND + 1;
+      index.push(a, b, a + 1, a + 1, b, b + 1);
+    }
+  }
+  let geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setIndex(index);
+  // Reason: weld the seam and the crown pole so normals (and the outline pushed along them) stay continuous
+  geo = mergeVertices(geo, 1e-5);
+  geo.computeVertexNormals();
+  return geo;
+}
+
 /** Hair styles built from spikes, buns and caps around a head of radius r. */
-export function buildHair(style: "spiky" | "bun" | "short" | "bald" | "long", r: number, color: THREE.ColorRepresentation): THREE.Group {
+export function buildHair(style: HairStyle, r: number, color: THREE.ColorRepresentation): THREE.Group {
   const g = new THREE.Group();
   if (style === "bald") return g;
   const hairMat = mat(color, 0.55);
+  if (style === "fringe") {
+    const hair = toonMesh(fringeGeometry(r), hairMat);
+    hair.rotation.x = 0.06;
+    g.add(hair);
+    return g;
+  }
   const cap = toonMesh(new THREE.SphereGeometry(r * 1.06, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.52), hairMat);
   cap.rotation.x = -0.32;
   cap.position.y = r * 0.04;

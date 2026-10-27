@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Classic 2D game keeps its own save, mute and narrator settings, so a 3D save on the same localhost
+  port no longer drops Tadeo into the sea at the start
+
 ## 2.0.0
 
 The game is rebuilt in 3D with Three.js (the Phaser 2D version is kept in `classic-2d/`).

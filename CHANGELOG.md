@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Tadeo wears his hair with a soft fringe instead of spikes
+- His companion is now Henni, a brown speckled hen with a red neckerchief (replaces Pico the parrot):
+  she runs after Tadeo, pecks about, flutters onto his head when he rests or wades, and helps in the
+  side games
+- Ogre fight: the "Verteidigen" card is gone; each swing of the ogre is blocked by pressing Space when
+  the shield ring turns green (too early shows "Zu früh!"), and blocks charge the special
+- Mia's speckled hen is called Hilde now (Henni is Tadeo's hen)
+
 ## 2.0.0
 
 The game is rebuilt in 3D with Three.js (the Phaser 2D version is kept in `classic-2d/`).

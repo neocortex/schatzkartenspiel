@@ -1,8 +1,8 @@
 /**
  * The people on the jetty: Tadeo sitting at the edge with his rod (casting,
  * pulling, showing off a catch, cheering), Fischer Jonas beside him in his
- * old fishing hat with his own lazily bobbing float, and Pico perched on the
- * mooring post, tilting his head, chattering and flapping when it's exciting.
+ * old fishing hat with his own lazily bobbing float, and Henni sitting on the
+ * mooring post, turning her head, clucking and flapping when it's exciting.
  * Poses are layered on top of the Humanoid's own idle animation each frame.
  */
 
@@ -10,9 +10,9 @@ import * as THREE from "three";
 import { Humanoid } from "../../characters/Humanoid";
 import { createTadeo, createVillager } from "../../characters/cast";
 import { createOutfit } from "../../characters/hats";
-import { PicoModel } from "../../characters/Pico";
+import { createHenniModel } from "../../characters/Henni";
 import { mat, toonMesh } from "../../characters/parts";
-import { DECK, DECK_END, PICO_POST } from "./dock";
+import { DECK, DECK_END, HENNI_POST } from "./dock";
 import { Tackle } from "./tackle";
 import { swell } from "./water";
 
@@ -34,7 +34,7 @@ const POSES: Record<Action, { r: number; l: number; lz: number; lean: number }> 
 
 /** Where Tadeo sits (feet over the water, facing the sea). */
 export const TADEO_AT = new THREE.Vector3(0.32, DECK - 0.02, DECK_END + 0.3);
-/** Where a fresh catch is held up for everyone to see: at head height, between Tadeo and Pico. */
+/** Where a fresh catch is held up for everyone to see: at head height, between Tadeo and Henni. */
 export const HOLD_AT = TADEO_AT.clone().add(new THREE.Vector3(0.6, 1.2, -0.5));
 const JONAS_AT = new THREE.Vector3(-0.85, DECK - 0.02, DECK_END + 0.3);
 /** Where Jonas's own float bobs. */
@@ -46,19 +46,19 @@ export class Crew {
   readonly group = new THREE.Group();
   readonly tadeo = createTadeo();
   readonly jonas = createVillager(0);
-  readonly pico = new PicoModel();
+  readonly henni = createHenniModel();
   /** Who is talking right now (dialogue or bubble): their mouth/beak moves. */
   speaker: string | null = null;
-  /** Where Tadeo (and Pico) look: usually the bobber. */
+  /** Where Tadeo (and Henni) look: usually the bobber. */
   readonly lookAt = new THREE.Vector3(0, 0, -6);
   private action: Action = "hold";
   private actionTime = 0;
   private cur = { ...POSES.hold };
-  private picoFlap = 0;
-  private picoTilt = 0;
-  private picoTiltTarget = 0;
-  private picoTiltTimer = 1;
-  private picoBlink = 2;
+  private henniFlap = 0;
+  private henniLook = 0;
+  private henniLookTarget = 0;
+  private henniLookTimer = 1;
+  private henniChatter = 0;
   private jonasCheer = 0;
   private jonasRodTip = new THREE.Object3D();
   private jonasFloat: THREE.Group;
@@ -98,11 +98,11 @@ export class Crew {
     );
     this.jonasLine.frustumCulled = false;
 
-    this.pico.root.scale.setScalar(1.4);
-    this.pico.root.position.copy(PICO_POST);
-    this.pico.root.rotation.y = Math.PI - 0.5;
+    this.henni.root.scale.setScalar(0.7);
+    this.henni.root.position.copy(HENNI_POST);
+    this.henni.root.rotation.y = Math.PI - 0.5;
 
-    this.group.add(t.root, j.root, this.pico.root, this.jonasFloat, this.jonasLine);
+    this.group.add(t.root, j.root, this.henni.root, this.jonasFloat, this.jonasLine);
   }
 
   /** Start a rod action (casting, pulling, showing a fish, cheering). */
@@ -111,9 +111,10 @@ export class Crew {
     this.actionTime = 0;
   }
 
-  /** Pico flaps and hops for a moment. */
-  excitePico(seconds = 1.6): void {
-    this.picoFlap = seconds;
+  /** Henni flaps and hops for a moment. */
+  exciteHenni(seconds = 1.6): void {
+    if (this.henniFlap <= 0) this.henni.kick(0.6);
+    this.henniFlap = seconds;
   }
 
   /** Jonas throws his arms up for a moment. */
@@ -159,7 +160,7 @@ export class Crew {
     this.lookTowards(j, watch, this.speaker === "Fischer Jonas" ? Math.sin(time * 9) * 0.06 : 0);
 
     this.updateJonasFloat(time);
-    this.updatePico(dt, time);
+    this.updateHenni(dt, time);
   }
 
   /** Sit on the deck edge: legs forward over the water, a little lower in the hips. */
@@ -192,30 +193,30 @@ export class Crew {
     pos.needsUpdate = true;
   }
 
-  private updatePico(dt: number, time: number): void {
-    const m = this.pico;
-    this.picoFlap = Math.max(0, this.picoFlap - dt);
-    const flapping = this.picoFlap > 0;
-    const flap = flapping ? Math.sin(time * 26) * 0.9 : 0;
-    m.wingL.rotation.z = (flapping ? 0.5 : 1.0) + flap;
-    m.wingR.rotation.z = -(flapping ? 0.5 : 1.0) - flap;
-    m.body.position.y = flapping ? Math.abs(Math.sin(time * 9)) * 0.12 : Math.abs(Math.sin(time * 2.4)) * 0.01;
-    // Face the action (the bobber) with the occasional curious head tilt
-    const want = Math.atan2(this.lookAt.x - PICO_POST.x, this.lookAt.z - PICO_POST.z);
+  private updateHenni(dt: number, time: number): void {
+    const m = this.henni;
+    this.henniFlap = Math.max(0, this.henniFlap - dt);
+    const flapping = this.henniFlap > 0;
+    // Hops up and down on the post with her wings going when it's exciting
+    m.root.position.y = HENNI_POST.y + (flapping ? Math.abs(Math.sin(time * 9)) * 0.12 : 0);
+    // Face the action (the bobber) with the occasional curious head turn
+    const want = Math.atan2(this.lookAt.x - HENNI_POST.x, this.lookAt.z - HENNI_POST.z);
     let d = want - m.root.rotation.y;
     d = Math.atan2(Math.sin(d), Math.cos(d));
     m.root.rotation.y += d * Math.min(dt * 3, 1);
-    this.picoTiltTimer -= dt;
-    if (this.picoTiltTimer < 0) {
-      this.picoTiltTarget = (Math.random() - 0.5) * 0.9;
-      this.picoTiltTimer = rnd(0.8, 2.6);
+    this.henniLookTimer -= dt;
+    if (this.henniLookTimer < 0) {
+      this.henniLookTarget = (Math.random() - 0.5) * 1.2;
+      this.henniLookTimer = rnd(0.8, 2.6);
     }
-    this.picoTilt += (this.picoTiltTarget - this.picoTilt) * Math.min(dt * 10, 1);
-    m.head.rotation.z = this.picoTilt;
-    this.picoBlink -= dt;
-    m.setEyesOpen(this.picoBlink < 0.1 ? 0.1 : 1);
-    if (this.picoBlink < 0) this.picoBlink = rnd(1.5, 4.5);
-    const talking = this.speaker === "Pico";
-    m.beakLower.rotation.x = Math.PI / 2 + 0.2 + (talking ? Math.abs(Math.sin(time * 16)) * 0.5 : 0);
+    this.henniLook += (this.henniLookTarget - this.henniLook) * Math.min(dt * 10, 1);
+    if (this.speaker === "Henni") {
+      this.henniChatter -= dt;
+      if (this.henniChatter < 0) {
+        m.cluck(0.09);
+        this.henniChatter = 0.18;
+      }
+    }
+    m.update(dt, { speed: 0, flap: flapping ? 1 : 0, peck: 0, sit: flapping ? 0 : 1, pant: false, look: this.henniLook, air: flapping });
   }
 }

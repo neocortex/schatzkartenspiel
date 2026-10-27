@@ -2,12 +2,17 @@
  * HenModel — a chubby toon hen (or a fluffy chick, or the golden hen) built
  * from outlined primitives with separate parts for procedural animation:
  * strutting legs, head bob and pecks, flapping wings, sitting, panting and a
- * springy squash-and-stretch. The flock brain feeds it a `HenPose` each frame.
+ * springy squash-and-stretch. Mia's flock brain and Henni, Tadeo's companion,
+ * feed it a `HenPose` each frame.
  */
 
 import * as THREE from "three";
-import { mat, toonMesh } from "../../characters/parts";
-import { Disposable } from "./dispose";
+import { mat, toonMesh } from "./parts";
+
+/** Anything holding GPU resources (the golden hen's own materials). */
+interface Disposable {
+  dispose(): void;
+}
 
 export type HenKind = "hen" | "chick" | "golden";
 
@@ -65,7 +70,7 @@ export class HenModel {
    * @param look Colours and kind.
    * @param owned Materials created here are pushed so the scene can dispose them.
    */
-  constructor(look: HenLook, owned: Disposable[]) {
+  constructor(look: HenLook, owned: Disposable[] = []) {
     this.look = look;
     this.root.add(this.body);
     const m = this.materials(owned);

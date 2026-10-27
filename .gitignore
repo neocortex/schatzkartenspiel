@@ -41,3 +41,6 @@ __pycache__/
 .mypy_cache/
 .coverage
 htmlcov/
+
+# Agent worktrees
+.claude/worktrees/

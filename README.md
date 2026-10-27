@@ -1,7 +1,7 @@
 # Schatzkartenspiel
 
 A 3D treasure-hunt adventure built with **Three.js**, **TypeScript** and **Vite**, made for Tadeo
-(7 years old). You play as **Tadeo** with his parrot **Pico**: explore a lush toon-style island,
+(7 years old). You play as **Tadeo** with his hen **Henni**: explore a lush toon-style island,
 solve ten quests in their own mini-game worlds, help the villagers and find the king's treasure.
 All text and narration are in German.
 
@@ -12,7 +12,7 @@ All text and narration are in German.
 - Hand-built 3D island: shader water with shore foam, wind-blown grass, instanced vegetation,
   volcano smoke, chimney smoke, birds, butterflies, crabs, fireflies, waterfall and river
 - Post-processing: bloom, tilt-shift, ACES tone mapping, vignette
-- Chibi toon characters with outlines; Pico flies along, perches on Tadeo's head and gives hints
+- Chibi toon characters with outlines; Henni the hen runs along, rides on Tadeo's head and gives hints
 - Ten quests, each a separate 3D challenge scene (loaded on demand)
 - Side games in the village, gold coins all over the island, and outfits to unlock
 - Natural-sounding German voices for every line (local neural TTS), with browser speech as fallback
@@ -27,7 +27,7 @@ All text and narration are in German.
 | 3 | Der See | Read the three rune tablets around the lake |
 | 4 | Die Höhle des Schwerts | Torch-lit cave: pull levers (in the right order) to reach the magic sword |
 | 5 | Der Zauberwald | Twilight forest: Flocke the fox leads you to five glowing berry sprigs |
-| 6 | Der Oger an der Brücke | Card battle on the bridge (attack, defend, heal, special); the ogre becomes a friend |
+| 6 | Der Oger an der Brücke | Card battle on the bridge (attack, heal, special); block his swings with Space at the right moment; the ogre becomes a friend |
 | 7 | Das Eingeborenendorf | Campfire drum trials and a maths question; reward: the golden key |
 | 8 | Der Berggipfel | Side-view climb with rolling rocks, snowballs and a rope bridge; reward: the golden hammer |
 | 9 | Die Haiattacke | Sail along a trail of stars, then bonk the giant shark with the hammer |
@@ -121,7 +121,7 @@ src/
   main.ts          # boots the Engine and the Game
   core/            # Engine (renderer, post-processing, scene switching), Input, CameraRig, GLSL helpers
   world/           # the island: heightfield, terrain, water, sky, grass, vegetation, landmarks, ambient life
-  characters/      # Humanoid toon characters, Tadeo's Player controller, Pico, hats
+  characters/      # Humanoid toon characters, Tadeo's Player controller, Henni (and the hen model), hats
   scenes/          # IslandScene (the overworld)
   game/            # adventure flow: quests, NPCs, coins, outfits, side games, beacon, title
   challenges/      # one folder per challenge (index.ts exports a factory), plus shared helpers

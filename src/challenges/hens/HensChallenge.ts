@@ -16,20 +16,21 @@ import { GameUI } from "../../ui/GameUI";
 import { NarrationManager } from "../../systems/NarrationManager";
 import { Challenge, ChallengeContext } from "../types";
 import { toNdc, toScreen } from "../shared/speech";
-import { henVoice } from "./cluck";
+import { henVoice } from "../../audio/henVoice";
 import { Flock, FlockEvents, Hen } from "./flock";
-import { Mia, PicoFlyer } from "./friends";
+import { Mia } from "./friends";
+import { Henni } from "../../characters/Henni";
 import { Footsteps, Fx } from "./fx";
 import { Bubble, HensHud, PopKind, loadBest, saveBest } from "./hud";
 import { MIA_SPOT, RAMP_FOOT, START, YARD } from "./layout";
-import { ALL_LINES, GOLDEN, INTRO, PICO, ending, homeLine } from "./script";
+import { ALL_LINES, GOLDEN, INTRO, HENNI, ending, homeLine } from "./script";
 import { Yard } from "./yard";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const CATCH_R = 1.0;
 const DIVE_CATCH_R = 1.45;
 const DIVE_BOOST = 4.2;
-/** Seconds without progress before Pico flies over to show the way. */
+/** Seconds without progress before Henni runs over to show the way. */
 const HINT_AFTER = 14;
 
 type Phase = "intro" | "play" | "golden" | "finale" | "done";
@@ -59,9 +60,9 @@ export class HensChallenge implements Challenge {
   private steps: Footsteps;
   private hud: HensHud;
   private mia: Mia;
-  private pico: PicoFlyer;
+  private henni: Henni;
   private miaBubble: Bubble;
-  private picoBubble: Bubble;
+  private henniBubble: Bubble;
   private phase: Phase = "intro";
   private busy = true;
   private seconds = 0;
@@ -71,7 +72,7 @@ export class HensChallenge implements Challenge {
   private dive = 0;
   private idle = 0;
   private squawkCool = 4;
-  private picoQueue: string[] = [];
+  private henniQueue: string[] = [];
   private said = new Set<string>();
   private speaking: string | null = null;
   private sparkleT = 0;
@@ -97,12 +98,13 @@ export class HensChallenge implements Challenge {
     this.flock = new Flock(this.yard.colliders, this.yard.coop, this.events(), this.yard.owned);
     this.scene.add(this.flock.group);
     this.mia = new Mia(this.scene);
-    this.pico = new PicoFlyer(this.scene);
-    this.pico.snap(this.player.position);
+    this.henni = new Henni(this.player);
+    this.scene.add(this.henni.root);
+    this.henni.snap();
 
     this.hud = new HensHud(this.ui);
     this.miaBubble = new Bubble(this.ui.layer, "Kleine Mia");
-    this.picoBubble = new Bubble(this.ui.layer, "Pico");
+    this.henniBubble = new Bubble(this.ui.layer, "Henni");
     void NarrationManager.getInstance().prefetch(ALL_LINES);
   }
 
@@ -130,7 +132,7 @@ export class HensChallenge implements Challenge {
 
   private async talk(script: DialogueScript): Promise<void> {
     this.miaBubble.hide();
-    this.picoBubble.hide();
+    this.henniBubble.hide();
     this.ui.dialogue.onLine = (speaker) => (this.speaking = speaker);
     await this.ui.say(script);
     this.ui.dialogue.onLine = null;
@@ -141,7 +143,7 @@ export class HensChallenge implements Challenge {
   private async goldenReveal(): Promise<void> {
     this.busy = true;
     this.phase = "golden";
-    this.picoQueue.length = 0;
+    this.henniQueue.length = 0;
     await wait(1200);
     const g = this.flock.revealGolden(this.player.position);
     const p = this.player.position;
@@ -171,7 +173,7 @@ export class HensChallenge implements Challenge {
   private async finale(): Promise<void> {
     this.busy = true;
     this.phase = "finale";
-    this.picoQueue.length = 0;
+    this.henniQueue.length = 0;
     this.ui.hud.updateCompass(null);
     const time = this.seconds;
     const previous = this.best;
@@ -185,11 +187,11 @@ export class HensChallenge implements Challenge {
     const [mx, mz] = MIA_SPOT;
     this.player.teleport(mx - 1.4, mz + 0.9, 0.15);
     this.mia.faceTowards(mx + 1, mz + 8);
-    this.pico.guide = new THREE.Vector3(mx - 0.7, 0, mz + 1.8);
-    this.pico.snap(this.pico.guide);
+    this.henni.guide = new THREE.Vector3(mx - 0.7, 0, mz + 1.8);
+    this.henni.snap(this.henni.guide);
     this.rig.jumpToShot({ pos: new THREE.Vector3(mx - 1.2, 3.0, mz + 8.6), look: new THREE.Vector3(mx - 2.6, 1.4, mz - 1.6) });
     this.miaBubble.hide();
-    this.picoBubble.hide();
+    this.henniBubble.hide();
     await this.engine.fade(0, 450);
 
     audio.playSfx("sfx_victory_fanfare", 0.8);
@@ -232,10 +234,10 @@ export class HensChallenge implements Challenge {
       },
       tired: (h) => {
         this.popAt(h, "Puh!", "puff");
-        if (h.kind === "golden") this.picoSays(PICO.goldTired, true);
+        if (h.kind === "golden") this.henniSays(HENNI.goldTired, true);
         else if (!this.said.has("tired")) {
           this.said.add("tired");
-          this.picoSays(PICO.tired, true);
+          this.henniSays(HENNI.tired, true);
         }
       },
       peep: (h) => {
@@ -248,7 +250,7 @@ export class HensChallenge implements Challenge {
         henVoice.peep();
         if (!this.said.has("chick")) {
           this.said.add("chick");
-          this.picoSays(PICO.chick, true);
+          this.henniSays(HENNI.chick, true);
         }
       },
       dash: (h) => {
@@ -256,7 +258,7 @@ export class HensChallenge implements Challenge {
         henVoice.bagawk(1.3);
         if (!this.said.has("dash")) {
           this.said.add("dash");
-          this.picoSays(PICO.goldDash, true);
+          this.henniSays(HENNI.goldDash, true);
         }
       },
       caught: (h) => this.onCaught(h),
@@ -266,7 +268,7 @@ export class HensChallenge implements Challenge {
 
   private onCaught(h: Hen): void {
     this.idle = 0;
-    this.pico.guide = null;
+    this.henni.guide = null;
     const at = this.henAt(h, 0.45);
     this.fx.feathers.emit(at, this.colors(h), h.kind === "chick" ? 6 : 16, 3, 2.4);
     this.fx.puff(at, 1.8);
@@ -294,7 +296,7 @@ export class HensChallenge implements Challenge {
       void this.finale();
       return;
     }
-    this.picoBubble.hide();
+    this.henniBubble.hide();
     this.miaBubble.say(homeLine(h.name, h.kind === "chick"), 2600);
     if (home === 6 && this.flock.golden.state === "hidden") void this.goldenReveal();
   }
@@ -316,8 +318,8 @@ export class HensChallenge implements Challenge {
     this.flock.update(dt, time, free, { pos: p, facing: this.player.facing, catchR: this.dive > 0 ? DIVE_CATCH_R : CATCH_R });
     this.mia.talking = this.speaking === "Kleine Mia" || this.miaBubble.showing;
     this.mia.update(dt, p, this.phase !== "finale" && this.phase !== "done");
-    this.pico.talking = this.speaking === "Pico" || this.picoBubble.showing;
-    this.pico.update(dt, p);
+    this.henni.talking = this.speaking === "Henni" || this.henniBubble.showing;
+    this.henni.update(dt);
     if (this.speaking === "Tadeo") this.player.avatar.pose = "talk";
     else if (this.player.avatar.pose === "talk") this.player.avatar.pose = "normal";
 
@@ -415,38 +417,38 @@ export class HensChallenge implements Challenge {
     const target = this.nextTarget();
     this.ui.hud.updateCompass(target ? toNdc(this.camera, target) : null);
     if (this.idle > HINT_AFTER && target) {
-      this.pico.guide = target;
+      this.henni.guide = target;
       if (this.idle > HINT_AFTER + 0.5 && !this.said.has(`hint${Math.floor(this.idle / 20)}`)) {
         this.said.add(`hint${Math.floor(this.idle / 20)}`);
-        this.picoSays(this.flock.chick.state === "follow" ? PICO.chickHint : PICO.hint);
+        this.henniSays(this.flock.chick.state === "follow" ? HENNI.chickHint : HENNI.hint);
       }
-    } else this.pico.guide = null;
+    } else this.henni.guide = null;
   }
 
-  /** Pico squawks when a hen is within reach; queued lines wait for Mia to finish. */
+  /** Henni clucks when a hen is within reach; queued lines wait for Mia to finish. */
   private chatter(dt: number, free: boolean): void {
     this.squawkCool -= dt;
-    const busyTalking = this.miaBubble.showing || this.picoBubble.showing || this.ui.dialogue.isOpen;
-    if (this.picoQueue.length && !busyTalking) this.picoBubble.say(this.picoQueue.shift()!, 3000);
+    const busyTalking = this.miaBubble.showing || this.henniBubble.showing || this.ui.dialogue.isOpen;
+    if (this.henniQueue.length && !busyTalking) this.henniBubble.say(this.henniQueue.shift()!, 3000);
     if (!free || this.squawkCool > 0 || busyTalking) return;
     const p = this.player.position;
     const close = this.flock.hens.some((h) => h.loose && h.kind !== "chick" && h.state !== "tired" && Math.hypot(h.x - p.x, h.z - p.z) < 2.4);
     if (close) {
-      this.picoBubble.say(PICO.close[Math.floor(Math.random() * PICO.close.length)], 2000);
+      this.henniBubble.say(HENNI.close[Math.floor(Math.random() * HENNI.close.length)], 2000);
       this.squawkCool = 10;
     }
   }
 
-  private picoSays(text: string, important = false): void {
-    if (important) this.picoQueue.push(text);
-    else if (!this.miaBubble.showing && !this.picoBubble.showing) this.picoBubble.say(text, 2800);
+  private henniSays(text: string, important = false): void {
+    if (important) this.henniQueue.push(text);
+    else if (!this.miaBubble.showing && !this.henniBubble.showing) this.henniBubble.say(text, 2800);
   }
 
   private placeBubbles(): void {
     const m = this.mia.position;
     this.miaBubble.place(toScreen(this.camera, this.tmp.set(m.x, this.mia.avatar.height + 0.55, m.z)));
-    const q = this.pico.position;
-    this.picoBubble.place(toScreen(this.camera, this.tmp.set(q.x, q.y + 0.75, q.z)));
+    const q = this.henni.position;
+    this.henniBubble.place(toScreen(this.camera, this.tmp.set(q.x, q.y + 0.75, q.z)));
   }
 
   // ── Helpers ──────────────────────────────────────────────────
@@ -497,7 +499,7 @@ export class HensChallenge implements Challenge {
     this.ui.hud.updateCompass(null);
     this.ui.dialogue.onLine = null;
     this.miaBubble.dispose();
-    this.picoBubble.dispose();
+    this.henniBubble.dispose();
     this.hud.dispose();
     this.fx.dispose();
     this.yard.dispose();

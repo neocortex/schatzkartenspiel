@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { Humanoid } from "../characters/Humanoid";
 import { createTadeo, createElder, createWiseWoman, createWiseMan, createVillager } from "../characters/cast";
 import { createItem, ItemKey } from "../world/models/items";
-import { PicoModel } from "../characters/Pico";
+import { createHenniModel } from "../characters/Henni";
 
 const SIZE = 192;
 
@@ -53,7 +53,7 @@ export function renderSnapshots(): SnapshotSet {
     wiseMan: portrait(createWiseMan()),
   };
   for (let i = 0; i < 4; i++) portraits[`villager${i}`] = portrait(createVillager(i));
-  portraits.pico = snapshot(new PicoModel().root, new THREE.Vector3(0.22, 0.44, 0.95), new THREE.Vector3(0, 0.34, 0), renderer);
+  portraits.henni = snapshot(createHenniModel().root, new THREE.Vector3(0.32, 0.88, 1.3), new THREE.Vector3(0, 0.7, 0.08), renderer);
 
   const items = {} as Record<ItemKey, string>;
   for (const key of ["sword", "berry", "key", "hammer"] as ItemKey[]) {

@@ -7,14 +7,14 @@
 
 import * as THREE from "three";
 import { Humanoid } from "../characters/Humanoid";
-import { Pico } from "../characters/Pico";
+import { Henni } from "../characters/Henni";
 import { createOutfit, HAT_TOP, OutfitId } from "../characters/hats";
 import { GameUI } from "../ui/GameUI";
 import { COIN_COUNT } from "./Coins";
 import { audio } from "../audio/Audio";
 
 const UNLOCKS: { coins: number; id: OutfitId; name: string; cheer: string }[] = [
-  { coins: 10, id: "strawHat", name: "Strohhut", cheer: "Krah! Der Strohhut steht dir super, Tadeo!" },
+  { coins: 10, id: "strawHat", name: "Strohhut", cheer: "Gack! Der Strohhut steht dir super, Tadeo!" },
   { coins: 20, id: "pirateHat", name: "Piratenhut", cheer: "Ein echter Piratenhut! Jetzt bist du Kapitän Tadeo!" },
   { coins: 30, id: "sunglasses", name: "Coole Sonnenbrille", cheer: "Alle Münzen gefunden! Du bist der coolste Pirat der Welt!" },
 ];
@@ -24,8 +24,8 @@ const HATS: OutfitId[] = ["strawHat", "pirateHat", "fishingHat", "crown"];
 const PRIZES_KEY = "schatzkarten_prizes";
 const HAT_KEY = "schatzkarten_hat";
 
-/** Default perch height on top of Tadeo's spiky hair. */
-const HAIR_TOP = 0.42;
+/** Default perch height on top of Tadeo's hair. */
+const HAIR_TOP = 0.37;
 
 export class Wardrobe {
   private worn = new Map<OutfitId, THREE.Group>();
@@ -34,9 +34,9 @@ export class Wardrobe {
 
   constructor(
     private avatar: Humanoid,
-    private pico: Pico,
+    private henni: Henni,
     private ui: GameUI,
-    private picoSay: (text: string) => void,
+    private henniSay: (text: string) => void,
   ) {}
 
   /** Dress Tadeo for a coin count without any fanfare (loading a game). */
@@ -46,7 +46,7 @@ export class Wardrobe {
     const hat = this.hat && owned.includes(this.hat) ? this.hat : (owned.filter((id) => !this.prizes.has(id)).pop() ?? owned[0] ?? null);
     for (const id of HATS) this.wear(id, id === hat);
     this.wear("sunglasses", coins >= 30);
-    this.pico.setPerchHeight(hat ? HAT_TOP[hat]! : HAIR_TOP);
+    this.henni.setPerchHeight(hat ? HAT_TOP[hat]! : HAIR_TOP);
     this.ui.hud.setCoins(coins, COIN_COUNT, false);
   }
 
@@ -89,7 +89,7 @@ export class Wardrobe {
   private async celebrate(name: string, cheer: string): Promise<void> {
     audio.playSfx("sfx_item_get", 0.8);
     await this.ui.hud.showBanner("Neues Outfit!", name, 2400);
-    this.picoSay(cheer);
+    this.henniSay(cheer);
   }
 
   private wear(id: OutfitId, on: boolean): void {

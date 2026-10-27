@@ -6,12 +6,12 @@
 
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
-import { buildFace, buildHair, mat, toonMesh, Face } from "./parts";
+import { buildFace, buildHair, mat, toonMesh, Face, HairStyle } from "./parts";
 
 export interface HumanoidLook {
   skin: THREE.ColorRepresentation;
   hair: THREE.ColorRepresentation;
-  hairStyle: "spiky" | "bun" | "short" | "bald" | "long";
+  hairStyle: HairStyle;
   shirt: THREE.ColorRepresentation;
   pants: THREE.ColorRepresentation;
   shoes: THREE.ColorRepresentation;

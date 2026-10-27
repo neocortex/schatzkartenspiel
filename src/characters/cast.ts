@@ -8,12 +8,12 @@ import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeom
 import { Humanoid } from "./Humanoid";
 import { mat, toonMesh } from "./parts";
 
-/** Tadeo: blond spiky hair, orange shirt, blue trousers, explorer backpack with a treasure map. */
+/** Tadeo: blond hair with a fringe, orange shirt, blue trousers, explorer backpack with a treasure map. */
 export function createTadeo(): Humanoid {
   const h = new Humanoid({
     skin: "#ffd0a6",
     hair: "#ffcf3a",
-    hairStyle: "spiky",
+    hairStyle: "fringe",
     shirt: "#ff7a1a",
     pants: "#2f6fd6",
     shoes: "#6b3f22",

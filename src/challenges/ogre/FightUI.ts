@@ -1,8 +1,9 @@
 /**
- * HTML overlay for the ogre fight: four big chunky action cards (Angreifen,
- * Verteidigen, Heilen, Spezial) chosen with the arrow keys and Space, the two
- * health bars (in the shared status pill) with a trailing "damage ghost", and
- * a bouncing warning bubble when the ogre winds up his club.
+ * HTML overlay for the ogre fight: three big chunky action cards (Angreifen,
+ * Heilen, Spezial) chosen with the arrow keys and Space, the two health bars
+ * (in the shared status pill) with a trailing "damage ghost", and a bouncing
+ * warning bubble when the ogre winds up his club. (Blocking happens during
+ * the ogre's swing, see blockPrompt.ts.)
  */
 
 import { GameUI } from "../../ui/GameUI";
@@ -45,9 +46,6 @@ const CSS = /* css */ `
 .og-card.ready { background: linear-gradient(180deg, #fff9d6, #ffd96b); }
 .og-card.ready .ico { animation: og-wiggle 1s ease-in-out infinite; }
 @keyframes og-wiggle { 25% { transform: rotate(-12deg) scale(1.1); } 75% { transform: rotate(12deg) scale(1.1); } }
-.og-card.warn { animation: og-warn .6s ease-in-out infinite; }
-.og-card.warn.active { animation: none; }
-@keyframes og-warn { 50% { box-shadow: 0 8px 0 #5e3a1f, 0 0 0 8px rgba(255,80,60,.75), 0 16px 30px rgba(0,0,0,.35); } }
 .og-card.shake { animation: og-shake .4s ease; }
 @keyframes og-shake { 20%,60% { transform: translateX(-10px); } 40%,80% { transform: translateX(10px); } }
 .og-pips { display: flex; gap: 6px; }
@@ -94,7 +92,6 @@ export class FightUI {
   private index = 0;
   private pick: ((a: HeroAction) => void) | null = null;
   private charge = 0;
-  private warnDefend = false;
   private hintTimer = 0;
   private defs: CardDef[];
 
@@ -105,7 +102,6 @@ export class FightUI {
     injectStyle("og-fight-style", CSS);
     this.defs = [
       { action: "attack", label: "Angreifen", icon: `<img src="${ui.icons.sword}" alt="">` },
-      { action: "defend", label: "Verteidigen", icon: "🛡️" },
       { action: "heal", label: "Heilen", icon: `<img src="${ui.icons.berry}" alt="">` },
       { action: "special", label: "Spezial", icon: "🌟" },
     ];
@@ -155,9 +151,13 @@ export class FightUI {
     track.classList.add("bump");
   }
 
+  private get specialIndex(): number {
+    return this.defs.findIndex((d) => d.action === "special");
+  }
+
   setCharge(charge: number): void {
     this.charge = charge;
-    const card = this.cards[3];
+    const card = this.cards[this.specialIndex];
     card.querySelectorAll("i").forEach((pip, i) => pip.classList.toggle("on", i < charge));
     card.classList.toggle("locked", charge < CHARGE_NEEDED);
     card.classList.toggle("ready", charge >= CHARGE_NEEDED);
@@ -169,13 +169,10 @@ export class FightUI {
     this.warnBox.classList.toggle("show", !!text);
   }
 
-  /** Show the menu and resolve with the chosen action. `suggest` preselects (and highlights) a card. */
-  choose(suggest: HeroAction | null = null): Promise<HeroAction> {
-    this.warnDefend = suggest === "defend";
-    if (suggest) this.index = this.defs.findIndex((d) => d.action === suggest);
-    else if (this.charge >= CHARGE_NEEDED) this.index = 3;
-    else if (this.index === 3 || this.index === 1) this.index = 0;
-    this.cards[1].classList.toggle("warn", this.warnDefend);
+  /** Show the menu and resolve with the chosen action (the special is preselected once it's charged). */
+  choose(): Promise<HeroAction> {
+    if (this.charge >= CHARGE_NEEDED) this.index = this.specialIndex;
+    else if (this.defs[this.index].action !== "attack") this.index = 0;
     this.setHint(null);
     this.render();
     this.menu.classList.add("show");
@@ -205,7 +202,6 @@ export class FightUI {
 
   hide(): void {
     this.menu.classList.remove("show");
-    this.cards[1].classList.remove("warn");
   }
 
   destroy(): void {
@@ -227,7 +223,7 @@ export class FightUI {
       card.classList.remove("shake");
       void card.offsetWidth;
       card.classList.add("shake");
-      this.setHint(`Noch nicht bereit! Greif ${CHARGE_NEEDED - this.charge}× an oder verteidige dich.`, 2.6);
+      this.setHint(`Noch nicht bereit! Greif ${CHARGE_NEEDED - this.charge}× an oder wehr den Oger ab.`, 2.6);
       return;
     }
     audio.playSfx("sfx_menu_confirm", 0.8);

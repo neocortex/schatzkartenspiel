@@ -16,7 +16,7 @@ const SPEAKER_VOICES: Record<string, string> = {
   steintafel: "narrator",
   schild: "narrator",
   tadeo: "tadeo",
-  pico: "parrot",
+  henni: "hen",
   "kleine mia": "child",
   dorfältester: "elder",
   "opa kalle": "elder",

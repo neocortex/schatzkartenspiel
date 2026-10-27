@@ -1,11 +1,11 @@
 /**
  * Hen voices synthesised with WebAudio: a quick "bok", a startled "ba-GAWK",
  * a happy cackle and the chick's "piep". The shared sound bank has no animal
- * sounds, so the yard voices its own birds on a small private audio graph.
+ * sounds, so the hens (Mia's flock and Henni) have their own small audio graph.
  * Respects the global mute toggle (M key).
  */
 
-import { audio } from "../../audio/Audio";
+import { audio } from "./Audio";
 
 let ctx: AudioContext | null = null;
 let out: GainNode | null = null;

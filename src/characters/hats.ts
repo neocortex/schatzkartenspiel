@@ -10,7 +10,7 @@ import { mat, toonMesh } from "./parts";
 
 export type OutfitId = "strawHat" | "pirateHat" | "sunglasses" | "fishingHat" | "crown";
 
-/** How far the top of each hat sits above the head centre (Pico perches there). */
+/** How far the top of each hat sits above the head centre (Henni perches there). */
 export const HAT_TOP: Partial<Record<OutfitId, number>> = { strawHat: 0.62, pirateHat: 0.66, fishingHat: 0.58, crown: 0.64 };
 
 function strawHat(): THREE.Group {

@@ -17,7 +17,7 @@ export const LINES = {
     tadeo("Zwei Pilze? Ich suche links und rechts!"),
   ] as DialogueScript,
   moleReminderTwo: [maulwurf("Zwei Pilze, bitte! Sie wachsen links und rechts, ganz hinten.")] as DialogueScript,
-  moleOneMore: [maulwurf("Mmh, einer! Ich brauche noch einen. Schau auf der anderen Seite.")] as DialogueScript,
+  moleOneMore: [maulwurf("Mmh, einer! Ich brauche noch einen von der anderen Seite.")] as DialogueScript,
   /** Said while handing the mushrooms over, one script per rockfall. */
   handOver: [[tadeo("Hier, dein Leuchtpilz!")], [tadeo("Hier sind deine zwei Pilze!")]] as DialogueScript[],
   /** The mole with his mouth full, one script per rockfall. */
@@ -44,7 +44,7 @@ export const TADEO_REMARKS = {
 /** Kind words after a wrong crystal; the second one says outright where to start. */
 export const WRONG_CRYSTAL = [
   "Hoppla! Schau nochmal auf die Bilder an der Wand.",
-  "Fast! Zuerst kommt der Vulkan. Das ist der rote Kristall.",
+  "Fast! Zuerst kommt der Vulkan, der rote Kristall.",
   "Macht nichts! Die Bilder zeigen, was zuerst kommt.",
 ];
 

@@ -40,6 +40,8 @@ const ROCK_DARK = new THREE.Color("#4a3f5c");
 const CREST = new THREE.Color("#141020");
 /** Size of the rock's flat facets, about those of the boulders around it. */
 const FACET = 0.36;
+/** How far the paint stands in front of its rock: more than the 0.1 that rock and paint differ by between their facets. */
+const PAINT_LIFT = 0.15;
 
 /** A bulge of natural rock in front of the cave wall. Its sides and top roll back and melt into the dark. */
 class RockFace {
@@ -68,7 +70,8 @@ class RockFace {
     const layer = y * 1.05 + n.noise(lx * 0.3, 9) * 0.7;
     // Reason: a sawtooth over the height gives overhanging layers, like the strata of real rock
     const ledge = smooth(layer - Math.floor(layer), 0, 0.3) * 0.13;
-    const bump = n.noise(lx * 0.75 + 11, y * 0.75) * 0.17 + n.noise(lx * 2.1, y * 2.1 + 7) * 0.05 + raw * (n.noise(lx * 1.3 + 4, y * 1.3 + 3) * 0.26 + n.noise(lx * 3.1, y * 3.1 + 2) * 0.05 + ledge);
+    // Reason: under the pictures only the slow swell stays, because anything finer than a facet differs between rock and paint and bites through
+    const bump = n.noise(lx * 0.75 + 11, y * 0.75) * 0.17 + raw * (n.noise(lx * 2.1, y * 2.1 + 7) * 0.05 + n.noise(lx * 1.3 + 4, y * 1.3 + 3) * 0.26 + n.noise(lx * 3.1, y * 3.1 + 2) * 0.05 + ledge);
     // Reason: noise this fine is random from one facet to the next, so the facets lose the look of a regular grid
     const jx = raw * n.noise(lx * 4.7, y * 4.7) * 0.1;
     const jy = raw * n.noise(lx * 4.7 + 9, y * 4.7 + 5) * 0.1;
@@ -78,7 +81,10 @@ class RockFace {
   /** 1 on the raw rock, 0 on the smooth stretch where the pictures sit. */
   private rawness(lx: number, y: number): number {
     const { half, y0, y1 } = this.spec.calm;
-    return 1 - (1 - smooth(Math.abs(lx), half, half + 0.9)) * smooth(y, y0 - 0.6, y0) * (1 - smooth(y, y1, y1 + 0.5));
+    // Reason: stay calm one facet past the picture, because a facet just outside it still reaches under the paint
+    const inX = 1 - smooth(Math.abs(lx), half + FACET, half + FACET + 0.9);
+    const inY = smooth(y, y0 - FACET - 0.6, y0 - FACET) * (1 - smooth(y, y1 + FACET, y1 + FACET + 0.5));
+    return 1 - inX * inY;
   }
 
   /** The rock itself, with baked glow and strata like the cave walls. */
@@ -151,7 +157,7 @@ class RockFace {
     for (let j = 0; j <= nv; j++) {
       for (let i = 0; i <= nu; i++) {
         const y = y0 + (j / nv) * h;
-        this.point(lx + (i / nu - 0.5) * w, y / top, 0.05, this.tmp);
+        this.point(lx + (i / nu - 0.5) * w, y / top, PAINT_LIFT, this.tmp);
         pos.push(this.tmp.x, this.tmp.y, this.tmp.z);
         uv.push(i / nu, j / nv);
         if (i < nu && j < nv) {
@@ -200,7 +206,7 @@ const ROCKS_AROUND_DOOR: [number, number, number][] = [
   [-2.28, 0.2, 1.0], [-2.42, 1.1, 0.86], [-2.32, 1.95, 0.72], [-2.08, 2.66, 0.52],
   [2.32, 0.16, 1.06], [2.38, 1.02, 0.82], [2.34, 1.9, 0.74], [2.06, 2.68, 0.5],
   // The lintel, small enough to stay under the middle picture
-  [-1.42, 2.9, 0.42], [-0.72, 2.97, 0.34], [0.02, 2.93, 0.38], [0.72, 2.98, 0.34], [1.4, 2.9, 0.42],
+  [-1.42, 2.9, 0.42], [-0.72, 2.95, 0.34], [-0.02, 2.82, 0.3], [0.72, 2.82, 0.3], [1.4, 2.88, 0.4],
   // Along the foot of the face
   [-3.7, 0.1, 0.92], [-5.0, 0.0, 0.62], [-6.9, 0.05, 1.08], [-8.4, 0.0, 0.72],
   [3.75, 0.0, 0.76], [5.3, 0.08, 1.12], [6.7, 0.0, 0.6], [8.6, 0.05, 0.92],
@@ -223,7 +229,7 @@ export class TestPaintings {
       height: 6.1,
       lean: 0.03,
       seed: 61,
-      calm: { half: 8.2, y0: door.height, y1: 6 },
+      calm: { half: 7.85, y0: door.height + 0.08, y1: 5.85 },
       hole: (lx, y, t) => {
         // Reason: a rough arch, lower towards its sides, so the door looks like a natural gap in the rock
         const edge = Math.abs(lx) / door.half;

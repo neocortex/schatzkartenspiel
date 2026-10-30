@@ -319,6 +319,88 @@ async function feedAndWatch(which) {
   return seen;
 }
 
+// ── Paint on the rock ─────────────────────────────────────────
+
+/**
+ * Runs in the page. How far each picture stands clear of what is behind it at its closest
+ * point: `rock` in front of its rock face, `wall` above the cave wall. Below zero the stone
+ * pokes through the paint as dark shards and eats the clue marks.
+ */
+function paintClearance() {
+  const world = window.engine.scene.world;
+  const triangles = (mesh) => {
+    const p = mesh.geometry.attributes.position;
+    const index = mesh.geometry.index;
+    const out = [];
+    for (let i = 0; i < index.count; i += 3) {
+      out.push([0, 1, 2].map((k) => {
+        const v = index.getX(i + k);
+        return [p.getX(v), p.getY(v), p.getZ(v)];
+      }));
+    }
+    return out;
+  };
+  /** Depth of a triangle at (x, y), or null when the point lies outside it. */
+  const depthAt = ([a, b, c], x, y) => {
+    const d = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1]);
+    if (Math.abs(d) < 1e-9) return null;
+    const u = ((b[1] - c[1]) * (x - c[0]) + (c[0] - b[0]) * (y - c[1])) / d;
+    const v = ((c[1] - a[1]) * (x - c[0]) + (a[0] - c[0]) * (y - c[1])) / d;
+    if (u < -1e-6 || v < -1e-6 || u + v > 1 + 1e-6) return null;
+    return u * a[2] + v * b[2] + (1 - u - v) * c[2];
+  };
+  const front = (list, x, y) => {
+    let best = -Infinity;
+    for (const t of list) {
+      const z = depthAt(t, x, y);
+      if (z !== null && z > best) best = z;
+    }
+    return best;
+  };
+  const measure = (sheet, face) => {
+    const paint = triangles(sheet);
+    const corners = paint.flat();
+    const lo = [0, 1].map((a) => Math.min(...corners.map((v) => v[a])));
+    const hi = [0, 1].map((a) => Math.max(...corners.map((v) => v[a])));
+    const inside = (v) => v[0] >= lo[0] && v[0] <= hi[0] && v[1] >= lo[1] && v[1] <= hi[1];
+    const rock = triangles(face).filter((t) => t.some(inside));
+    let clearOfRock = Infinity;
+    let clearOfWall = Infinity;
+    // Reason: both surfaces are flat facets on different grids, so they can only cross at a corner of one of them
+    for (const [x, y, z] of corners) {
+      const r = front(rock, x, y);
+      if (r > -Infinity) clearOfRock = Math.min(clearOfRock, z - r);
+      clearOfWall = Math.min(clearOfWall, y - world.field.heightAt(x, z));
+    }
+    for (const [x, y, z] of rock.flat()) {
+      const s = front(paint, x, y);
+      if (s > -Infinity) clearOfRock = Math.min(clearOfRock, s - z);
+    }
+    return { rock: +clearOfRock.toFixed(3), wall: +clearOfWall.toFixed(3) };
+  };
+  const pairs = (group) => {
+    const out = [];
+    let face = null;
+    for (const child of group.children) {
+      if (child.isInstancedMesh) continue;
+      if (child.renderOrder === 1) out.push(measure(child, face));
+      else face = child;
+    }
+    return out;
+  };
+  const [volcano, peak, forest, arrow1, arrow2] = pairs(world.paintings.group);
+  const [heart, thorns, hammer] = pairs(world.wayPictures);
+  return { volcano, peak, forest, arrow1, arrow2, heart, thorns, hammer };
+}
+
+/** Runs in the page. Every line this quest can speak, also those a run may not reach. */
+async function caveLines() {
+  const { LINES, TADEO_REMARKS, WRONG_CRYSTAL, PHASE_HINTS } = await import("/src/challenges/cave/script.ts");
+  const { DIALOGUES } = await import("/src/data/dialogues.ts");
+  const flat = (x) => (typeof x === "string" ? [x] : x.text ? [x.text] : Object.values(x).flatMap(flat));
+  return flat([LINES, TADEO_REMARKS, WRONG_CRYSTAL, PHASE_HINTS, DIALOGUES.cave_enter, DIALOGUES.cave_sword]);
+}
+
 // ── Play ──────────────────────────────────────────────────────
 
 let passed = false;
@@ -339,6 +421,12 @@ try {
     s.crystals.map((c) => c.color).sort().join() === "green,red,white" && s.crystals.map((c) => c.color).join() !== "red,white,green",
     s.crystals.map((c) => c.color).join(),
   );
+  const clearance = await page.evaluate(paintClearance);
+  log(`paint clearance ${JSON.stringify(clearance)}`);
+  const bitten = Object.entries(clearance).filter(([, c]) => c.rock < 0.03 || c.wall < 0.03).map(([name]) => name);
+  check("no stone pokes through any painting", bitten.length === 0, bitten.join());
+  const overlong = (await page.evaluate(caveLines)).filter((l) => l.split(/\s+/).length > 14 || (l.match(/[.!?]+(\s|$)/g) ?? []).length > 2);
+  check("every line is one or two short sentences", overlong.length === 0, overlong.join(" | "));
   const mole1 = s.mole;
   const [first, ...later] = s.mushrooms;
   const reachBefore = await page.evaluate(floodReach, [

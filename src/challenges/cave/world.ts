@@ -55,6 +55,8 @@ export class CaveWorld {
   readonly crystals: CrystalButton[] = [];
   readonly wall: CrystalWall;
   readonly paintings: TestPaintings;
+  /** The heart, thorns and hammer on their bulges of rock. */
+  readonly wayPictures: THREE.Group;
   readonly mole: Mole;
   readonly wish: MoleWish;
   readonly chamber: Chamber;
@@ -168,7 +170,8 @@ export class CaveWorld {
     s.add(this.wall.group);
     this.paintings = new TestPaintings(wallZ, DOOR, this.glow, this.colliders, this.owned);
     s.add(this.paintings.group);
-    s.add(wayPaintings(WAY_PAINTINGS, this.glow, this.owned, this.textures));
+    this.wayPictures = wayPaintings(WAY_PAINTINGS, this.glow, this.owned, this.textures);
+    s.add(this.wayPictures);
 
     // The mole, beside the first rockfall
     this.mole = createMole();

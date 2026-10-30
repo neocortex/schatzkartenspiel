@@ -30,7 +30,7 @@ All text and narration are in German.
 | 2 | Der Vulkan | Cross the lava fields; dodge the glowing circles where lava bombs land |
 | 3 | Der See | Read the three rune tablets around the lake |
 | 4 | Die Höhle | Torch-lit natural cave: feed a hungry mole glowing mushrooms so he digs through two rockfalls, then touch three crystals in the order the cave paintings show to reach the magic sword |
-| 5 | Der Zauberwald | Twilight forest: Flocke the fox leads you to five glowing berry sprigs |
+| 5 | Der Zauberwald | A thorn hedge closes the gate until the crystal sword's blue light drives it back; then, in the twilight forest, Flocke the fox leads you to five glowing berry sprigs |
 | 6 | Der Oger an der Brücke | Card battle on the bridge (attack, heal, special); block his swings with Space at the right moment; the ogre becomes a friend |
 | 7 | Das Eingeborenendorf | Campfire drum trials and a maths question; reward: the golden key |
 | 8 | Der Berggipfel | Side-view climb with rolling rocks, snowballs and a rope bridge; reward: the golden hammer |

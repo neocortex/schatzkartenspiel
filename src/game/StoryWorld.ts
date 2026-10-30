@@ -13,13 +13,17 @@ import { Island } from "../world/Island";
 import { LANDMARKS, P2, SPOTS } from "../world/layout";
 import { Site } from "../world/models/site";
 import { faceDir } from "../world/models/shapes";
-import { StoryProp, mountainBoulder, standProp, thornHedge } from "../world/models/storyProps";
+import { HedgeProp, StoryProp, mountainBoulder, standProp, thornHedge } from "../world/models/storyProps";
+import { Player } from "../characters/Player";
+import { HedgeOpening } from "./hedgeOpening";
 import { Npcs, NpcId } from "./Npcs";
 import { OgreSpot, Sightings } from "./Sightings";
 import { audio } from "../audio/Audio";
 
 /** Paco comes home to the village at this quest. */
 const VILLAGE_QUEST = 3;
+/** The sword opens the hedge right before this quest's challenge. */
+const FOREST_QUEST = 6;
 /** The hedge has gone once the forest quest is won, the boulder once the mountain trail opens. */
 const FOREST_OPEN_QUEST = 7;
 const TRAIL_OPEN_QUEST = 9;
@@ -45,12 +49,12 @@ export interface StoryWorldState {
 }
 
 /** A story prop standing on the island with the colliders under it. */
-class Barrier {
+class Barrier<P extends StoryProp = StoryProp> {
   /** The colliders' places in the world. */
   readonly circles: Circle[];
   private standing: Circle[] = [];
 
-  constructor(readonly prop: StoryProp, private colliders: Colliders, x: number, z: number, rotY: number, ground: (x: number, z: number) => number) {
+  constructor(readonly prop: P, private colliders: Colliders, x: number, z: number, rotY: number, ground: (x: number, z: number) => number) {
     standProp(prop, x, z, rotY, ground);
     this.circles = prop.blockers.map((b) => {
       const [wx, wz] = Site.local(x, z, rotY, b.x, b.z);
@@ -83,11 +87,12 @@ class Barrier {
 export class StoryWorld {
   readonly group = new THREE.Group();
   readonly boulder: Barrier;
-  readonly hedge: Barrier;
+  readonly hedge: Barrier<HedgeProp>;
+  private hedgeOpening: HedgeOpening;
   private pacoHome: { at: P2; facing: number };
   private lastRumble = 0;
 
-  constructor(private island: Island, private rig: CameraRig, private npcs: Npcs, private sightings: Sightings) {
+  constructor(private island: Island, private rig: CameraRig, player: Player, private npcs: Npcs, private sightings: Sightings) {
     const { hf, colliders, landmarks } = island;
     const ground = (x: number, z: number) => hf.heightAt(x, z);
     this.boulder = new Barrier(mountainBoulder(), colliders, SPOTS.trailBoulder[0], SPOTS.trailBoulder[1], 0, ground);
@@ -96,6 +101,7 @@ export class StoryWorld {
     const [hx, hz] = Site.local(gx, gz, rot, 0, HEDGE_BEHIND_GATE);
     this.hedge = new Barrier(thornHedge(), colliders, hx, hz, rot, ground);
     this.group.add(this.boulder.prop.group, this.hedge.prop.group);
+    this.hedgeOpening = new HedgeOpening({ scene: island.scene, rig, player, hedge: this.hedge, ground });
     // Reason: all rocks, thorns and the wreck are up while Game places the coins, so no coin lands inside them; `apply` then sets the real state
     landmarks.setBoatVisible("wreck", true);
     const paco = npcs.get(PACO);
@@ -128,6 +134,10 @@ export class StoryWorld {
   /** What happens on the island right before a quest's challenge. */
   async beforeQuest(m: number): Promise<void> {
     switch (m) {
+      case FOREST_QUEST:
+        // Reason: a reload in the forest brings the hedge back, so the sword opens it again
+        if (this.hedge.up) await this.hedgeOpening.play();
+        return;
       default:
         return;
     }
@@ -144,6 +154,7 @@ export class StoryWorld {
   update(dt: number, _time: number): void {
     this.boulder.prop.update(dt);
     this.hedge.prop.update(dt);
+    this.hedgeOpening.update(dt);
   }
 
   /** What really stands on the island, read from the scene. */

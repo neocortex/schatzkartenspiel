@@ -7,13 +7,12 @@
 import { DialogueScript } from "../../data/dialogues";
 
 const fox = (text: string) => ({ speaker: "Fuchs", portrait: "", text });
-const tadeo = (text: string) => ({ speaker: "Tadeo", portrait: "portrait_tadeo", text });
 
 export const MEET_FOX: DialogueScript = [
   fox("Hallo Tadeo! Ich bin Flocke, der Zauberfuchs."),
-  tadeo("Ein sprechender Fuchs! Weißt du, wo die Zauberbeeren wachsen?"),
-  fox("Klar! Fünf Beeren leuchten hier im Wald. Lauf mir einfach nach!"),
-  fox("Aber pass auf die Dornenbüsche auf. Die pieksen!"),
+  fox("Das Schwert vom Hüter! Nur vor seinem Licht haben die Dornen Angst."),
+  fox("Die Büsche hier drin sind nur wilde Dornen. Lauf einfach drumherum."),
+  fox("Fünf Zauberbeeren leuchten im Wald. Folge mir!"),
 ];
 
 /** Tadeo's bubble after each berry (index = berries collected so far - 1). */

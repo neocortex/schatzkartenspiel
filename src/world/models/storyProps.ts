@@ -86,6 +86,50 @@ function propMaterial(): THREE.MeshStandardMaterial {
   return m;
 }
 
+/** The hedge, which can burn with blue light. */
+export interface HedgeProp extends StoryProp {
+  /**
+   * Light the thorns blue. `spread` (0..1) is how far the light has run out from the middle of the hedge, `glow`
+   * (0..1) how brightly it burns; 0 for both is the plain hedge.
+   */
+  shine(spread: number, glow: number): void;
+}
+
+/** Metres from the middle of the hedge that the light must run to have crossed every thorn: half its length and the light's soft edge. */
+const SHINE_RUN = 12;
+
+/**
+ * Bathe a prop material in blue light that runs out from x = 0 along the prop. The colours behind it turn blue and it
+ * burns brightest at its front, on the rims of the thorns and on the pale thorn tips.
+ */
+function patchShine(shader: THREE.WebGLProgramParametersWithUniforms, uniforms: Record<string, THREE.IUniform>): void {
+  Object.assign(shader.uniforms, uniforms);
+  shader.vertexShader = shader.vertexShader
+    .replace("#include <common>", "#include <common>\nvarying vec3 vShineAt;")
+    .replace("#include <begin_vertex>", "#include <begin_vertex>\nvShineAt = position;");
+  shader.fragmentShader = shader.fragmentShader
+    .replace("#include <common>", "#include <common>\nvarying vec3 vShineAt;\nuniform float uShineSpread;\nuniform float uShineGlow;")
+    .replace(
+      "#include <color_fragment>",
+      /* glsl */ `#include <color_fragment>
+      float shineReach = uShineSpread * ${SHINE_RUN.toFixed(1)};
+      float shineAt = abs(vShineAt.x);
+      float shineLit = (1.0 - smoothstep(shineReach - 3.5, shineReach, shineAt)) * uShineGlow;
+      // Reason: leaves and bark take on the colour of the light; added light alone would wash them out to pale cyan
+      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.25, 0.55, 1.3), shineLit);`,
+    )
+    .replace(
+      "#include <emissivemap_fragment>",
+      /* glsl */ `#include <emissivemap_fragment>
+      {
+        float front = smoothstep(shineReach - 1.6, shineReach - 0.3, shineAt) * (1.0 - smoothstep(shineReach - 0.3, shineReach + 0.5, shineAt));
+        float rim = 1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0);
+        float pale = dot(vColor.rgb, vec3(0.333));
+        totalEmissiveRadiance += vec3(0.04, 0.25, 1.0) * (0.3 + 0.9 * rim) * (0.35 + pale) * shineLit + vec3(0.25, 0.65, 1.0) * front * 1.2 * uShineGlow;
+      }`,
+    );
+}
+
 // ---------------------------------------------------------------------------
 // The thorn hedge
 // ---------------------------------------------------------------------------
@@ -121,7 +165,7 @@ const HEDGE_LEAVES = ["#2f7d57", "#3f9a58", "#4c9f50", "#256b60", "#3a8f6a"];
  * and a few glowing magic rosebuds, so it looks wild and impassable but still
  * belongs in a fairy tale.
  */
-export function thornHedge(): StoryProp {
+export function thornHedge(): HedgeProp {
   const rand = mulberry32(71);
   const solid: THREE.BufferGeometry[] = [];
   const glow: THREE.BufferGeometry[] = [];
@@ -279,13 +323,19 @@ export function thornHedge(): StoryProp {
   group.name = "story:hedge";
   const body = new THREE.Group();
   group.add(body);
-  const thorns = new THREE.Mesh(merge(solid), propMaterial());
+  const light = { uShineSpread: { value: 0 }, uShineGlow: { value: 0 } };
+  const material = propMaterial();
+  material.onBeforeCompile = (shader) => {
+    patchXray(shader);
+    patchShine(shader, light);
+  };
+  const thorns = new THREE.Mesh(merge(solid), material);
   thorns.castShadow = true;
   thorns.receiveShadow = true;
   body.add(thorns, new THREE.Mesh(merge(glow), new THREE.MeshBasicMaterial({ vertexColors: true })));
 
   // Exit: a shudder, then the whole tangle shrinks back into the ground
-  return storyProp(
+  const hedge = storyProp(
     group,
     blockers,
     2,
@@ -299,6 +349,13 @@ export function thornHedge(): StoryProp {
       body.position.x = 0;
     },
   );
+  return {
+    ...hedge,
+    shine(spread, glow) {
+      light.uShineSpread.value = spread;
+      light.uShineGlow.value = glow;
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------

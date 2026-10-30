@@ -96,7 +96,7 @@ export class Game {
     this.bubble = new Bubble(this.ui.layer);
     this.chuletaBubble = new Bubble(this.ui.layer);
     this.sightings = new Sightings(walkHeight, colliders, this.ui.layer);
-    this.story = new StoryWorld(this.island.island, this.island.rig, this.npcs, this.sightings);
+    this.story = new StoryWorld(this.island.island, this.island.rig, this.island.player, this.npcs, this.sightings);
     this.island.scene.add(this.sightings.group, this.story.group);
     this.lake = new Lake({ island: this.island, ui: this.ui, input: engine.input, talk: (script) => this.talk(script) });
     // Reason: coins come after the NPCs so none lands inside a villager, and after the story's rocks and thorns for the same reason

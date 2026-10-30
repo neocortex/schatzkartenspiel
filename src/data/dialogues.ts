@@ -274,7 +274,7 @@ export const DIALOGUES: Record<string, DialogueScript> = {
     {
       speaker: "Tadeo",
       portrait: "portrait_tadeo",
-      text: "Alle fünf Zauberbeeren gesammelt! Ihre Kraft durchströmt mich. Jetzt kann ich Wunden heilen!",
+      text: "Zauberbeeren! Die machen böse Monster wieder lieb.",
     },
     {
       speaker: "Tadeo",

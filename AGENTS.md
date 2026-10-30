@@ -26,7 +26,7 @@ Graphics quality ("wow") and joy matter more than anything else. It is live at h
   Landmarks sit at their `SPOTS` entry in `world/layout.ts`, which also feeds the vegetation keep-outs.
 - `game/Game.ts` is the adventure flow on the island (title, intro, objectives, NPC talks, coins,
   launching challenges, rewards, saving). Keep it under ~550 lines: put new features in their own
-  module in `game/` (see `Sightings.ts`, `sideGames.ts`, `Wardrobe.ts`, `lake.ts`).
+  module in `game/` (see `Sightings.ts`, `sideGames.ts`, `Wardrobe.ts`, `lake.ts`, `hedgeOpening.ts`).
 - Challenges live in `src/challenges/<name>/index.ts` and default-export a `ChallengeFactory`
   (`challenges/types.ts`). They are found by `challenges/registry.ts` (`import.meta.glob`) and loaded
   on demand. A challenge resolves `finished` when won; the flow hands out the reward.

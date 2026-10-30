@@ -15,6 +15,7 @@ All text and narration are in German.
   turtles and dolphins; a misty jungle with an old ruin and parrots; a swamp with a boardwalk, frogs and
   fireflies; flower hills with a windmill and sheep
 - Post-processing: bloom, tilt-shift, ACES tone mapping, vignette
+- Rendering capped at 60 FPS and 1.25× pixel density, with 2× multisample anti-aliasing to limit GPU load
 - Chibi toon characters with outlines; Henni the hen runs along, rides on Tadeo's head and gives hints
 - Ten quests, each a separate 3D challenge scene (loaded on demand)
 - Side games in the village, gold coins all over the island, and outfits to unlock

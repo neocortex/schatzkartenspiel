@@ -99,7 +99,7 @@ export class Engine {
       stencil: false,
       depth: false,
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -108,7 +108,7 @@ export class Engine {
 
     this.composer = new EffectComposer(this.renderer, {
       frameBufferType: THREE.HalfFloatType,
-      multisampling: 4,
+      multisampling: 2,
     });
     const placeholderCam = new THREE.PerspectiveCamera();
     this.renderPass = new RenderPass(new THREE.Scene(), placeholderCam);

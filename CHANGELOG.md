@@ -8,6 +8,7 @@
   game speaks the same on any static host. `npm run voices` renders new or changed lines. This replaces the local
   Piper voice server, and the game no longer needs `uv`
 - The game draws at most 60 frames a second, so 120 Hz screens no longer keep the graphics chip flat out
+- Rendering uses at most 1.25× pixel density and 2× multisample anti-aliasing to reduce GPU load
 - The voice now says a fixed sentence for the three lines with a changing value (fishing length, hen times); the
   exact number still appears on screen
 

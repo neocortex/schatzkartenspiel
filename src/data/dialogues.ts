@@ -52,6 +52,11 @@ export const DIALOGUES: Record<string, DialogueScript> = {
       portrait: "portrait_tadeo",
       text: "Das kommt vom Vulkan! Schnell!",
     },
+    {
+      speaker: "Chuleta",
+      portrait: "",
+      text: "Folge dem goldenen Stern! Gack!",
+    },
   ],
 
   // -----------------------------------------------------------------------

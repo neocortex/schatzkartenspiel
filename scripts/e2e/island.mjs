@@ -111,15 +111,20 @@ async function until(test, timeoutMs = 30000, stepMs = 100) {
   return false;
 }
 
-/** Everyone who spoke so far in the opening. */
+/** Everyone who spoke so far in the opening, and their lines in order as "Name: text". */
 const speakers = new Set();
+const spoken = [];
 
-/** Press through any open dialogue, noting who speaks, until `stop()` holds. */
+/** Press through any open dialogue, noting who speaks and what they say, until `stop()` holds. */
 async function readUntil(stop, timeoutMs = 30000) {
   return until(async () => {
     if (await stop()) return true;
     if ((await state()).dialogue) {
-      speakers.add(await page.textContent(".dialogue .name"));
+      const name = await page.textContent(".dialogue .name");
+      speakers.add(name);
+      // Reason: the box types its text out letter by letter, so the whole line comes from the dialogue itself
+      const said = `${name}: ${await page.evaluate(() => window.game.ui.dialogue.full)}`;
+      if (spoken.at(-1) !== said) spoken.push(said);
       await page.keyboard.press("Space");
     }
     return false;
@@ -200,6 +205,11 @@ await shot("10-quest2-banner");
 const bannerLine = await bannerText();
 check("intro has narrator, Tadeo, Chuleta and Stimme", ["Erzähler", "Tadeo", "Chuleta", "Stimme"].every((s) => speakers.has(s)), [...speakers].join(", "));
 check("no sign quest", !speakers.has("Schild"));
+check(
+  "Chuleta's last word sends him after the golden star, right after the call for help",
+  /^Chuleta: .*goldenen Stern/.test(spoken.at(-1)) && /^Tadeo: .*Vulkan/.test(spoken.at(-2)),
+  spoken.slice(-2).join(" | "),
+);
 check("player is free after intro", await waitUntilFree());
 
 // ── 2. Quest 1 ends with the intro ──────────────────────────

@@ -18,7 +18,7 @@ export class Owned {
   }
 
   /** Release the scene's geometries, its shader materials and everything registered here. */
-  disposeScene(scene: THREE.Scene): void {
+  disposeScene(scene: THREE.Object3D): void {
     const shaderMats = new Set<THREE.Material>();
     scene.traverse((o) => {
       const mesh = o as THREE.Mesh;

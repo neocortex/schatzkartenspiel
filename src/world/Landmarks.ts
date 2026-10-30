@@ -179,7 +179,7 @@ export class Landmarks implements LandmarkContext {
   }
 
   /** One merged mesh per material used by the model. */
-  private meshesFor(model: Model, name: string): THREE.Mesh[] {
+  meshesFor(model: Model, name: string): THREE.Mesh[] {
     const mats = this.materials;
     const out: THREE.Mesh[] = [];
     const make = (geos: THREE.BufferGeometry[], mat: THREE.Material, kind: string, shadows: boolean) => {

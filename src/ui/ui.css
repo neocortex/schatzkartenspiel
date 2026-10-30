@@ -483,6 +483,117 @@
   color: var(--red);
 }
 
+/* ── Map card ─────────────────────────────────────────────── */
+.map-card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(20, 10, 2, 0.25), rgba(20, 10, 2, 0.72));
+  animation: map-card-dim 0.3s ease both;
+}
+.map-card-sheet {
+  width: min(94vw, 128vh);
+  filter: drop-shadow(0 14px 10px rgba(0, 0, 0, 0.5)) drop-shadow(0 34px 44px rgba(0, 0, 0, 0.4));
+  will-change: transform;
+  animation:
+    map-card-in 0.55s cubic-bezier(0.2, 1.2, 0.4, 1) both,
+    map-card-float 5s ease-in-out 0.55s infinite;
+}
+/* The X is painted while the card arrives: each stroke is one full dash sliding in */
+.map-card-stroke {
+  stroke-dasharray: 1;
+  animation: map-card-paint 0.2s ease-out 0.18s both;
+}
+.map-card-stroke.second {
+  animation-delay: 0.36s;
+}
+/* A picture of the Space key, shown once Space can close the card */
+.map-card-key {
+  position: absolute;
+  left: 50%;
+  bottom: 2.4vh;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 150px;
+  height: 34px;
+  margin-left: -75px;
+  padding-bottom: 8px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  background: #fff;
+  border: 2px solid var(--wood);
+  box-shadow: 0 3px 0 var(--wood);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.map-card-key::after {
+  content: "";
+  width: 96px;
+  height: 7px;
+  border: 3px solid var(--ink);
+  border-top: 0;
+  border-radius: 0 0 3px 3px;
+}
+.map-card.ready .map-card-key {
+  opacity: 1;
+  animation: nudge 0.9s ease-in-out infinite;
+}
+.map-card.closing {
+  animation: map-card-dim 0.28s ease reverse both;
+}
+.map-card.closing .map-card-sheet {
+  animation: map-card-out 0.28s ease-in both;
+}
+.map-card.closing .map-card-key {
+  opacity: 0;
+}
+@keyframes map-card-dim {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes map-card-in {
+  from {
+    transform: translateY(22vh) rotate(-16deg) scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: rotate(-1.6deg);
+    opacity: 1;
+  }
+}
+@keyframes map-card-float {
+  0%,
+  100% {
+    transform: rotate(-1.6deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(-0.9deg);
+  }
+}
+@keyframes map-card-out {
+  to {
+    transform: translateY(24vh) rotate(8deg) scale(0.7);
+    opacity: 0;
+  }
+}
+@keyframes map-card-paint {
+  from {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  1% {
+    opacity: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
 /* ── End card ─────────────────────────────────────────────── */
 .endcard {
   position: absolute;

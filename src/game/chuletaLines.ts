@@ -6,11 +6,8 @@
 import { DialogueScript } from "../data/dialogues";
 
 export const CHULETA_INTRO: DialogueScript = [
-  { speaker: "Chuleta", portrait: "", text: "Gack! Und mich hast du wohl vergessen? Ich saß die ganze Zeit in deinem Rucksack!" },
+  { speaker: "Chuleta", portrait: "", text: "Und mich hast du wohl vergessen? Ich saß die ganze Zeit in deinem Rucksack!" },
   { speaker: "Tadeo", portrait: "", text: "Chuleta! Du bist ja mitgekommen!" },
-  { speaker: "Chuleta", portrait: "", text: "Na klar! Wir finden den Schatz zusammen. Folge einfach dem goldenen Stern." },
-  { speaker: "Chuleta", portrait: "", text: "Und sammle die Goldmünzen auf der Insel! Vielleicht gibt es dafür eine Überraschung..." },
-  { speaker: "Tadeo", portrait: "", text: "Super, Chuleta! Los geht's!" },
 ];
 
 /** Hint for the current milestone, said when nothing happened for a while. */

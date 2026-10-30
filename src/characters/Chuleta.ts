@@ -81,6 +81,7 @@ export class Chuleta {
   private chatter = 0;
   private panicked = false;
   private tadeoGrounded = true;
+  private inBackpack = false;
   private tmp = new THREE.Vector3();
 
   constructor(private player: Player) {
@@ -117,7 +118,22 @@ export class Chuleta {
     this.model.root.position.copy(this.position);
   }
 
+  /** She rides out of sight in Tadeo's backpack, silent and still, until `climbOut`. */
+  hideInBackpack(): void {
+    this.inBackpack = true;
+    this.model.root.visible = false;
+  }
+
+  /** The backpack gag: she bursts out of it and flutters down beside Tadeo. */
+  climbOut(): void {
+    this.inBackpack = false;
+    this.model.root.visible = true;
+    this.player.avatar.back.getWorldPosition(this.position);
+    this.startHop("ground");
+  }
+
   update(dt: number): void {
+    if (this.inBackpack) return;
     const p = this.player;
     const tadeoSpeed = Math.hypot(p.velocity.x, p.velocity.z);
     this.rest = tadeoSpeed < 0.3 && p.grounded ? this.rest + dt : 0;

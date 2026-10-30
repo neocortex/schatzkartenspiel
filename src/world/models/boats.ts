@@ -148,7 +148,8 @@ export function sailboat(atlas: SignAtlas, colors: BoatColors, name: string | nu
   const rim: THREE.Vector3[] = [];
   for (let i = 0; i < 40; i++) rim.push(rimPoint((i / 40) * Math.PI * 2));
   m.solid.push(part(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rim, true), 60, 0.08, 5, true), PAL.woodDark));
-  m.solid.push(rbox(3.4, 0.08, 1.2, "#c99460", { pos: [-0.2, 0.0, 0] }, 0.03));
+  // Reason: short enough that the corners stay inside the narrowing hull, also when she rides high
+  m.solid.push(rbox(2.4, 0.08, 1.2, "#c99460", { pos: [-0.2, 0.0, 0] }, 0.03));
   // Foredeck: a fan of triangles from the bow rim back to x = 1
   const a0 = Math.acos(0.4);
   const c = new THREE.Vector3(1.6, RIM + sheer(0.64) - 0.02, 0);
@@ -165,7 +166,8 @@ export function sailboat(atlas: SignAtlas, colors: BoatColors, name: string | nu
   const deckGeo = triangles(deck, colors.stripe);
   m.solid.push((deckGeo.attributes.normal as THREE.BufferAttribute).getY(0) < 0 ? flip(deckGeo) : deckGeo);
   m.solid.push(box(0.1, 0.12, 2 * Math.sin(a0) * HALF_BEAM * pinch(0.4), PAL.woodDark, { pos: [1.0, RIM + sheer(0.4), 0] }));
-  for (const x of [-1.2, 0.4]) m.solid.push(rbox(0.36, 0.08, 1.75 * pinch(x / HALF_LEN), PAL.woodLight, { pos: [x, 0.32, 0] }, 0.03));
+  // Reason: the hull is narrower towards the stern, so the rear thwart is shorter or its ends would poke through
+  for (const [x, w] of [[-1.2, 1.55], [0.4, 1.75]]) m.solid.push(rbox(0.36, 0.08, w * pinch(x / HALF_LEN), PAL.woodLight, { pos: [x, 0.32, 0] }, 0.03));
   // Mast, boom, stays
   const mx = 0.55;
   const top = 4.6;

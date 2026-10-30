@@ -1,8 +1,9 @@
 /**
  * E2E: the island adventure flow, played with real key presses in Chrome.
  *
- *  1. Title screen → "Neues Abenteuer" → intro flight + dialogues (narrator, Tadeo, Chuleta)
- *  2. Quest 1 ends with the intro → quest 2 starts, game is saved (version 4), twelve quests exist
+ *  1. Title screen → "Neues Abenteuer" → the opening: bottle on the beach, map card, the shark's hit at sea, the flight
+ *     down to the landing beach, Chuleta and the call for help
+ *  2. Quest 1 ends with the opening → quest 2 starts, game is saved (version 4), twelve quests exist
  *  3. Coins: walk through a coin → counter goes up
  *  4. Quest 3 (debug start): talk to the village elder → quest 4 starts
  *  5. Quest 4 (debug start): read all three lake tablets → quest 5 starts
@@ -10,6 +11,7 @@
  *  6b. The new cast: portraits, faces in the dialogue box, Paco beside the elder, the mole in the cave, the Hüter on the lake
  *  7. Quest 12 (debug start): the island runs without a gate
  *  8. A save from an older version offers no Continue, and starting over keeps coins and hats
+ *  9. Mashing Space through the whole opening skips nothing and leaves the game correct
  *
  * Run (dev server on :5199 must be running):  node scripts/e2e/island.mjs
  * Proof: scripts/e2e/out/island/summary.json + screenshots
@@ -49,6 +51,7 @@ const state = () =>
       coins: g.coins.collected,
       dialogue: g.ui.dialogue.isOpen,
       busy: g.busy,
+      free: !g.busy && !g.ui.dialogue.isOpen,
       prompt: document.querySelector(".prompt")?.style.display !== "none" ? document.querySelector(".prompt")?.textContent.trim() : null,
     };
   });
@@ -98,7 +101,41 @@ async function waitUntilFree(timeoutMs = 30000) {
   return false;
 }
 
-// ── 1. Title + intro ────────────────────────────────────────
+/** Wait until `test()` holds. */
+async function until(test, timeoutMs = 30000, stepMs = 100) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    if (await test()) return true;
+    await wait(stepMs);
+  }
+  return false;
+}
+
+/** Everyone who spoke so far in the opening. */
+const speakers = new Set();
+
+/** Press through any open dialogue, noting who speaks, until `stop()` holds. */
+async function readUntil(stop, timeoutMs = 30000) {
+  return until(async () => {
+    if (await stop()) return true;
+    if ((await state()).dialogue) {
+      speakers.add(await page.textContent(".dialogue .name"));
+      await page.keyboard.press("Space");
+    }
+    return false;
+  }, timeoutMs, 200);
+}
+
+const story = () => page.evaluate(() => window.game.story.e2e);
+const bannerText = () => page.textContent(".banner");
+const hasObject = (name) => page.evaluate((n) => !!window.game.island.scene.getObjectByName(n), name);
+const mapCardOpen = () => page.isVisible(".map-card");
+const chuletaVisible = () => page.evaluate(() => window.game.chuleta.root.visible);
+const dialogueOpen = async () => (await state()).dialogue;
+const screenBlack = () => page.evaluate(() => Number(getComputedStyle(document.getElementById("fade")).opacity) > 0.95);
+const banner2Shows = async () => (await page.isVisible(".banner.show")) && (await bannerText()).includes("von");
+
+// ── 1. Title + opening ──────────────────────────────────────
 await page.addInitScript(() => {
   if (!sessionStorage.getItem("e2e-cleared")) {
     localStorage.clear();
@@ -111,27 +148,72 @@ check("title screen shows logo + menu", await page.isVisible(".title-screen .log
 check("twelve quests", (await page.evaluate(async () => (await import("/src/data/quests.ts")).QUESTS.length)) === 12);
 await shot("01-title");
 await page.keyboard.press("Space");
-await wait(6000);
-await shot("02-intro-flight");
-await wait(9000);
-check("intro dialogue opens", (await state()).dialogue);
-await shot("03-intro-dialogue");
-const speakers = new Set();
-for (let i = 0; i < 60 && (await state()).dialogue; i++) {
-  speakers.add(await page.textContent(".dialogue .name"));
-  await page.keyboard.press("Space");
-  await wait(200);
-}
-check("intro has narrator, Tadeo and Chuleta", ["Erzähler", "Tadeo", "Chuleta"].every((s) => speakers.has(s)), [...speakers].join(", "));
+
+// The bottle on the beach
+check("the opening starts with the narrator on a beach", await until(dialogueOpen, 15000));
+await wait(1500);
+check("the first voice is the narrator", (await page.textContent(".dialogue .name")) === "Erzähler");
+await shot("02-beach");
+check("Chuleta hides in the backpack at the start", !(await chuletaVisible()));
+
+// The map card
+await readUntil(mapCardOpen);
+check("map card shows and has no text", (await mapCardOpen()) && (await page.textContent(".map-card")).trim() === "");
+await page.keyboard.press("Space");
+await wait(150);
+check("Space does not close the card in its first 0.4 s", await mapCardOpen());
+await wait(1600);
+await shot("03-map-card");
+await page.keyboard.press("Space");
+check("Space closes the map card", await until(async () => !(await mapCardOpen()), 2000));
+await wait(500);
+await shot("03b-tadeo-sets-off");
+
+// The shark's hit at sea
+check("the sea cinematic starts", await readUntil(() => hasObject("opening-sea"), 12000));
+const seaStart = Date.now();
+check("Chuleta stays in the backpack at sea", !(await chuletaVisible()));
+await wait(1500);
+await shot("04-sailing");
+await wait(3300);
+await shot("05-fin");
+check("the shark breaks the surface", await until(() => page.evaluate(() => window.game.island.scene.getObjectByName("opening-shark")?.position.y > -0.2), 9000, 16));
+await shot("06-hit");
+await wait(150);
+await shot("06b-hit");
+check("the hit cuts to black", await until(screenBlack, 3000, 16));
+const seaSeconds = (Date.now() - seaStart) / 1000;
+check("the sea cinematic stays under 12 seconds", seaSeconds < 12, `${seaSeconds.toFixed(1)} s`);
+check("the sea cinematic has a moment for the fin", seaSeconds > 5, `${seaSeconds.toFixed(1)} s`);
+await shot("07-black");
+check("the sea group is cleaned up", await until(async () => !(await hasObject("opening-sea")), 3000));
+check("the beach bottle is cleaned up", !(await hasObject("opening-beach")));
+
+// Flight down to the landing beach
+await wait(3500);
+await shot("08-flight");
+check("the arrival dialogue opens", await until(dialogueOpen, 20000));
+await shot("09-arrival");
+check("Chuleta is out of the backpack", await chuletaVisible());
+check("the banner comes after the talk", await readUntil(banner2Shows, 30000));
+await shot("10-quest2-banner");
+const bannerLine = await bannerText();
+check("intro has narrator, Tadeo, Chuleta and Stimme", ["Erzähler", "Tadeo", "Chuleta", "Stimme"].every((s) => speakers.has(s)), [...speakers].join(", "));
+check("no sign quest", !speakers.has("Schild"));
 check("player is free after intro", await waitUntilFree());
 
 // ── 2. Quest 1 ends with the intro ──────────────────────────
 let s = await state();
-check("quest 2 (Vulkan) is active after the intro", s.milestone === 2, `milestone ${s.milestone}`);
+check("quest 1 completes by itself", s.milestone === 2 && s.free, JSON.stringify(s));
+check("banner says 2 von 12", bannerLine.includes("2 von 12"), bannerLine);
+const e2e = await story();
+check("no boat at the landing pier, wreck on the sand", e2e.wreck && !e2e.pierBoat);
+check("Tadeo stands at the landing pier, no coin was picked up on the way", Math.hypot(s.x + 66, s.z - 47) < 1 && s.coins === 0, JSON.stringify(s));
+check("the HUD is on", await page.isVisible(".hud-quest"));
 const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("schatzkarten_save") ?? "null"));
 check("progress was saved", saved?.milestone === 2, JSON.stringify(saved));
 check("save version is 4", saved?.version === 4, JSON.stringify(saved));
-await shot("04-quest2");
+await shot("11-quest2");
 
 // ── 3. Coins ────────────────────────────────────────────────
 const coinsBefore = (await state()).coins;
@@ -377,6 +459,41 @@ await page.keyboard.press("Space");
 await wait(3000);
 const startedOver = await keep();
 check("starting over keeps coins and hats", startedOver.coins === 3 && startedOver.hats === 1, JSON.stringify(startedOver));
+
+// ── 9. Mashing Space through the whole opening ──────────────
+await page.evaluate(() => localStorage.clear());
+await page.goto(BASE);
+await wait(4000);
+let mashing = true;
+const masher = (async () => {
+  while (mashing) {
+    await page.keyboard.press("Space");
+    await wait(90);
+  }
+})();
+let seaSeen = 0;
+const mashDone = await until(async () => {
+  if (await hasObject("opening-sea")) seaSeen = seaSeen || Date.now();
+  else if (seaSeen > 0 && seaSeen < 1e15) seaSeen = 1e15 + (Date.now() - seaSeen);
+  return (await state()).free;
+}, 120000, 50);
+mashing = false;
+await masher;
+await wait(800);
+s = await state();
+const seaMs = seaSeen - 1e15;
+check("mashing Space ends with the game free", mashDone);
+check("mashing Space cannot skip the sea cinematic", seaMs > 5000 && seaMs < 12000, `${seaMs} ms`);
+check("after mashing: quest 2, nothing open", s.milestone === 2 && s.free && !(await mapCardOpen()), JSON.stringify(s));
+check("after mashing: Tadeo and Chuleta are at the landing pier", Math.hypot(s.x + 66, s.z - 47) < 3 && (await chuletaVisible()), JSON.stringify(s));
+const mashed = await story();
+check("after mashing: wreck on the sand, no boat at the pier", mashed.wreck && !mashed.pierBoat);
+check("after mashing: nothing of the opening is left", !(await hasObject("opening-sea")) && !(await hasObject("opening-beach")));
+check("after mashing: the camera is back with Tadeo", await page.evaluate(() => {
+  const g = window.game;
+  return g.cinematic === null && g.island.camera.position.distanceTo(g.island.player.position) < 25;
+}));
+await shot("20-after-mashing");
 check("no page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
 
 await browser.close();

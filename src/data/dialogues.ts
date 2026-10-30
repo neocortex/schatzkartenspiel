@@ -17,31 +17,40 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   // -----------------------------------------------------------------------
   // Milestone 1: Arrival
   // -----------------------------------------------------------------------
-  intro: [
+  intro_bottle: [
     {
       speaker: "Erzähler",
       portrait: "",
-      text: "Nach langer Reise über das weite Meer erreicht Tadeo endlich die geheimnisvolle Schatzinsel...",
-    },
-    {
-      speaker: "Tadeo",
-      portrait: "portrait_tadeo",
-      text: "Das muss sie sein! Die Insel von der alten Schatzkarte! Irgendwo hier liegt ein unglaublicher Schatz verborgen.",
-    },
-    {
-      speaker: "Tadeo",
-      portrait: "portrait_tadeo",
-      text: "Ich muss die Insel erkunden und den Schatz finden. Aber zuerst sollte ich mich umsehen.",
+      text: "Eines Morgens findet Tadeo am Strand eine Flaschenpost.",
     },
     {
       speaker: "Erzähler",
       portrait: "",
-      text: "Benutze die Pfeiltasten zum Bewegen und die Leertaste zum Interagieren!",
+      text: "Darin ist eine alte Schatzkarte. Sie zeigt eine kleine Insel mit einem großen X.",
+    },
+  ],
+  intro_treasure: [
+    {
+      speaker: "Tadeo",
+      portrait: "portrait_tadeo",
+      text: "Ein Schatz! Den hole ich mir!",
+    },
+  ],
+  intro_arrival: [
+    {
+      speaker: "Chuleta",
+      portrait: "",
+      text: "Gack! Der Hai hat unser Boot kaputt gemacht!",
+    },
+    {
+      speaker: "Stimme",
+      portrait: "",
+      text: "Hilfe! Hilfe!",
     },
     {
       speaker: "Tadeo",
       portrait: "portrait_tadeo",
-      text: "Ich sehe Rauch im Westen... Das könnte ein Vulkan sein! Ich sollte dort nachsehen.",
+      text: "Das kommt vom Vulkan! Schnell!",
     },
   ],
 

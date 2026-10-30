@@ -53,7 +53,8 @@ export class IslandScene implements GameScene {
   update(dt: number, time: number): void {
     const input = this.engine?.input;
     if (input) {
-      if (input.consume("Space")) this.player.jump();
+      // Reason: while a cutscene owns the controls the press stays readable, so a card shown over the island can see it
+      if (this.player.controlsEnabled && input.consume("Space")) this.player.jump();
       this.player.update(dt, input, this.rig.yaw);
     }
     this.island.update(dt, time);

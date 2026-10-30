@@ -42,6 +42,12 @@ export function createWater(world: WorldUniforms, skyColor: THREE.Color): THREE.
   return mesh;
 }
 
+/** JS twin of the waves in the shader, for open water: the height of the surface at a point. */
+export function waterHeight(x: number, z: number, time: number): number {
+  const w = Math.sin(x * 0.16 + time * 0.9) * 0.5 + Math.sin(z * 0.21 - time * 1.1 + x * 0.05) * 0.35 + Math.sin((x + z) * 0.37 + time * 1.7) * 0.15;
+  return WATER_LEVEL + w * 0.22;
+}
+
 const WAVES_GLSL = /* glsl */ `
 float waveHeight(vec2 p, float t) {
   return sin(p.x * 0.16 + t * 0.9) * 0.5

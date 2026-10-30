@@ -96,7 +96,7 @@ export class Boat {
     this.kick += this.kickV * dt;
     const k = Math.min(dt * 6, 1);
     const afloat = 1 - this.aground;
-    // Reason: riding a little low keeps the model's floorboards (which poke out at the stern) under water
+    // Reason: riding a little low sits the hull deep in the swell
     this.root.position.y = lerp(this.root.position.y, ((bow + stern + port + star) * 0.25 - 0.1) * afloat + this.aground * 0.4 + this.kick, k);
     this.turn = lerp(this.turn, this.vx, Math.min(dt * 4, 1));
     this.tilt.rotation.x = lerp(this.tilt.rotation.x, (Math.atan2(bow - stern, 4) * 0.8) * afloat - this.aground * 0.07 - this.kick * 0.25, k);

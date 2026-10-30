@@ -14,12 +14,13 @@ import { Beacon } from "./Beacon";
 import { Npcs, Npc } from "./Npcs";
 import { Title } from "./Title";
 import { Chuleta } from "../characters/Chuleta";
-import { CHULETA_INTRO, CHULETA_HINTS, CHULETA_CHEERS } from "./chuletaLines";
+import { CHULETA_HINTS, CHULETA_CHEERS } from "./chuletaLines";
 import { Coins, COIN_COUNT } from "./Coins";
 import { Wardrobe } from "./Wardrobe";
 import { SIDE_GAMES, SideGame } from "./sideGames";
 import { Sightings } from "./Sightings";
 import { StoryWorld } from "./StoryWorld";
+import { playOpening } from "./opening";
 import { showEndCard } from "../ui/EndCard";
 import { QuestManager } from "../systems/QuestManager";
 import { InventoryManager } from "../systems/InventoryManager";
@@ -60,9 +61,6 @@ const TABLET_DIALOGUES = ["lake_tablet1", "lake_tablet2", "lake_tablet3"];
 const TALK_RANGE = 2.8;
 /** Seconds without progress before Chuleta offers a hint. */
 const HINT_AFTER = 45;
-
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const ease = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
 
 export class Game {
   private ui = new GameUI();
@@ -332,30 +330,16 @@ export class Game {
     this.wardrobe.dress(this.coins.collected);
     this.tabletsRead.clear();
     this.ui.hud.refresh();
-    await this.intro();
-  }
-
-  /** Flight from the open sea down to Tadeo on the landing beach, then the intro talk. */
-  private async intro(): Promise<void> {
-    const p = this.island.player;
-    this.placePlayer(LANDMARKS.spawn[0], LANDMARKS.spawn[1], 0);
-    const from: Shot = { pos: new THREE.Vector3(-150, 34, 135), look: new THREE.Vector3(-74, 4, 56) };
-    const to: Shot = {
-      pos: p.position.clone().add(new THREE.Vector3(1.5, 4.5, 8.5)),
-      look: p.position.clone().add(new THREE.Vector3(0, 1.2, 0)),
-    };
-    this.startCinematic((t) => {
-      const k = ease(Math.min(t / 9, 1));
-      return { pos: from.pos.clone().lerp(to.pos, k), look: from.look.clone().lerp(to.look, k) };
+    await playOpening({
+      engine: this.engine,
+      ui: this.ui,
+      island: this.island,
+      talk: (script) => this.talk(script),
+      startCinematic: (fn) => this.startCinematic(fn),
+      endCinematic: (seconds) => this.endCinematic(seconds),
+      placePlayer: (x, z, facing) => this.placePlayer(x, z, facing),
+      chuleta: this.chuleta,
     });
-    this.islandAudio();
-    await this.engine.fade(0, 1200);
-    await wait(3600);
-    await this.ui.hud.showBanner("Kapitel 1", QUESTS[0].name, 3200);
-    await wait(2400);
-    this.endCinematic(1.8);
-    await this.talk("intro");
-    await this.talk(CHULETA_INTRO);
     this.ui.hud.setVisible(true);
     await this.advance();
     this.busy = false;

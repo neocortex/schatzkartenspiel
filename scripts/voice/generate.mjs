@@ -22,22 +22,24 @@ const V2 = "eleven_multilingual_v2";
 /** Who speaks with which ElevenLabs library voice and model. */
 const NARRATOR = { voice: "yYTemNXovAWXGGqLADJf", model: V4 }; // Finn Fable
 const ELDER = { voice: "YyYOpSknZlewhHezK5bv", model: V4 }; // Oswald
+const PACO = { voice: "pfvZahoGcT3NdpxRuNkg", model: V4 }; // Bruno, der Bär
 const CAST = {
   Erzähler: NARRATOR,
   Steintafel: NARRATOR,
-  Schild: NARRATOR,
   Tadeo: { voice: "Ewvy14akxdhONg4fmNry", model: V4 }, // Finnegan
   Chuleta: { voice: "zndmYEEoWWxRYyEL2ZZY", model: V4 }, // Lumi
   Oger: { voice: "XQSEqtl2af3AAUCwmX7b", model: V2 }, // Gorak
   Dorfältester: ELDER,
-  "Opa Kalle": ELDER,
+  "Käpt'n Paco": PACO,
+  Stimme: PACO,
+  Maulwurf: { voice: "2HDQZbLZn0MJCgru92h7", model: V4 }, // Knurps
   "Kleine Mia": { voice: "QNDh5mDABxDpT3PEzjST", model: V4 }, // Emmy
   Fuchs: { voice: "1TdRi8sZB0xAhMlS3uBQ", model: V4 }, // Skylo
   "Weise Frau": { voice: "yL6cMfg79EwETG98xIR2", model: V4 }, // Laura Mondschein
   "Weiser Mann": { voice: "2baru8J0e15nxuG3bzXy", model: V4 }, // Cornelius
   "Bäckerin Lina": { voice: "1iF3vHdwHKuVKSPDK23Z", model: V4 }, // Louisa
   "Fischer Jonas": { voice: "Cx9eG8CNCDtCPeLiemtm", model: V4 }, // Holger
-  Geist: { voice: "XSqtBhCcfQ9Pn4yLIHsk", model: V4 }, // Fritz
+  Hüter: { voice: "XSqtBhCcfQ9Pn4yLIHsk", model: V4 }, // Fritz
 };
 
 /** The text as the voices read it: Chuleta is a Spanish name, and a German voice only says its "ch" right as "tsch". */

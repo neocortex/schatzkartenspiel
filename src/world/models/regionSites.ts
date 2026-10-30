@@ -143,20 +143,20 @@ function buildJungleRuin(ctx: LandmarkContext): void {
   }
 }
 
-/** A friendly giant stone head with a mossy top, looking out over the jungle. */
-function stoneHead(stone: ColorFn): Model {
+/** A friendly giant stone head with a mossy top, looking out over the jungle. The Hüter's ghost wears the same face. */
+export function stoneHead(stone: ColorFn, mouth: THREE.ColorRepresentation = PAL.stoneDark, moss: THREE.ColorRepresentation = PAL.moss): Model {
   const m = emptyModel();
   m.solid.push(rbox(2.4, 3.2, 2.0, stone, { pos: [0, 1.6, 0] }, 0.35, 3));
   m.solid.push(rbox(2.6, 0.5, 2.2, stone, { pos: [0, 3.25, 0] }, 0.2, 2));
   // Brow, nose, smile and ears
   m.solid.push(rbox(2.2, 0.32, 0.4, stone, { pos: [0, 2.3, 1.0] }, 0.12));
   m.solid.push(rbox(0.5, 1.0, 0.55, stone, { pos: [0, 1.75, 1.15] }, 0.18, 2));
-  m.solid.push(rbox(1.3, 0.22, 0.25, PAL.stoneDark, { pos: [0, 0.95, 1.02] }, 0.1));
+  m.solid.push(rbox(1.3, 0.22, 0.25, mouth, { pos: [0, 0.95, 1.02] }, 0.1));
   for (const sx of [-1, 1]) {
     m.solid.push(rbox(0.3, 1.0, 0.5, stone, { pos: [sx * 1.3, 1.9, 0] }, 0.12));
     m.dark.push(ball(0.2, "#1d1a18", [sx * 0.55, 2.0, 1.02], 1, [1.2, 0.8, 0.4]));
   }
-  m.solid.push(ball(0.9, PAL.moss, [0.3, 3.55, 0.1], 1, [1.4, 0.35, 1.1]));
+  m.solid.push(ball(0.9, moss, [0.3, 3.55, 0.1], 1, [1.4, 0.35, 1.1]));
   return m;
 }
 

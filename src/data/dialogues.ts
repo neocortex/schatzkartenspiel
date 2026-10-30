@@ -115,7 +115,7 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   ],
   lake_tablet3: [
     {
-      speaker: "Geist",
+      speaker: "Hüter",
       portrait: "",
       text: "Du bist also der Auserwählte... Bestehe die Prüfungen der Insel, junger Held. Der Schatz wartet auf dich.",
     },

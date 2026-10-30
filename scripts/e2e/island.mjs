@@ -7,6 +7,7 @@
  *  4. Quest 3 (debug start): talk to the village elder → quest 4 starts
  *  5. Quest 4 (debug start): read all three lake tablets → quest 5 starts
  *  6. Village (debug start): chat with a villager
+ *  6b. The new cast: portraits, faces in the dialogue box, Paco beside the elder, the mole in the cave, the Hüter on the lake
  *  7. Quest 12 (debug start): the island runs without a gate
  *  8. A save from an older version offers no Continue, and starting over keeps coins and hats
  *
@@ -198,7 +199,7 @@ check("villager offers a chat", s.prompt?.includes("Sprechen") ?? false, s.promp
 await page.keyboard.press("Space");
 await wait(900);
 const chatName = await page.textContent(".dialogue .name");
-check("chat dialogue with a villager", (await state()).dialogue && chatName === "Opa Kalle", chatName ?? "");
+check("chat dialogue with a villager", (await state()).dialogue && chatName === "Käpt'n Paco", chatName ?? "");
 await shot("08-village-chat");
 await finishDialogue();
 await waitUntilFree();
@@ -217,6 +218,140 @@ const fps = await page.evaluate(
     }),
 );
 check("runs smoothly (≥ 50 fps)", fps >= 50, `${fps.toFixed(1)} fps`);
+
+// ── 6b. The new cast ────────────────────────────────────────
+const portraitData = await page.evaluate(async () => (await import("/src/ui/Snapshots.ts")).renderSnapshots().portraits);
+const portraits = Object.keys(portraitData);
+check("every new speaker has a portrait", ["maulwurf", "hueter", "villager3"].every((k) => portraits.includes(k)));
+for (const k of ["villager3", "maulwurf", "hueter"]) {
+  if (portraitData[k]) writeFileSync(`${OUT}portrait-${k}.png`, Buffer.from(portraitData[k].split(",")[1], "base64"));
+}
+
+// Each new speaker in the real dialogue box: an image portrait, or the emoji for the voice nobody sees yet
+const faces = [
+  ["Käpt'n Paco", "img", "Danke, Junge! Ich bin Käpt'n Paco."],
+  ["Stimme", "🗣️", "Hilfe! Hilfe!"],
+  ["Maulwurf", "img", "Ich habe Hunger! Bring mir einen Leuchtpilz, dann grabe ich dir den Weg frei."],
+  ["Hüter", "img", "Ich bin der Hüter. Ich habe auf das Herz aufgepasst."],
+];
+for (const [i, [speaker, face, text]] of faces.entries()) {
+  await page.evaluate(([speaker, text]) => void window.game.ui.say([{ speaker, portrait: "", text }]), [speaker, text]);
+  await wait(500);
+  await page.keyboard.press("Space");
+  await wait(300);
+  const shown = await page.evaluate(() => {
+    const p = document.querySelector(".dialogue .portrait");
+    return p.querySelector("img") ? "img" : p.textContent;
+  });
+  check(`${speaker} has a face`, shown === face && (await page.textContent(".dialogue .name")) === speaker, shown);
+  await shot(`09-face-${i + 1}`);
+  await finishDialogue();
+}
+
+const oneCaptain = await page.evaluate(async () => {
+  const { createVillager } = await import("/src/characters/cast.ts");
+  const hat = (i) => !!createVillager(i).root.getObjectByName("captain-hat");
+  return { paco: hat(3), crowd: hat(7) };
+});
+check("createVillager(3) is Paco, and the crowd has no second Paco", oneCaptain.paco && !oneCaptain.crowd, JSON.stringify(oneCaptain));
+
+// Paco next to the elder, in the village's real light: they share scenes and must look clearly different
+const pacoY = await page.evaluate(() => window.game.npcs.get("villager3").position.y);
+await page.goto(`${BASE}?cam=71.15,${pacoY + 1.5},45.9,71.15,${pacoY + 0.85},42`);
+await wait(4000);
+await page.evaluate(() => {
+  const paco = window.game.npcs.get("villager3");
+  const elder = window.game.npcs.get("elder");
+  elder.position.set(paco.position.x - 1.7, paco.position.y, paco.position.z);
+  elder.avatar.root.position.copy(elder.position);
+  paco.homeFacing = elder.homeFacing = 0;
+});
+await wait(1200);
+await shot("10-paco-and-elder");
+
+// The mole in the real cave, by torchlight, next to Tadeo
+await page.goto(`${BASE}?challenge=cave`);
+await wait(6000);
+for (let i = 0; i < 40 && (await page.evaluate(() => !!document.querySelector(".dialogue.open"))); i++) {
+  await page.keyboard.press("Space");
+  await wait(220);
+}
+const moleStart = await page
+  .evaluate(async () => {
+    const { createMole } = await import("/src/characters/Mole.ts");
+    const cave = window.engine.scene;
+    const p = cave.player.position;
+    // Reason: the first open spot beside Tadeo, in front of the camera
+    const spot = [[1.7, -0.9], [-1.7, -0.9], [1.7, 0.4], [-1.7, 0.4], [0, -2]]
+      .map(([dx, dz]) => [p.x + dx, p.z + dz])
+      .find(([x, z]) => cave.world.field.openAt(x, z) > 0.42);
+    const mole = createMole();
+    mole.root.position.set(spot[0], cave.world.field.heightAt(spot[0], spot[1]), spot[1]);
+    mole.root.rotation.y = Math.atan2(p.x - spot[0], p.z - spot[1]);
+    cave.scene.add(mole.root);
+    let last = performance.now();
+    const tick = (now) => {
+      mole.update((now - last) / 1000);
+      last = now;
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    window.mole = mole;
+    return { hungry: mole.hungry };
+  })
+  .catch((e) => ({ error: e.message }));
+check("the mole starts hungry", moleStart.hungry === true, JSON.stringify(moleStart));
+if (!moleStart.error) {
+  await wait(1500);
+  await shot("11-mole-hungry");
+  await page.evaluate(() => void (window.moleDug = window.mole.dig()));
+  await wait(1100);
+  await shot("12-mole-digging");
+  await page.evaluate(() => window.moleDug);
+  check("the mole finishes digging and is no longer hungry", await page.evaluate(() => !window.mole.hungry));
+  await wait(600);
+  await shot("13-mole-fed");
+}
+
+// The Hüter over the lake: hidden, rises, stays see-through, fades away
+await page.goto(`${BASE}?quest=4&cam=2,3.4,17,2,3.2,2`);
+await wait(4000);
+const hueterStart = await page
+  .evaluate(async () => {
+    const { createHueter } = await import("/src/characters/Hueter.ts");
+    const { LANDMARKS, WATER_LEVEL } = await import("/src/world/layout.ts");
+    const hueter = createHueter();
+    hueter.root.position.set(LANDMARKS.lake[0], WATER_LEVEL, LANDMARKS.lake[1]);
+    window.game.island.scene.add(hueter.root);
+    const tick = (now) => {
+      hueter.update(1 / 60, now / 1000);
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    window.hueter = hueter;
+    const mats = [];
+    hueter.root.traverse((o) => o.material && mats.push(o.material));
+    const additive = mats.filter((m) => m.blending === 2);
+    return { hiddenFirst: !hueter.root.visible, seeThrough: mats.every((m) => m.transparent), additive: additive.length, foggy: additive.filter((m) => m.fog).length };
+  })
+  .catch((e) => ({ error: e.message }));
+check("the Hüter is hidden until he rises", hueterStart.hiddenFirst === true, JSON.stringify(hueterStart));
+check("every part of the Hüter is see-through", hueterStart.seeThrough === true);
+check("his additive parts ignore fog", hueterStart.additive > 0 && hueterStart.foggy === 0);
+if (!hueterStart.error) {
+  await page.evaluate(() => void (window.hueterRisen = window.hueter.rise()));
+  await wait(1300);
+  await shot("14-hueter-rising");
+  await page.evaluate(() => window.hueterRisen);
+  check("the Hüter has risen", await page.evaluate(() => window.hueter.root.visible));
+  await wait(800);
+  await shot("15-hueter-lake");
+  await page.evaluate(() => void (window.hueterGone = window.hueter.fade()));
+  await wait(1300);
+  await shot("16-hueter-fading");
+  await page.evaluate(() => window.hueterGone);
+  check("the Hüter fades away", await page.evaluate(() => !window.hueter.root.visible));
+}
 
 // ── 7. Quest 12 has no gate on the island yet: the game must still run (page errors are checked at the end)
 await page.goto(`${BASE}?quest=12`);

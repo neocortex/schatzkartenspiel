@@ -36,6 +36,7 @@ const VILLAGERS: { at: P2; facing: number; name: string; lines: string[] }[] = [
     lines: [
       "Hallo Tadeo! Heute beißen die Fische besonders gut.",
       "Hast du die Krabben am Strand gesehen? Die laufen immer seitwärts!",
+      "Mit meinem kleinen Boot bleibe ich am Ufer. Wegen dem Hai.",
     ],
   },
   {
@@ -53,7 +54,7 @@ const VILLAGERS: { at: P2; facing: number; name: string; lines: string[] }[] = [
   {
     at: [72, 42],
     facing: -1.2,
-    name: "Opa Kalle",
+    name: "Käpt'n Paco",
     lines: ["Als ich jung war, habe ich auch nach dem Schatz gesucht...", "Vor dem Oger an der Brücke hatten wir alle Angst."],
   },
 ];

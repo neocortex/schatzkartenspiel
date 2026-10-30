@@ -8,11 +8,20 @@ import { Humanoid } from "../characters/Humanoid";
 import { createTadeo, createElder, createWiseWoman, createWiseMan, createVillager } from "../characters/cast";
 import { createItem, ItemKey } from "../world/models/items";
 import { createChuletaModel } from "../characters/Chuleta";
+import { createMole } from "../characters/Mole";
+import { createHueter } from "../characters/Hueter";
 
 const SIZE = 192;
 
-function snapshot(object: THREE.Object3D, camPos: THREE.Vector3, look: THREE.Vector3, renderer: THREE.WebGLRenderer): string {
+function snapshot(
+  object: THREE.Object3D,
+  camPos: THREE.Vector3,
+  look: THREE.Vector3,
+  renderer: THREE.WebGLRenderer,
+  background: THREE.Color | null = null,
+): string {
   const scene = new THREE.Scene();
+  scene.background = background;
   scene.add(new THREE.HemisphereLight("#ffffff", "#8a7a6a", 2.2));
   const key = new THREE.DirectionalLight("#fff4e0", 2.4);
   key.position.set(2, 3, 4);
@@ -37,13 +46,13 @@ export function renderSnapshots(): SnapshotSet {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.setClearColor(0x000000, 0);
 
-  const portrait = (h: Humanoid) => {
+  const portrait = (h: Humanoid, lift = 0.05, distance = 1.7) => {
     h.update(0.016, { speed: 0, grounded: true, vy: 0 });
     h.root.updateMatrixWorld(true);
     const head = new THREE.Vector3();
     h.head.getWorldPosition(head);
-    head.y += 0.05;
-    return snapshot(h.root, head.clone().add(new THREE.Vector3(0.35, 0.12, 1.7)), head, renderer);
+    head.y += lift;
+    return snapshot(h.root, head.clone().add(new THREE.Vector3(0.35, 0.12, distance)), head, renderer);
   };
 
   const portraits: Record<string, string> = {
@@ -52,8 +61,18 @@ export function renderSnapshots(): SnapshotSet {
     wiseWoman: portrait(createWiseWoman()),
     wiseMan: portrait(createWiseMan()),
   };
-  for (let i = 0; i < 4; i++) portraits[`villager${i}`] = portrait(createVillager(i));
+  for (let i = 0; i < 3; i++) portraits[`villager${i}`] = portrait(createVillager(i));
+  // Reason: Paco's portrait sits further back, so his hat and full beard both fit in the frame
+  portraits.villager3 = portrait(createVillager(3), -0.02, 2.95);
   portraits.chuleta = snapshot(createChuletaModel().root, new THREE.Vector3(0.32, 0.88, 1.3), new THREE.Vector3(0, 0.7, 0.08), renderer);
+  const mole = createMole();
+  mole.update(0.016);
+  portraits.maulwurf = snapshot(mole.root, new THREE.Vector3(0.5, 1.02, 3.4), new THREE.Vector3(0, 0.86, 0), renderer);
+  const hueter = createHueter();
+  void hueter.rise();
+  // Reason: one huge step lands at the end of his entrance; a dark backdrop makes the pale ghost stand out in the portrait
+  hueter.update(10, 0);
+  portraits.hueter = snapshot(hueter.root, new THREE.Vector3(1.1, 4.3, 7.2), new THREE.Vector3(0, 4, 0), renderer, new THREE.Color("#12324f"));
 
   const items = {} as Record<ItemKey, string>;
   for (const key of ["sword", "berry", "key", "hammer"] as ItemKey[]) {

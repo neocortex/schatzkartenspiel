@@ -9,14 +9,15 @@ import { NarrationManager } from "../systems/NarrationManager";
 import { audio } from "../audio/Audio";
 import { Input } from "../core/Input";
 
+const PACO_COLOR = "#27477e";
+
 /** Portrait key, emoji fallback and name-tag colour per speaker. */
 const SPEAKERS: Record<string, { portrait?: string; emoji?: string; color: string }> = {
   Tadeo: { portrait: "tadeo", color: "#ff7a1a" },
   Chuleta: { portrait: "chuleta", color: "#b0622f" },
   Erzähler: { emoji: "📖", color: "#3a5ba0" },
   Steintafel: { emoji: "🗿", color: "#7d7468" },
-  Schild: { emoji: "🪧", color: "#8a5530" },
-  Geist: { emoji: "👻", color: "#58a6c9" },
+  Hüter: { portrait: "hueter", color: "#58a6c9" },
   Dorfältester: { portrait: "elder", color: "#7b4bb5" },
   "Weise Frau": { portrait: "wiseWoman", color: "#1fa38a" },
   "Weiser Mann": { portrait: "wiseMan", color: "#e07a10" },
@@ -24,7 +25,9 @@ const SPEAKERS: Record<string, { portrait?: string; emoji?: string; color: strin
   "Fischer Jonas": { portrait: "villager0", color: "#2f7fb5" },
   "Bäckerin Lina": { portrait: "villager1", color: "#c0603a" },
   "Kleine Mia": { portrait: "villager2", color: "#e0457b" },
-  "Opa Kalle": { portrait: "villager3", color: "#6b6b8a" },
+  "Käpt'n Paco": { portrait: "villager3", color: PACO_COLOR },
+  Stimme: { emoji: "🗣️", color: PACO_COLOR },
+  Maulwurf: { portrait: "maulwurf", color: "#96623f" },
   Fuchs: { emoji: "🦊", color: "#e8762b" },
 };
 

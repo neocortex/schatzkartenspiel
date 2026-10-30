@@ -101,8 +101,31 @@ export function createWiseMan(): Humanoid {
   return h;
 }
 
-/** Generic villagers for the plaza, varied by index. */
+/** Käpt'n Paco: an old sailor with a bushy white beard, a captain's hat, a navy coat and a pirate's gold earring. */
+export function createPaco(): Humanoid {
+  const h = new Humanoid({
+    skin: "#f4b890",
+    hair: "#f4f2ea",
+    // Reason: the hat is the top of his head; his white hair only shows as tufts below it (see addSailorBeard)
+    hairStyle: "bald",
+    shirt: "#27477e",
+    pants: "#2b2f45",
+    shoes: "#2a1e16",
+  });
+  addCaptainHat(h);
+  addSailorBeard(h);
+  addSeaCoat(h);
+  const earring = new THREE.Mesh(new THREE.TorusGeometry(0.042, 0.013, 8, 16), mat("#ffc83d", 0.3, 0.5));
+  earring.position.set(0.395, -0.105, 0.03);
+  earring.rotation.y = 0.75;
+  h.head.add(earring);
+  return h;
+}
+
+/** Villagers for the plaza, varied by index. Number 3 is Paco; only the crowd asks for higher numbers. */
 export function createVillager(i: number): Humanoid {
+  // Reason: Paco is one person, so the looks repeat for the crowd without cloning his hat and beard
+  if (i === 3) return createPaco();
   const looks = [
     { skin: "#e0a77a", hair: "#7a3e1d", hairStyle: "short", shirt: "#3d8bfd", pants: "#6b4a2b", shoes: "#3a2a1a" },
     { skin: "#8d5a3b", hair: "#1a1a1a", hairStyle: "bun", shirt: "#ffcf3a", pants: "#c0392b", shoes: "#3a2a1a" },
@@ -117,6 +140,124 @@ function addBeard(h: Humanoid, color: THREE.ColorRepresentation): void {
   beard.position.set(0, -0.3, 0.2);
   beard.rotation.x = Math.PI + 0.35;
   h.head.add(beard);
+}
+
+/** White-topped peaked cap with a navy band, a shiny black visor and a gold anchor. */
+function addCaptainHat(h: Humanoid): void {
+  const hat = new THREE.Group();
+  hat.name = "captain-hat";
+  const white = mat("#fbf9f2", 0.7);
+  const navy = mat("#1d2f57", 0.7);
+  const gold = mat("#ffc83d", 0.3, 0.5);
+
+  const band = toonMesh(new THREE.CylinderGeometry(0.355, 0.35, 0.13, 28), navy);
+  band.position.y = 0.245;
+  const crown = toonMesh(new THREE.CylinderGeometry(0.455, 0.355, 0.13, 28), white);
+  crown.position.y = 0.37;
+  const lid = toonMesh(new THREE.SphereGeometry(0.455, 28, 8, 0, Math.PI * 2, 0, Math.PI / 2), white);
+  lid.scale.y = 0.2;
+  lid.position.y = 0.432;
+  const cord = new THREE.Mesh(new THREE.TorusGeometry(0.358, 0.014, 6, 36), gold);
+  cord.rotation.x = Math.PI / 2;
+  cord.position.y = 0.305;
+  hat.add(band, crown, lid, cord);
+
+  // Reason: a flat oval pushed forward: only its front pokes out from under the band, so the peak has round ends
+  const visor = toonMesh(new THREE.SphereGeometry(0.44, 28, 10), mat("#14141c", 0.25));
+  visor.scale.set(0.88, 0.09, 1);
+  visor.position.set(0, 0.215, 0.13);
+  visor.rotation.x = 0.16;
+  hat.add(visor);
+
+  // Gold anchor on the front of the crown
+  const anchor = new THREE.Group();
+  const shank = new THREE.Mesh(new THREE.CapsuleGeometry(0.012, 0.09, 3, 6), gold);
+  const stock = new THREE.Mesh(new THREE.CapsuleGeometry(0.01, 0.055, 3, 6), gold);
+  stock.rotation.z = Math.PI / 2;
+  stock.position.y = 0.035;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.014, 0.006, 5, 10), gold);
+  ring.position.y = 0.072;
+  const flukes = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.011, 6, 12, Math.PI), gold);
+  flukes.rotation.z = Math.PI;
+  flukes.position.y = -0.028;
+  anchor.add(shank, stock, ring, flukes);
+  anchor.position.set(0, 0.365, 0.415);
+  anchor.rotation.x = -0.45;
+  hat.add(anchor);
+
+  // Reason: pushed back and a bit to the side, so the eyes stay free and the old man looks jaunty
+  hat.rotation.set(-0.12, 0, -0.07);
+  hat.position.y = -0.045;
+  h.head.add(hat);
+}
+
+/** A big soft beard of round puffs from ear to ear, white hair below the hat, a moustache and a ruddy nose. */
+function addSailorBeard(h: Humanoid): void {
+  const white = mat("#f8f6ef", 0.85);
+  const puff = (r: number, x: number, y: number, z: number) => {
+    const m = toonMesh(new THREE.SphereGeometry(r, 14, 10), white);
+    m.position.set(x, y, z);
+    h.head.add(m);
+  };
+  // Tufts of hair at the temples and around the back of the head
+  for (const [x, y, z, r] of [[-0.34, 0.11, -0.03, 0.08], [0.34, 0.11, -0.03, 0.08], [-0.24, 0.06, -0.22, 0.11], [0.24, 0.06, -0.22, 0.11], [0, 0.03, -0.31, 0.12]]) {
+    puff(r, x, y, z);
+  }
+  // Along the jaw: starting below the ears (the earring stays visible), fuller towards the chin
+  for (const a of [-1.05, -0.7, -0.35, 0, 0.35, 0.7, 1.05]) {
+    const front = Math.cos(a);
+    puff(0.085 + 0.05 * front, Math.sin(a) * 0.335, -0.09 - 0.235 * front, front * 0.31);
+  }
+  // The full lower beard, resting on his chest
+  for (const [x, y, z, r] of [[-0.14, -0.44, 0.2, 0.125], [0.14, -0.44, 0.2, 0.125], [0, -0.53, 0.2, 0.125], [0, -0.41, 0.26, 0.11]]) {
+    puff(r, x, y, z);
+  }
+  for (const side of [-1, 1]) {
+    const tache = toonMesh(new THREE.CapsuleGeometry(0.04, 0.095, 4, 8), white, false);
+    tache.position.set(side * 0.085, -0.098, 0.348);
+    tache.rotation.set(0, side * 0.3, Math.PI / 2 - side * 0.38);
+    h.head.add(tache);
+  }
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.062, 12, 10), mat("#ee8f76", 0.5));
+  nose.position.set(0, -0.042, 0.35);
+  h.head.add(nose);
+}
+
+/** Over the plain shirt: gold buttons, a round tummy, coat tails, long sleeves with gold cuffs and epaulettes. */
+function addSeaCoat(h: Humanoid): void {
+  const coat = mat("#27477e", 0.75);
+  const gold = mat("#ffc83d", 0.3, 0.5);
+  const tummy = toonMesh(new THREE.SphereGeometry(0.215, 16, 12), coat);
+  tummy.scale.set(1.05, 0.95, 0.98);
+  tummy.position.set(0, 0.145, 0.025);
+  const tails = toonMesh(new THREE.CylinderGeometry(0.215, 0.29, 0.22, 14), coat);
+  tails.position.y = -0.055;
+  const belt = toonMesh(new THREE.CylinderGeometry(0.228, 0.228, 0.06, 16), mat("#4a2e1c", 0.6), false);
+  belt.scale.z = 0.94;
+  belt.position.set(0, 0.055, 0.012);
+  const buckle = new THREE.Mesh(new RoundedBoxGeometry(0.1, 0.075, 0.03, 2, 0.012), gold);
+  buckle.position.set(0, 0.055, 0.226);
+  h.torso.add(tummy, tails, belt, buckle);
+  for (let row = 0; row < 3; row++) {
+    for (const side of [-1, 1]) {
+      const button = new THREE.Mesh(new THREE.SphereGeometry(0.021, 8, 6), gold);
+      const x = side * 0.08;
+      const y = 0.12 + row * 0.07;
+      button.position.set(x, y, 0.025 + Math.sqrt(0.215 ** 2 - x * x - (y - 0.145) ** 2) * 0.98);
+      h.torso.add(button);
+    }
+  }
+  for (const arm of [h.armL, h.armR]) {
+    const sleeve = toonMesh(new THREE.CapsuleGeometry(0.076, 0.13, 4, 8), coat);
+    sleeve.position.y = -0.17;
+    const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.073, 0.015, 6, 14), gold);
+    cuff.rotation.x = Math.PI / 2;
+    cuff.position.y = -0.245;
+    const epaulette = toonMesh(new THREE.SphereGeometry(0.1, 12, 8), gold);
+    epaulette.scale.set(1, 0.42, 1);
+    epaulette.position.y = 0.035;
+    arm.add(sleeve, cuff, epaulette);
+  }
 }
 
 function addStaff(h: Humanoid, wood: THREE.ColorRepresentation, gem: THREE.ColorRepresentation): void {

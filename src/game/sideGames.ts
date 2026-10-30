@@ -39,6 +39,8 @@ export const SIDE_GAMES: SideGame[] = [
     verb: "Angeln",
     invite: [
       jonas("Hallo Tadeo! Heute beißen die Fische besonders gut."),
+      // Reason: Jonas always opens this invitation instead of a chat, so the player only hears the boat line here
+      jonas("Mit meinem kleinen Boot bleibe ich am Ufer. Wegen dem Hai."),
       jonas("Kommst du mit auf den Steg? Wer fünf Fische fängt, bekommt meinen alten Anglerhut!"),
       tadeo("Au ja, ich komme mit!"),
     ],
@@ -53,7 +55,7 @@ export const SIDE_GAMES: SideGame[] = [
     back: [56, 52.4],
     verb: "Hühner fangen",
     invite: [
-      mia("Tadeo, Hilfe! Meine Hühner sind aus dem Stall gelaufen!"),
+      mia("Tadeo, Hilfe! Der Vulkan hat gerumpelt, und meine Hühner sind weggelaufen!"),
       mia("Fängst du sie wieder ein? Dann bekommst du die goldene Hühnerkönig-Krone!"),
       tadeo("Keine Sorge, Mia. Ich fange sie alle!"),
     ],

@@ -3,6 +3,8 @@
 Status: approved to build in stages (2026-10-26). Built in the worktree branch `worktree-island-expansion`
 so the current game stays playable on `main`.
 
+The story section and stage 2 are replaced by `2026-10-30-story-rethink-design.md`.
+
 ## Why
 
 Tadeo (7) loves the island but wants *more world*: more to explore, more kinds of nature and animals,

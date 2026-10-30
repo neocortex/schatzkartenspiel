@@ -85,20 +85,51 @@ function hullBoard(m: Model, t0: number, t1: number, s: number, width: number, s
   m.solid.push((g.attributes.normal as THREE.BufferAttribute).getZ(0) * side < 0 ? flip(g) : g);
   for (const t of [t0 + 0.02, t1 - 0.02]) {
     const nail = at(t, s + width / 2);
-    m.solid.push(ball(0.028, PAL.iron, nail as V3, 0));
+    m.solid.push(ball(0.035, PAL.iron, nail as V3, 0));
   }
 }
 
-/** Mended holes: raw wooden boards on the hull's quarters and amidships, where they show from behind and the side. */
+/** A flat board with a nail near each end, its length along `yaw`. */
+function nailedBoard(m: Model, length: number, width: number, pos: V3, yaw: number, color: THREE.ColorRepresentation): void {
+  const thick = 0.07;
+  m.solid.push(rbox(length, thick, width, color, { pos, rot: [0, yaw, 0] }, 0.015));
+  const reach = length / 2 - 0.07;
+  for (const end of [-1, 1]) m.solid.push(ball(0.04, PAL.iron, [pos[0] + Math.cos(yaw) * reach * end, pos[1] + thick / 2, pos[2] - Math.sin(yaw) * reach * end], 0));
+}
+
+/** A board across the gunwale at rim angle a: mostly over the inside, `skew` turns it off square like a quick repair. */
+function rimBoard(m: Model, a: number, width: number, skew: number, color: THREE.ColorRepresentation): void {
+  const c = rimPoint(a);
+  const tangent = rimPoint(a + 0.02).sub(rimPoint(a - 0.02));
+  const out = new THREE.Vector3(tangent.z, 0, -tangent.x).normalize();
+  if (out.x * c.x + out.z * c.z < 0) out.negate();
+  const along = out.addScaledVector(tangent.setY(0).normalize(), skew).normalize();
+  const [inner, outer] = [0.34, 0.17];
+  const mid = c.addScaledVector(along, (outer - inner) / 2);
+  nailedBoard(m, inner + outer, width, [mid.x, c.y + 0.11, mid.z], Math.atan2(-along.z, along.x), color);
+}
+
+/**
+ * Mended holes: raw wooden boards. Those on the hull's quarters and amidships show from behind and the side; the
+ * follow camera looks down from behind the boat, so the ones that tell the story on the pier cross the dark gunwale
+ * on the pier side (+z) and the stern, and cover a tarred hole in the floor.
+ */
 function hullPatches(m: Model, rand: () => number): void {
+  const raw = () => tint("#ecca90", rand, 0.12);
+  // Reason: s runs along the hull's curve, which is short near the stern, so a board of normal width needs a big width in s
   const boards: [number, number, number, number, number][] = [
     // side, t0, t1, s, width
-    [1, -0.86, -0.46, 0.16, 0.13], [1, -0.82, -0.42, 0.31, 0.13], [1, -0.87, -0.5, 0.46, 0.13],
-    [-1, -0.84, -0.5, 0.26, 0.13], [-1, -0.88, -0.46, 0.41, 0.13], [-1, -0.8, -0.52, 0.56, 0.13],
-    [1, -0.1, 0.22, 0.34, 0.12], [1, -0.06, 0.26, 0.48, 0.12],
-    [-1, 0.0, 0.32, 0.3, 0.12], [-1, -0.04, 0.28, 0.44, 0.12],
+    [1, -0.86, -0.46, 0.1, 0.26], [-1, -0.84, -0.5, 0.18, 0.26],
+    [1, -0.1, 0.18, 0.2, 0.22], [-1, -0.04, 0.18, 0.24, 0.22],
   ];
-  for (const [side, t0, t1, s, w] of boards) hullBoard(m, t0, t1, s, w, side, tint("#e0b57e", rand, 0.14));
+  for (const [side, t0, t1, s, w] of boards) hullBoard(m, t0, t1, s, w, side, raw());
+  // rim angle (0 = bow, +z side first), width, skew
+  const across: [number, number, number][] = [[1.75, 0.24, 0.22], [2.05, 0.2, -0.2], [2.36, 0.26, 0.1], [2.7, 0.24, 0.35], [3.55, 0.26, -0.35], [-2.2, 0.22, 0.2]];
+  for (const [a, w, skew] of across) rimBoard(m, a, w, skew, raw());
+  // Tarred hole in the floor between the thwarts, with two boards across it
+  m.solid.push(rbox(0.95, 0.02, 0.62, "#33261d", { pos: [-0.28, 0.05, 0.27], rot: [0, 0.12, 0] }, 0.01));
+  nailedBoard(m, 0.56, 0.3, [-0.5, 0.085, 0.27], Math.PI / 2 - 0.1, raw());
+  nailedBoard(m, 0.56, 0.3, [-0.1, 0.085, 0.29], Math.PI / 2 + 0.14, raw());
 }
 
 /** Small sailboat with an optional name painted on both sides of the bow. */

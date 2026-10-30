@@ -330,6 +330,15 @@ export async function storyChecks({ page, BASE, check, shot, wait, brightness })
   });
   check("the wreck's colliders leave with it", wreckWall.before && !wreckWall.after, JSON.stringify(wreckWall));
 
+  // ── Only the mended boat has patches ──────────────────────
+  const boats = await page.evaluate(async () => {
+    const { sailboat, NORTH_DOCK_BOAT } = await import("/src/world/models/boats.ts");
+    // Reason: boats that must look unbroken are built from this constant; the name is left off, so no sign atlas is needed
+    const parts = (colors) => sailboat(null, colors, null, 23).solid.length;
+    return { constant: parts(NORTH_DOCK_BOAT), unbroken: parts({ ...NORTH_DOCK_BOAT, patched: false }), mended: parts({ ...NORTH_DOCK_BOAT, patched: true }) };
+  });
+  check("patches stay off the unbroken boat", boats.constant === boats.unbroken && boats.mended > boats.unbroken, JSON.stringify(boats));
+
   // ── Continue from a save ──────────────────────────────────
   const SAVES = { 2: { at: [-66, 47], items: [] }, 6: { at: [-60, -16], items: ["sword"] }, 8: { at: [65, 39.5], items: ["sword", "berry", "key"] }, 10: { at: [55.5, -11], items: ["sword", "berry", "key", "hammer"] }, 12: { at: DOCK_END, items: ["sword", "berry", "key", "hammer"] } };
   for (const [m, { at, items }] of Object.entries(SAVES)) {

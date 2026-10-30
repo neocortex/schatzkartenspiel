@@ -1,7 +1,7 @@
 # Schatzkartenspiel
 
 A 3D treasure-hunt adventure built with **Three.js**, **TypeScript** and **Vite**, made for Tadeo
-(7 years old). You play as **Tadeo** with his hen **Henni**: explore a lush toon-style island,
+(7 years old). You play as **Tadeo** with his hen **Chuleta**: explore a lush toon-style island,
 solve ten quests in their own mini-game worlds, help the villagers and find the king's treasure.
 All text and narration are in German.
 
@@ -16,7 +16,7 @@ All text and narration are in German.
   fireflies; flower hills with a windmill and sheep
 - Post-processing: bloom, tilt-shift, ACES tone mapping, vignette
 - Rendering capped at 60 FPS and 1.25× pixel density, with 2× multisample anti-aliasing to limit GPU load
-- Chibi toon characters with outlines; Henni the hen runs along, rides on Tadeo's head and gives hints
+- Chibi toon characters with outlines; Chuleta the hen runs along, rides on Tadeo's head and gives hints
 - Ten quests, each a separate 3D challenge scene (loaded on demand)
 - Side games in the village, gold coins all over the island, and outfits to unlock
 - Natural-sounding German voices for every line (recorded with ElevenLabs), with browser speech as fallback
@@ -141,7 +141,7 @@ src/
   main.ts          # boots the Engine and the Game
   core/            # Engine (renderer, post-processing, scene switching), Input, CameraRig, GLSL helpers
   world/           # the island: heightfield, regions, terrain, water, sky, grass, vegetation, landmarks, ambient life
-  characters/      # Humanoid toon characters, Tadeo's Player controller, Henni (and the hen model), hats
+  characters/      # Humanoid toon characters, Tadeo's Player controller, Chuleta (and the hen model), hats
   scenes/          # IslandScene (the overworld)
   game/            # adventure flow: quests, NPCs, coins, outfits, side games, beacon, title
   challenges/      # one folder per challenge (index.ts exports a factory), plus shared helpers

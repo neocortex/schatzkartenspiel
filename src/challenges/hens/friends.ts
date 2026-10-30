@@ -1,7 +1,7 @@
 /**
  * Kleine Mia, who waits at the coop, turns to watch Tadeo and jumps for joy
- * whenever a hen comes home. (Henni, Tadeo's own hen, comes along as on the
- * island: see characters/Henni.ts.)
+ * whenever a hen comes home. (Chuleta, Tadeo's own hen, comes along as on the
+ * island: see characters/Chuleta.ts.)
  */
 
 import * as THREE from "three";

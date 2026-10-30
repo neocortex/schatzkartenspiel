@@ -24,7 +24,7 @@ import { FishingWorld } from "./world";
 
 export type Phase = "intro" | "aim" | "cast" | "wait" | "nibble" | "bite" | "reel" | "show" | "miss" | "ending" | "done";
 export type BobberMode = "rod" | "fly" | "float" | "under" | "carried";
-export type Speaker = "Fischer Jonas" | "Tadeo" | "Henni";
+export type Speaker = "Fischer Jonas" | "Tadeo" | "Chuleta";
 
 /** Where the aim marker may go (over the open sand). */
 const AIM = { x0: -4.6, x1: 4.6, z0: -11.2, z1: -3.6 };
@@ -95,7 +95,7 @@ export class FishingGame {
     this.cam = new ShotCamera(camera);
     this.hud = new FishingHud(ui.layer, renderFishIcons());
     this.bucket = new Bucket(this.world.dock.bucket);
-    this.bubbles = { "Fischer Jonas": new SpeechBubble(ui.layer), Tadeo: new SpeechBubble(ui.layer), Henni: new SpeechBubble(ui.layer) };
+    this.bubbles = { "Fischer Jonas": new SpeechBubble(ui.layer), Tadeo: new SpeechBubble(ui.layer), Chuleta: new SpeechBubble(ui.layer) };
     let best = 0;
     try {
       best = Number(localStorage.getItem(BEST_KEY) ?? 0) || 0;
@@ -309,7 +309,7 @@ export class FishingGame {
     const head = (h: { head: THREE.Object3D }) => toScreen(this.camera, h.head.getWorldPosition(this.tmp).add(this.tmp2.set(0, 0.62, 0)));
     this.bubbles.Tadeo.place(head(crew.tadeo));
     this.bubbles["Fischer Jonas"].place(head(crew.jonas));
-    this.bubbles.Henni.place(toScreen(this.camera, crew.henni.root.getWorldPosition(this.tmp).add(this.tmp2.set(0, 0.75, 0))));
+    this.bubbles.Chuleta.place(toScreen(this.camera, crew.chuleta.root.getWorldPosition(this.tmp).add(this.tmp2.set(0, 0.75, 0))));
     if (!this.ui.dialogue.isOpen) {
       const who = (Object.keys(this.bubbles) as Speaker[]).find((k) => this.bubbles[k].showing);
       crew.speaker = who ?? null;

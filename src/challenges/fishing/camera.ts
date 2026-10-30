@@ -16,7 +16,7 @@ const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 export const SHOTS = {
   /** Over Tadeo's shoulder across the lagoon, horizon at the top. */
   play: { pos: v(0.9, 6.0, 4.4), look: v(-0.15, -1.0, -7.0) },
-  /** From the water, facing Jonas, Tadeo and Henni. */
+  /** From the water, facing Jonas, Tadeo and Chuleta. */
   talk: { pos: v(0.9, 1.85, -4.6), look: v(-0.2, 1.25, 0.1) },
   /** Close on a fresh catch held up in front of Tadeo (HOLD_AT in crew.ts), from the water side. */
   show: { pos: v(-0.18, 2.35, -3.7), look: v(-0.13, 1.75, -0.4) },

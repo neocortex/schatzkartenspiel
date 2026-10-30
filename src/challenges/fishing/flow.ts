@@ -41,7 +41,7 @@ async function intro(g: FishingGame): Promise<void> {
   g.cam.fly(SHOTS.talk, 3.2, 2.0);
   await g.wait(3.0);
   g.crew.act("wave");
-  g.crew.exciteHenni(1.2);
+  g.crew.exciteChuleta(1.2);
   await g.talk(INTRO);
   g.crew.act("hold");
   g.setStatus(false);
@@ -193,7 +193,7 @@ async function reelIn(g: FishingGame): Promise<void> {
 
 /**
  * Where a held-up catch hangs (its centre, `reach` below the hook): at head
- * height between Tadeo and Henni, swinging gently on the line. Also hangs the
+ * height between Tadeo and Chuleta, swinging gently on the line. Also hangs the
  * bobber above it.
  */
 function holdPoint(g: FishingGame, time: number, reach: number, out: THREE.Vector3): THREE.Vector3 {
@@ -244,7 +244,7 @@ async function landFish(g: FishingGame, fish: Fish): Promise<void> {
   g.phase = "show";
   g.cam.cut(SHOTS.show);
   g.crew.act("show");
-  g.crew.exciteHenni(2.2);
+  g.crew.exciteChuleta(2.2);
   g.crew.cheerJonas(1.6);
   const record = g.record(cm);
   g.hud.showCard({ icon: fish.kind, name: spec.name, size: `${cm} cm`, badge: golden ? "Ganz selten!" : record ? "Neuer Rekord!" : "", rare: golden });
@@ -307,8 +307,8 @@ async function goldenArrives(g: FishingGame): Promise<void> {
   g.goldenArrived = true;
   audio.playSfx("sfx_heal", 0.9);
   g.world.fx.sparkle(gold.pos, "#ffd84a", 50, 2);
-  g.crew.exciteHenni(2.4);
-  g.say("Henni", SAY.goldenSpotted, 3.4);
+  g.crew.exciteChuleta(2.4);
+  g.say("Chuleta", SAY.goldenSpotted, 3.4);
   await g.wait(1.2);
 }
 
@@ -345,7 +345,7 @@ async function landBottle(g: FishingGame): Promise<void> {
   g.phase = "show";
   g.cam.cut(SHOTS.show);
   g.crew.act("show");
-  g.crew.exciteHenni(2);
+  g.crew.exciteChuleta(2);
   g.hud.showCard({ icon: "bottle", name: "Flaschenpost!", size: "Kein Fisch, aber eine Überraschung", badge: "Ein Schatz-Tipp!" });
   audio.playSfx("sfx_chest_open", 0.9);
   g.world.fx.sparkle(bottle.position, "#bfffe0", 50, 2.6);
@@ -382,7 +382,7 @@ async function finale(g: FishingGame): Promise<void> {
   audio.playMusic("music_victory");
   g.crew.act("cheer");
   g.crew.cheerJonas(3);
-  g.crew.exciteHenni(3);
+  g.crew.exciteChuleta(3);
   g.cam.fly(SHOTS.talk, 2.2, 2.5);
   void g.ui.hud.showBanner("Super gemacht!", "5 Fische gefangen!", 2800);
   const colors = ["#ffd84a", "#ff6fa8", "#6fe8ff", "#9dff6f", "#ffffff"];
@@ -434,6 +434,6 @@ async function release(g: FishingGame): Promise<void> {
       });
   });
   await Promise.all(leaps);
-  g.crew.exciteHenni(1.6);
+  g.crew.exciteChuleta(1.6);
   await g.wait(1.0);
 }

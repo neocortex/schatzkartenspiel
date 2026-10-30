@@ -1,7 +1,7 @@
 /**
  * The hen game's overlay: the status pill (one hen icon per runaway, filled
  * in when she is home, plus a gentle timer), comic pop-up words over the yard
- * ("Gack!", "!", "Puh!", "Piep!"), speech bubbles that follow Mia and Henni
+ * ("Gack!", "!", "Puh!", "Piep!"), speech bubbles that follow Mia and Chuleta
  * and read their lines aloud, and the best time kept in localStorage.
  */
 

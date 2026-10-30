@@ -2,7 +2,7 @@
  * HenModel — a chubby toon hen (or a fluffy chick, or the golden hen) built
  * from outlined primitives with separate parts for procedural animation:
  * strutting legs, head bob and pecks, flapping wings, sitting, panting and a
- * springy squash-and-stretch. Mia's flock brain and Henni, Tadeo's companion,
+ * springy squash-and-stretch. Mia's flock brain and Chuleta, Tadeo's companion,
  * feed it a `HenPose` each frame.
  */
 

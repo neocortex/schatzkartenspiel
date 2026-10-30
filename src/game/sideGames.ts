@@ -23,7 +23,7 @@ export interface SideGame {
   again: DialogueScript;
   prize: OutfitId;
   prizeName: string;
-  /** What Henni says about the prize. */
+  /** What Chuleta says about the prize. */
   cheer: string;
 }
 

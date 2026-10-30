@@ -1,20 +1,20 @@
 /**
- * Henni the hen's lines: how she joins the adventure, gentle hints when
+ * Chuleta the hen's lines: how she joins the adventure, gentle hints when
  * Tadeo seems lost (per milestone), and a cheer after every finished quest.
  */
 
 import { DialogueScript } from "../data/dialogues";
 
-export const HENNI_INTRO: DialogueScript = [
-  { speaker: "Henni", portrait: "", text: "Gack! Und mich hast du wohl vergessen? Ich saß die ganze Zeit in deinem Rucksack!" },
-  { speaker: "Tadeo", portrait: "", text: "Henni! Du bist ja mitgekommen!" },
-  { speaker: "Henni", portrait: "", text: "Na klar! Wir finden den Schatz zusammen. Folge einfach dem goldenen Stern." },
-  { speaker: "Henni", portrait: "", text: "Und sammle die Goldmünzen auf der Insel! Vielleicht gibt es dafür eine Überraschung..." },
-  { speaker: "Tadeo", portrait: "", text: "Super, Henni! Los geht's!" },
+export const CHULETA_INTRO: DialogueScript = [
+  { speaker: "Chuleta", portrait: "", text: "Gack! Und mich hast du wohl vergessen? Ich saß die ganze Zeit in deinem Rucksack!" },
+  { speaker: "Tadeo", portrait: "", text: "Chuleta! Du bist ja mitgekommen!" },
+  { speaker: "Chuleta", portrait: "", text: "Na klar! Wir finden den Schatz zusammen. Folge einfach dem goldenen Stern." },
+  { speaker: "Chuleta", portrait: "", text: "Und sammle die Goldmünzen auf der Insel! Vielleicht gibt es dafür eine Überraschung..." },
+  { speaker: "Tadeo", portrait: "", text: "Super, Chuleta! Los geht's!" },
 ];
 
 /** Hint for the current milestone, said when nothing happened for a while. */
-export const HENNI_HINTS: Record<number, string> = {
+export const CHULETA_HINTS: Record<number, string> = {
   1: "Gack! Lies mal das Schild da vorne am Strand!",
   2: "Der Vulkan raucht im Westen. Folge dem goldenen Stern!",
   3: "Am See stehen drei alte Steintafeln. Lies sie alle!",
@@ -28,7 +28,7 @@ export const HENNI_HINTS: Record<number, string> = {
 };
 
 /** Cheer after finishing a milestone (keyed by the milestone just finished). */
-export const HENNI_CHEERS: Record<number, string> = {
+export const CHULETA_CHEERS: Record<number, string> = {
   1: "Gack! Ein Vulkan? Ich hab ein bisschen Angst... aber nur ein bisschen!",
   2: "Puh, war das heiß! Fast hätte ich ein gekochtes Ei gelegt!",
   3: "Ein Geist! Gack! Mir stehen alle Federn zu Berge!",

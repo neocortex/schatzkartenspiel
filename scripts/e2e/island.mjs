@@ -1,7 +1,7 @@
 /**
  * E2E: the island adventure flow, played with real key presses in Chrome.
  *
- *  1. Title screen → "Neues Abenteuer" → intro flight + dialogues (narrator, Tadeo, Henni)
+ *  1. Title screen → "Neues Abenteuer" → intro flight + dialogues (narrator, Tadeo, Chuleta)
  *  2. Quest 1: walk to the beach signpost, read it → quest 2 starts, game is saved
  *  3. Coins: walk through a coin → counter goes up
  *  4. Quest 3 (debug start): read all three lake tablets → quest 4 starts
@@ -117,7 +117,7 @@ for (let i = 0; i < 60 && (await state()).dialogue; i++) {
   await page.keyboard.press("Space");
   await wait(200);
 }
-check("intro has narrator, Tadeo and Henni", ["Erzähler", "Tadeo", "Henni"].every((s) => speakers.has(s)), [...speakers].join(", "));
+check("intro has narrator, Tadeo and Chuleta", ["Erzähler", "Tadeo", "Chuleta"].every((s) => speakers.has(s)), [...speakers].join(", "));
 check("player is free after intro", await waitUntilFree());
 
 // ── 2. Quest 1: the signpost ────────────────────────────────

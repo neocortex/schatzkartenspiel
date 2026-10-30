@@ -12,7 +12,7 @@ import { Input } from "../core/Input";
 /** Portrait key, emoji fallback and name-tag colour per speaker. */
 const SPEAKERS: Record<string, { portrait?: string; emoji?: string; color: string }> = {
   Tadeo: { portrait: "tadeo", color: "#ff7a1a" },
-  Henni: { portrait: "henni", color: "#b0622f" },
+  Chuleta: { portrait: "chuleta", color: "#b0622f" },
   Erzähler: { emoji: "📖", color: "#3a5ba0" },
   Steintafel: { emoji: "🗿", color: "#7d7468" },
   Schild: { emoji: "🪧", color: "#8a5530" },

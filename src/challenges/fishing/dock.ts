@@ -1,6 +1,6 @@
 /**
  * Fischer Jonas's jetty: the island's pier model running from the beach out
- * over the lagoon, dressed with a lantern, a tall mooring post for Henni, a
+ * over the lagoon, dressed with a lantern, a tall mooring post for Chuleta, a
  * life ring, crates, a tackle box and the bucket for the catch, plus the
  * little red rowboat tied up alongside and bobbing on the swell.
  */
@@ -21,8 +21,8 @@ export const DECK_END = -0.4;
 const SHORE_Z = 16;
 const LENGTH = SHORE_Z - DECK_END;
 
-/** Top of Henni's mooring post. */
-export const HENNI_POST = new THREE.Vector3(1.48, DECK + 0.62, -0.18);
+/** Top of Chuleta's mooring post. */
+export const CHULETA_POST = new THREE.Vector3(1.48, DECK + 0.62, -0.18);
 /** Where the bucket for the catch stands. */
 export const BUCKET_AT = new THREE.Vector3(1.0, DECK, 0.42);
 
@@ -76,13 +76,13 @@ export class Dock {
     this.group.add(this.boat);
   }
 
-  /** Lantern, Henni's post, life ring, crates, tackle box and coiled rope on the jetty head. */
+  /** Lantern, Chuleta's post, life ring, crates, tackle box and coiled rope on the jetty head. */
   private dress(m: Model): void {
     const rand = mulberry32(31);
     const at = (x: number, z: number, rot = 0, s = 1) => placeAt(x, DECK, z, rot, s);
     addModel(m, lanternPost(2.3), at(-1.52, -0.12, Math.PI * 0.75));
-    // Henni's tall mooring post with a rope wound round it
-    const post = HENNI_POST;
+    // Chuleta's tall mooring post with a rope wound round it
+    const post = CHULETA_POST;
     m.solid.push(cyl(0.11, 0.13, post.y + 2.4, PAL.woodDark, { pos: [post.x, (post.y - 2.4) / 2, post.z] }, 9));
     m.solid.push(ball(0.115, PAL.woodDark, [post.x, post.y, post.z], 1, [1, 0.45, 1]));
     for (let i = 0; i < 4; i++) m.solid.push(part(new THREE.TorusGeometry(0.135, 0.03, 5, 14), PAL.rope, { pos: [post.x, DECK + 0.3 + i * 0.06, post.z], rot: [Math.PI / 2, 0, i * 0.4] }));

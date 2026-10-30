@@ -13,8 +13,8 @@ import { Bubble } from "../ui/Hud";
 import { Beacon } from "./Beacon";
 import { Npcs, Npc } from "./Npcs";
 import { Title } from "./Title";
-import { Henni } from "../characters/Henni";
-import { HENNI_INTRO, HENNI_HINTS, HENNI_CHEERS } from "./henniLines";
+import { Chuleta } from "../characters/Chuleta";
+import { CHULETA_INTRO, CHULETA_HINTS, CHULETA_CHEERS } from "./chuletaLines";
 import { Coins, COIN_COUNT } from "./Coins";
 import { Wardrobe } from "./Wardrobe";
 import { SIDE_GAMES, SideGame } from "./sideGames";
@@ -69,7 +69,7 @@ const SIGN_TEXT: DialogueScript = [
 
 const TABLET_DIALOGUES = ["lake_tablet1", "lake_tablet2", "lake_tablet3"];
 const TALK_RANGE = 2.8;
-/** Seconds without progress before Henni offers a hint. */
+/** Seconds without progress before Chuleta offers a hint. */
 const HINT_AFTER = 45;
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -81,8 +81,8 @@ export class Game {
   private beacon = new Beacon();
   private npcs: Npcs;
   private bubble: Bubble;
-  private henni: Henni;
-  private henniBubble: Bubble;
+  private chuleta: Chuleta;
+  private chuletaBubble: Bubble;
   private hintTimer = 0;
   private coins: Coins;
   private wardrobe: Wardrobe;
@@ -99,15 +99,15 @@ export class Game {
 
   constructor(private engine: Engine) {
     this.npcs = new Npcs(this.island.island.hf, this.island.island.colliders);
-    this.henni = new Henni(this.island.player);
-    this.henni.snap();
-    this.island.scene.add(this.npcs.group, this.beacon.group, this.henni.root);
+    this.chuleta = new Chuleta(this.island.player);
+    this.chuleta.snap();
+    this.island.scene.add(this.npcs.group, this.beacon.group, this.chuleta.root);
     this.bubble = new Bubble(this.ui.layer);
-    this.henniBubble = new Bubble(this.ui.layer);
+    this.chuletaBubble = new Bubble(this.ui.layer);
     // Reason: coins come after the NPCs so none lands inside a villager
     this.coins = new Coins(this.island.island.hf, this.island.island.colliders);
     this.island.scene.add(this.coins.group);
-    this.wardrobe = new Wardrobe(this.island.player.avatar, this.henni, this.ui, (t) => this.henniSay(t));
+    this.wardrobe = new Wardrobe(this.island.player.avatar, this.chuleta, this.ui, (t) => this.chuletaSay(t));
     this.wardrobe.dress(this.coins.collected);
     const { landmarks, hf, colliders } = this.island.island;
     this.sightings = new Sightings((x, z) => landmarks.surfaceHeight(x, z) ?? hf.heightAt(x, z), colliders, this.ui.layer);
@@ -205,15 +205,15 @@ export class Game {
 
     if (this.coins.update(dt, time, player.position)) this.wardrobe.onCoins(this.coins.collected);
 
-    // Henni comes along; she offers a hint when nothing has happened for a while
-    this.henni.update(dt);
-    this.henni.talking = this.henniBubble.speaking;
-    const hp = this.henni.position;
+    // Chuleta comes along; she offers a hint when nothing has happened for a while
+    this.chuleta.update(dt);
+    this.chuleta.talking = this.chuletaBubble.speaking;
+    const hp = this.chuleta.position;
     const beak = this.project(hp.x, hp.y + 0.75, hp.z);
-    this.henniBubble.place(beak.behind ? null : this.pixels(beak));
+    this.chuletaBubble.place(beak.behind ? null : this.pixels(beak));
     this.hintTimer = free ? this.hintTimer + dt : 0;
-    if (this.hintTimer > HINT_AFTER && HENNI_HINTS[this.quest.currentMilestone]) {
-      this.henniSay(HENNI_HINTS[this.quest.currentMilestone]);
+    if (this.hintTimer > HINT_AFTER && CHULETA_HINTS[this.quest.currentMilestone]) {
+      this.chuletaSay(CHULETA_HINTS[this.quest.currentMilestone]);
       this.hintTimer = -HINT_AFTER;
     }
 
@@ -351,7 +351,7 @@ export class Game {
     await wait(2400);
     this.endCinematic(1.8);
     await this.talk("intro");
-    await this.talk(HENNI_INTRO);
+    await this.talk(CHULETA_INTRO);
     this.ui.hud.setVisible(true);
     this.busy = false;
   }
@@ -419,12 +419,12 @@ export class Game {
     this.hintTimer = 0;
     audio.playSfx("sfx_victory_fanfare", 0.6);
     await this.ui.hud.showBanner(`Neue Aufgabe · ${this.quest.currentMilestone} von ${QUESTS.length}`, this.quest.currentQuest.name);
-    if (HENNI_CHEERS[finished]) this.henniSay(HENNI_CHEERS[finished]);
+    if (CHULETA_CHEERS[finished]) this.chuletaSay(CHULETA_CHEERS[finished]);
   }
 
-  private henniSay(text: string): void {
-    this.henniBubble.say(text, 4800);
-    NarrationManager.getInstance().speakLine(text, "Henni");
+  private chuletaSay(text: string): void {
+    this.chuletaBubble.say(text, 4800);
+    NarrationManager.getInstance().speakLine(text, "Chuleta");
   }
 
   private async ending(): Promise<void> {
@@ -477,14 +477,14 @@ export class Game {
     this.placePlayer(x, z);
   }
 
-  /** Teleport Tadeo and bring the camera and Henni along. */
+  /** Teleport Tadeo and bring the camera and Chuleta along. */
   private placePlayer(x: number, z: number, facing?: number): void {
     const p = this.island.player;
     p.teleport(x, z, facing);
     p.avatar.root.updateMatrixWorld(true);
     this.island.rig.follow(p.position, p.velocity);
     this.island.rig.snap();
-    this.henni.snap();
+    this.chuleta.snap();
   }
 
   private islandAudio(): void {

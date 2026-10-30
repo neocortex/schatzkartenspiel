@@ -27,13 +27,13 @@ const OWNERS = {
     misses: "Fischer Jonas",
     cheers: "Tadeo",
     heavy: "Tadeo",
-    goldenSpotted: "Henni",
+    goldenSpotted: "Chuleta",
   },
   "challenges/fishing/species.ts": { fact: "Fischer Jonas" },
-  "challenges/hens/script.ts": { HENNI: "Henni", homeLine: "Kleine Mia" },
-  "game/henniLines.ts": { HENNI_HINTS: "Henni", HENNI_CHEERS: "Henni" },
-  "game/Wardrobe.ts": { cheer: "Henni" },
-  "game/sideGames.ts": { cheer: "Henni" },
+  "challenges/hens/script.ts": { CHULETA: "Chuleta", homeLine: "Kleine Mia" },
+  "game/chuletaLines.ts": { CHULETA_HINTS: "Chuleta", CHULETA_CHEERS: "Chuleta" },
+  "game/Wardrobe.ts": { cheer: "Chuleta" },
+  "game/sideGames.ts": { cheer: "Chuleta" },
   "game/Sightings.ts": { GUARD_LINES: "Oger", FRIEND_LINES: "Oger" },
 };
 

@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { Humanoid } from "../characters/Humanoid";
 import { createTadeo, createElder, createWiseWoman, createWiseMan, createVillager } from "../characters/cast";
 import { createItem, ItemKey } from "../world/models/items";
-import { createHenniModel } from "../characters/Henni";
+import { createChuletaModel } from "../characters/Chuleta";
 
 const SIZE = 192;
 
@@ -53,7 +53,7 @@ export function renderSnapshots(): SnapshotSet {
     wiseMan: portrait(createWiseMan()),
   };
   for (let i = 0; i < 4; i++) portraits[`villager${i}`] = portrait(createVillager(i));
-  portraits.henni = snapshot(createHenniModel().root, new THREE.Vector3(0.32, 0.88, 1.3), new THREE.Vector3(0, 0.7, 0.08), renderer);
+  portraits.chuleta = snapshot(createChuletaModel().root, new THREE.Vector3(0.32, 0.88, 1.3), new THREE.Vector3(0, 0.7, 0.08), renderer);
 
   const items = {} as Record<ItemKey, string>;
   for (const key of ["sword", "berry", "key", "hammer"] as ItemKey[]) {

@@ -1,5 +1,5 @@
 /**
- * Henni — Tadeo's brown speckled hen, with a red neckerchief like his. She
+ * Chuleta — Tadeo's brown speckled hen, with a red neckerchief like his. She
  * struts after him on the ground and pecks about while he stands still. She
  * flutters up onto his head when he rests for a while, wades into the water or
  * leaves her far behind, and hops down again once he has walked on for a bit.
@@ -12,7 +12,7 @@ import { Player } from "./Player";
 import { mat, toonMesh } from "./parts";
 import { henVoice } from "../audio/henVoice";
 
-export const HENNI_LOOK: HenLook = {
+export const CHULETA_LOOK: HenLook = {
   kind: "hen",
   body: "#9c5b32",
   wing: "#7a4223",
@@ -21,7 +21,7 @@ export const HENNI_LOOK: HenLook = {
   speckle: "#f4e3c4",
 };
 
-/** Henni's size (Mia's hens are 1): small enough to sit on Tadeo's head. */
+/** Chuleta's size (Mia's hens are 1): small enough to sit on Tadeo's head. */
 const SCALE = 0.7;
 /** Seconds Tadeo stands still before she flutters up onto his head. */
 const PERCH_AFTER_REST = 5;
@@ -38,9 +38,9 @@ const RADIUS = 0.18;
 const BESIDE = new THREE.Vector3(-0.85, 0, -0.7);
 const UP = new THREE.Vector3(0, 1, 0);
 
-/** Henni's model: the toon hen in her colours, wearing Tadeo's red neckerchief. */
-export function createHenniModel(): HenModel {
-  const hen = new HenModel(HENNI_LOOK);
+/** Chuleta's model: the toon hen in her colours, wearing Tadeo's red neckerchief. */
+export function createChuletaModel(): HenModel {
+  const hen = new HenModel(CHULETA_LOOK);
   const red = mat("#e63946", 0.7);
   const scarf = toonMesh(new THREE.TorusGeometry(0.12, 0.034, 8, 18), red, false);
   scarf.rotation.x = Math.PI / 2 - 0.45;
@@ -55,8 +55,8 @@ export function createHenniModel(): HenModel {
 
 type Mode = "walk" | "hop" | "ride";
 
-export class Henni {
-  readonly model = createHenniModel();
+export class Chuleta {
+  readonly model = createChuletaModel();
   readonly position = new THREE.Vector3();
   /** True while her speech bubble shows: the beak chatters. */
   talking = false;
@@ -99,7 +99,7 @@ export class Henni {
     this.perch.position.y = y;
   }
 
-  /** Put Henni right next to Tadeo (after teleports), or on the ground at `at`. */
+  /** Put Chuleta right next to Tadeo (after teleports), or on the ground at `at`. */
   snap(at?: THREE.Vector3): void {
     this.velocity.set(0, 0, 0);
     this.hopHeight = 0;

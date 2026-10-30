@@ -27,7 +27,7 @@ const CAST = {
   Steintafel: NARRATOR,
   Schild: NARRATOR,
   Tadeo: { voice: "Ewvy14akxdhONg4fmNry", model: V4 }, // Finnegan
-  Henni: { voice: "zndmYEEoWWxRYyEL2ZZY", model: V4 }, // Lumi
+  Chuleta: { voice: "zndmYEEoWWxRYyEL2ZZY", model: V4 }, // Lumi
   Oger: { voice: "XQSEqtl2af3AAUCwmX7b", model: V2 }, // Gorak
   Dorfältester: ELDER,
   "Opa Kalle": ELDER,
@@ -40,15 +40,18 @@ const CAST = {
   Geist: { voice: "XSqtBhCcfQ9Pn4yLIHsk", model: V4 }, // Fritz
 };
 
+/** The text as the voices read it: Chuleta is a Spanish name, and a German voice only says its "ch" right as "tsch". */
+const forVoice = (text) => text.replaceAll("Chuleta", "Tschuleta");
+
 /** File name of a recording; it changes with the voice, model or text, so changed lines are rendered again. */
 const fileName = ({ voice, model }, text) =>
-  `${createHash("sha1").update(JSON.stringify([voice, model, FORMAT, text])).digest("hex").slice(0, 16)}.mp3`;
+  `${createHash("sha1").update(JSON.stringify([voice, model, FORMAT, forVoice(text)])).digest("hex").slice(0, 16)}.mp3`;
 
 async function render({ voice, model }, text) {
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=${FORMAT}`, {
     method: "POST",
     headers: { "xi-api-key": process.env.ELEVENLABS_API_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ text, model_id: model }),
+    body: JSON.stringify({ text: forVoice(text), model_id: model }),
   });
   if (!res.ok) throw new Error(`ElevenLabs answered ${res.status}: ${(await res.text()).slice(0, 300)}`);
   return { audio: Buffer.from(await res.arrayBuffer()), credits: Number(res.headers.get("character-cost") ?? 0) };

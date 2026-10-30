@@ -262,6 +262,12 @@ const onIsland = () => page.evaluate(() => window.engine.scene === window.game.i
 await page.goto(`${BASE}?quest=3`);
 await wait(4000);
 await recordLines();
+// When the map card is added to the page, so a press can be placed inside its first 0.4 s
+await page.evaluate(() => {
+  new MutationObserver((changes) => {
+    if (changes.some((c) => [...c.addedNodes].some((n) => n.classList?.contains("map-card")))) window.mapCardOpenedAt = performance.now();
+  }).observe(document.getElementById("ui"), { childList: true });
+});
 const elder = await page.evaluate(() => {
   const p = window.game.npcs.get("elder").position;
   return [p.x, p.z];
@@ -275,13 +281,16 @@ await wait(600);
 check("elder: the talk opens a dialogue, no challenge starts", (await state()).dialogue && (await onIsland()));
 await readUntil(mapCardOpen);
 const mapCardSeen = await mapCardOpen();
-await wait(500);
-await shot("04-map-card-quest3");
-// The card is held up inside the elder's talk, where the island leaves Space alone
+// The card is held up inside the elder's talk, where the island leaves Space alone. A press right now is in its first 0.4 s.
 await page.keyboard.press("Space");
-await wait(100);
-check("the map card stays open when Space comes in its first 0.4 s", await mapCardOpen());
-await wait(1500);
+const pressAge = await page.evaluate(() => performance.now() - window.mapCardOpenedAt);
+await wait(150);
+// Reason: a press that was taken starts the closing animation, and the card stays in the page for 0.28 s while it plays
+const taken = await page.isVisible(".map-card.closing");
+check("the map card stays open when Space comes in its first 0.4 s", pressAge < 400 && !taken && (await mapCardOpen()), `${Math.round(pressAge)} ms after it opened, closing: ${taken}`);
+await wait(450);
+await shot("04-map-card-quest3");
+await wait(1000);
 await page.keyboard.press("Space");
 check("Space closes the map card at quest 3", await until(async () => !(await mapCardOpen()), 2000));
 await readUntil(async () => (await state()).milestone === 4, 30000);

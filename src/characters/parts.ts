@@ -103,30 +103,30 @@ export function buildFace(r: number, opts: { brow: THREE.ColorRepresentation; sk
 export type HairStyle = "spiky" | "fringe" | "bun" | "short" | "bald" | "long";
 
 /**
- * A smooth helmet of hair with a fringe: it hangs over the forehead in rounded
- * locks down to the brows, covers the sides above the ears and the back down
+ * A smooth helmet of hair with a fringe: it arches over the forehead in soft
+ * wavy locks above the brows, covers the sides above the ears and the back down
  * to the nape. The lower edge curls inwards under the shell so the hair reads
  * as thick from every angle.
  */
 function fringeGeometry(r: number): THREE.BufferGeometry {
   const AROUND = 96;
   const DOWN = 18;
-  const LOCKS = 5;
-  const SPREAD = 1.45; // radians of azimuth covered by the fringe locks, centred on the face
+  const LOCKS = 3;
+  const SPREAD = 1.7; // radians of azimuth covered by the fringe locks, centred on the face
   const pos: number[] = [];
   for (let j = 0; j <= DOWN + 1; j++) {
     for (let i = 0; i <= AROUND; i++) {
       const az = (i / AROUND) * Math.PI * 2; // 0 = front (+z)
       const front = Math.cos(az);
-      // How far down the hair reaches (polar angle from the crown): brows at the front, above the ears, nape at the back
-      let edge = front >= 0 ? THREE.MathUtils.lerp(1.42, 1.1, front ** 0.8) : THREE.MathUtils.lerp(1.42, 2.05, (-front) ** 1.2);
+      // How far down the hair reaches (polar angle from the crown): an open arch above the brows, above the ears, nape at the back
+      let edge = front >= 0 ? THREE.MathUtils.lerp(1.42, 0.92, front ** 2) : THREE.MathUtils.lerp(1.42, 2.05, (-front) ** 1.2);
       const a = Math.atan2(Math.sin(az), Math.cos(az));
       let lockBulge = 0;
       if (Math.abs(a) < SPREAD / 2) {
-        // Reason: |cos|^0.6 gives rounded lock tips with sharp notches between them
-        const lock = Math.abs(Math.cos(((a / SPREAD) * LOCKS + 0.5) * Math.PI)) ** 0.6;
+        // Reason: a shallow wave; steep lock sides draw their dark outline as slashes that look like angry brows
+        const lock = Math.sin((a / SPREAD) * LOCKS * Math.PI) ** 2;
         const fade = 1 - (Math.abs(a) / (SPREAD / 2)) ** 3;
-        edge += 0.2 * lock * fade;
+        edge += 0.09 * lock * fade;
         lockBulge = lock * fade;
       }
       const tuck = j > DOWN;

@@ -5,6 +5,7 @@
 ### Changed
 
 - Tadeo's hen is called Chuleta now (she was Henni)
+- Tadeo's fringe sits higher, in a soft open arch, so it no longer covers his brows or makes him look angry
 - New voices: every line is now recorded once with ElevenLabs and shipped as an MP3 in `public/voices/`, so the
   game speaks the same on any static host. `npm run voices` renders new or changed lines. This replaces the local
   Piper voice server, and the game no longer needs `uv`

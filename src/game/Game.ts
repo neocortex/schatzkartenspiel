@@ -17,7 +17,7 @@ import { Henni } from "../characters/Henni";
 import { HENNI_INTRO, HENNI_HINTS, HENNI_CHEERS } from "./henniLines";
 import { Coins, COIN_COUNT } from "./Coins";
 import { Wardrobe } from "./Wardrobe";
-import { SIDE_GAMES, SIDE_GAME_LINES, SideGame } from "./sideGames";
+import { SIDE_GAMES, SideGame } from "./sideGames";
 import { Sightings } from "./Sightings";
 import { showEndCard } from "../ui/EndCard";
 import { QuestManager } from "../systems/QuestManager";
@@ -25,7 +25,7 @@ import { InventoryManager } from "../systems/InventoryManager";
 import { SaveManager } from "../systems/SaveManager";
 import { NarrationManager } from "../systems/NarrationManager";
 import { QUESTS } from "../data/quests";
-import { DIALOGUES, DialogueScript } from "../data/dialogues";
+import { DialogueScript } from "../data/dialogues";
 import { LANDMARKS, VILLAGE, P2 } from "../world/layout";
 import { loadChallenge } from "../challenges/registry";
 import { ChallengeName } from "../challenges/types";
@@ -116,19 +116,7 @@ export class Game {
   }
 
   async start(): Promise<void> {
-    const narration = NarrationManager.getInstance();
-    narration.init();
-    // Reason: render every known line on the voice server in the background so speech starts instantly
-    const henniLines = [...Object.values(HENNI_HINTS), ...Object.values(HENNI_CHEERS)].map((text) => ({ text, speaker: "Henni" }));
-    void narration.prefetch([
-      ...DIALOGUES.intro,
-      ...HENNI_INTRO,
-      ...SIGN_TEXT,
-      ...Object.values(DIALOGUES).flat(),
-      ...henniLines,
-      ...this.npcs.list.flatMap((n) => n.chatter),
-      ...SIDE_GAME_LINES,
-    ]);
+    NarrationManager.getInstance().init();
     const params = new URLSearchParams(location.search);
     if (params.has("coins")) {
       this.coins.setCollected(Number(params.get("coins")));

@@ -6,7 +6,7 @@
 
 import { DialogueScript } from "../../data/dialogues";
 
-const jonas = (text: string) => ({ speaker: "Fischer Jonas", portrait: "villager0", text });
+const jonas = (text: string, spoken?: string) => ({ speaker: "Fischer Jonas", portrait: "villager0", text, spoken });
 const tadeo = (text: string) => ({ speaker: "Tadeo", portrait: "", text });
 const henni = (text: string) => ({ speaker: "Henni", portrait: "", text });
 
@@ -47,7 +47,7 @@ export function ending(bestCm: number): { praise: DialogueScript; farewell: Dial
   return {
     praise: [
       jonas("Fünf Fische! Tadeo, du bist ein echter Meisterangler!"),
-      jonas(`Dein größter Fisch war ${bestCm} Zentimeter lang!`),
+      jonas(`Dein größter Fisch war ${bestCm} Zentimeter lang!`, "Schau mal, so lang war dein größter Fisch!"),
       tadeo("Juhu! Und sogar der goldene Fisch war dabei!"),
       henni("Gack! Ich habe mitgezählt! Eins, zwei, drei, vier, fünf!"),
       jonas("Und jetzt lassen wir die Fische wieder frei. Die wollen nach Hause."),
@@ -55,17 +55,3 @@ export function ending(bestCm: number): { praise: DialogueScript; farewell: Dial
     farewell: [tadeo("Tschüss, ihr Fische! Bis zum nächsten Mal!"), jonas("Komm bald wieder, Tadeo. Mein Steg ist immer für dich da!")],
   };
 }
-
-/** Every fixed line, so the voice server can prepare them while the scene loads. */
-export const ALL_LINES = [
-  ...INTRO,
-  ...BOTTLE,
-  ...SAY.misses.map(jonas),
-  ...SAY.cheers.map(tadeo),
-  jonas(SAY.aimHelp),
-  jonas(SAY.tooEarly),
-  jonas(SAY.nowPull),
-  jonas(SAY.firstNibble),
-  henni(SAY.goldenSpotted),
-  tadeo(SAY.heavy),
-];

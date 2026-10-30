@@ -7,6 +7,8 @@ export interface DialogueLine {
   speaker: string;
   portrait: string;
   text: string;
+  /** Read aloud instead of `text` when the text has a changing value that has no recording. */
+  spoken?: string;
 }
 
 export type DialogueScript = DialogueLine[];

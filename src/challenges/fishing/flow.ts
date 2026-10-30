@@ -8,7 +8,6 @@
 
 import * as THREE from "three";
 import { audio } from "../../audio/Audio";
-import { NarrationManager } from "../../systems/NarrationManager";
 import { SHOTS } from "./camera";
 import { createBottle } from "./catch";
 import { HOLD_AT } from "./crew";
@@ -289,7 +288,6 @@ async function landFish(g: FishingGame, fish: Fish): Promise<void> {
   g.caught.push(fish.kind);
   g.setStatus(true);
   if (!golden) respawn(g, fish);
-  if (g.caught.length === GOAL) prefetchEnding(g);
   if (g.caught.length === 3 && !g.goldenArrived) await goldenArrives(g);
 }
 
@@ -374,12 +372,6 @@ async function landBottle(g: FishingGame): Promise<void> {
     bottle.rotation.set(0, 0.6 * k, (Math.PI / 2) * k);
   });
   audio.playSfx("sfx_dig", 0.6, 1.4);
-}
-
-/** Start fetching the ending's voice lines while the last fish is celebrated. */
-function prefetchEnding(g: FishingGame): void {
-  const { praise, farewell } = ending(g.biggest);
-  void NarrationManager.getInstance().prefetch([...praise, ...farewell]);
 }
 
 async function finale(g: FishingGame): Promise<void> {

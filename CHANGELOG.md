@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Changed
+
+- New voices: every line is now recorded once with ElevenLabs and shipped as an MP3 in `public/voices/`, so the
+  game speaks the same on any static host. `npm run voices` renders new or changed lines. This replaces the local
+  Piper voice server, and the game no longer needs `uv`
+- The voice now says a fixed sentence for the three lines with a changing value (fishing length, hen times); the
+  exact number still appears on screen
+
 ### Added
 
 - A bigger island: four new regions grow out of the old coast, each with its own ground, plants and paths

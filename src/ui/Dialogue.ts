@@ -122,7 +122,7 @@ export class Dialogue {
     this.elapsed = 0;
     this.textEl.textContent = "";
     this.nextEl.classList.remove("show");
-    NarrationManager.getInstance().speakLine(line.text, line.speaker);
+    NarrationManager.getInstance().speakLine(line.spoken ?? line.text, line.speaker);
     this.onLine?.(line.speaker);
   }
 

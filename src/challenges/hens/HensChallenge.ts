@@ -13,7 +13,6 @@ import { Player } from "../../characters/Player";
 import { audio } from "../../audio/Audio";
 import { DialogueScript } from "../../data/dialogues";
 import { GameUI } from "../../ui/GameUI";
-import { NarrationManager } from "../../systems/NarrationManager";
 import { Challenge, ChallengeContext } from "../types";
 import { toNdc, toScreen } from "../shared/speech";
 import { henVoice } from "../../audio/henVoice";
@@ -23,7 +22,7 @@ import { Henni } from "../../characters/Henni";
 import { Footsteps, Fx } from "./fx";
 import { Bubble, HensHud, PopKind, loadBest, saveBest } from "./hud";
 import { MIA_SPOT, RAMP_FOOT, START, YARD } from "./layout";
-import { ALL_LINES, GOLDEN, INTRO, HENNI, ending, homeLine } from "./script";
+import { GOLDEN, INTRO, HENNI, ending, homeLine } from "./script";
 import { Yard } from "./yard";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -105,7 +104,6 @@ export class HensChallenge implements Challenge {
     this.hud = new HensHud(this.ui);
     this.miaBubble = new Bubble(this.ui.layer, "Kleine Mia");
     this.henniBubble = new Bubble(this.ui.layer, "Henni");
-    void NarrationManager.getInstance().prefetch(ALL_LINES);
   }
 
   enter(engine: Engine): void {
@@ -180,7 +178,6 @@ export class HensChallenge implements Challenge {
     this.record = previous === null || time < previous;
     if (this.record) saveBest(time);
     const lines = ending(time, previous);
-    void NarrationManager.getInstance().prefetch(lines);
     await wait(1000);
 
     await this.engine.fade(1, 350);

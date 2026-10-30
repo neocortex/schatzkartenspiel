@@ -1,13 +1,12 @@
 /**
  * Everything Mia, Tadeo and Henni say in the hen game — short, warm German
- * sentences for a seven-year-old. Every line is read aloud by the voice
- * server, so `ALL_LINES` lists the fixed ones for prefetching.
+ * sentences for a seven-year-old.
  */
 
 import { DialogueLine, DialogueScript } from "../../data/dialogues";
 import { timeWords } from "./hud";
 
-const mia = (text: string): DialogueLine => ({ speaker: "Kleine Mia", portrait: "villager2", text });
+const mia = (text: string, spoken?: string): DialogueLine => ({ speaker: "Kleine Mia", portrait: "villager2", text, spoken });
 const tadeo = (text: string): DialogueLine => ({ speaker: "Tadeo", portrait: "", text });
 const henni = (text: string): DialogueLine => ({ speaker: "Henni", portrait: "", text });
 
@@ -28,11 +27,11 @@ export const GOLDEN: DialogueScript = [
 export function ending(seconds: number, best: number | null): DialogueScript {
   const lines: DialogueScript = [
     mia("Juhu! Alle sieben sind wieder zu Hause! Du bist ein echter Hühnerheld, Tadeo!"),
-    mia(`Du hast alle in ${timeWords(seconds)} gefangen!`),
+    mia(`Du hast alle in ${timeWords(seconds)} gefangen!`, "Schau mal, so schnell hast du alle gefangen!"),
   ];
   if (best === null) lines.push(mia("Das ist dein erster Rekord! Vielleicht bist du nächstes Mal noch schneller."));
   else if (seconds < best) lines.push(mia("Das ist ein neuer Rekord! So schnell warst du noch nie!"));
-  else lines.push(mia(`Dein Rekord liegt bei ${timeWords(best)}. Das schaffst du auch noch!`));
+  else lines.push(mia(`Dein Rekord liegt bei ${timeWords(best)}. Das schaffst du auch noch!`, "Dein Rekord war noch schneller. Das schaffst du auch noch!"));
   lines.push(
     tadeo("Puh! Das hat Spaß gemacht. Die Hühner sind ganz schön flink!"),
     henni("Gack, gack! Das sind ja alles meine Cousinen!"),
@@ -55,14 +54,3 @@ export const HENNI = {
   goldDash: "Gack! Goldi rennt zum nächsten Heuhaufen!",
   goldTired: "Goldi ist ganz müde. Jetzt kannst du sie fangen!",
 };
-
-const NAMES = ["Berta", "Frieda", "Lotte", "Hilde", "Rosi"];
-
-/** Fixed lines (dialogue and bubbles) for the voice server to prepare early. */
-export const ALL_LINES: { text: string; speaker: string }[] = [
-  ...INTRO,
-  ...GOLDEN,
-  ...NAMES.map((n) => mia(homeLine(n, false))),
-  mia(homeLine("Piepsi", true)),
-  ...[...HENNI.close, HENNI.tired, HENNI.chick, HENNI.hint, HENNI.chickHint, HENNI.goldDash, HENNI.goldTired].map(henni),
-];

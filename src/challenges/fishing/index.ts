@@ -8,12 +8,9 @@
 import * as THREE from "three";
 import { audio } from "../../audio/Audio";
 import { Engine, PostSettings } from "../../core/Engine";
-import { NarrationManager } from "../../systems/NarrationManager";
 import { Challenge, ChallengeContext, ChallengeFactory } from "../types";
 import { playFishing } from "./flow";
 import { FishingGame } from "./game";
-import { ALL_LINES } from "./script";
-import { EVERYDAY, SPECIES } from "./species";
 
 class FishingChallenge implements Challenge {
   readonly scene = new THREE.Scene();
@@ -49,8 +46,6 @@ class FishingChallenge implements Challenge {
     g.update(1 / 60, engine.time);
     audio.playMusic("music_village");
     audio.setAmbience(true);
-    const facts = [...EVERYDAY, "gold" as const].map((k) => ({ speaker: "Fischer Jonas", text: SPECIES[k].fact }));
-    void NarrationManager.getInstance().prefetch([...ALL_LINES, ...facts]);
     void playFishing(g).then(() => this.resolve());
   }
 

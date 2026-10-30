@@ -18,7 +18,7 @@ All text and narration are in German.
 - Chibi toon characters with outlines; Henni the hen runs along, rides on Tadeo's head and gives hints
 - Ten quests, each a separate 3D challenge scene (loaded on demand)
 - Side games in the village, gold coins all over the island, and outfits to unlock
-- Natural-sounding German voices for every line (local neural TTS), with browser speech as fallback
+- Natural-sounding German voices for every line (recorded with ElevenLabs), with browser speech as fallback
 - No game over anywhere: mistakes just restart the current attempt
 
 ## The adventure
@@ -53,9 +53,7 @@ runaway hens. The first win earns a prize hat (fishing hat, golden crown).
 
 ### Prerequisites
 
-- Node.js 18+ and npm
-- [uv](https://docs.astral.sh/uv/) for the neural voices (optional — without it the game uses the
-  browser's built-in speech)
+- Node.js 20.6+ and npm
 
 ### Install and run
 
@@ -64,10 +62,6 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
-`npm run dev` also starts the local voice server (`scripts/voice/tts_server.py`, Piper TTS via
-`uv run`). On the first start each voice model is downloaded once (~60 MB each) into
-`.voice-cache/models`; spoken lines are cached in `.voice-cache/lines`, so later starts are instant.
-
 ### Build
 
 ```bash
@@ -75,7 +69,20 @@ npm run build      # type-check + production build into dist/
 npm run preview
 ```
 
-The production build has no voice server, so it uses browser speech.
+The build is plain static files, including the voice recordings, so any static host can serve it.
+
+### Voices
+
+Every spoken line is an MP3 in `public/voices/`, rendered once and committed, so playing the game needs no
+voice service. After adding or changing a line:
+
+```bash
+npm run voices -- --dry-run   # what would be rendered; spends nothing
+npm run voices                # render it (needs a paid ElevenLabs plan)
+```
+
+Put the key in `.env` as `ELEVENLABS_API_KEY=...` (git-ignored; never prefix it with `VITE_`). The cast
+is the `CAST` table in `scripts/voice/generate.mjs`; changing a voice there re-renders only that voice's lines.
 
 ## Debug URL parameters
 
@@ -105,6 +112,7 @@ node scripts/e2e/world.mjs    # one test: walks every region path, landmarks, re
 node scripts/e2e/island.mjs   # likewise: title, intro, quests 1–3, coins, village, fps
 node scripts/e2e/volcano.mjs  # likewise: cave, forest, ogre, village, mountain, sea,
                               # treasure, fishing, hens
+node scripts/e2e/voices.mjs   # recordings play, changing lines, browser speech fallback
 ```
 
 ## Classic 2D version
@@ -135,6 +143,6 @@ src/
   data/            # dialogues, quests, items
 scripts/
   e2e/             # end-to-end tests
-  voice/           # local neural TTS server
+  voice/           # renders the spoken lines with ElevenLabs
 classic-2d/        # the original Phaser 2D game (frozen snapshot)
 ```

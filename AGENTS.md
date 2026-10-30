@@ -9,10 +9,12 @@ Graphics quality ("wow") and joy matter more than anything else; it is played lo
 
 ## Run
 
-- `npm run dev` — dev server on :3000, also starts the voice server (`uv run scripts/voice/tts_server.py`)
+- `npm run dev` — dev server on :3000
+- `npm run voices` — render new or changed spoken lines with ElevenLabs (needs `ELEVENLABS_API_KEY` in `.env`);
+  `npm run voices -- --dry-run` shows what would be rendered without spending credits
 - `npx tsc --noEmit -p .` — type-check (must be clean)
 - E2E: start `npx vite --port 5199`, then `node scripts/e2e/<name>.mjs` (world, island, volcano, cave, forest,
-  ogre, village, mountain, sea, treasure, fishing, hens). Proof goes to `scripts/e2e/out/<name>/`.
+  ogre, village, mountain, sea, treasure, fishing, hens, voices). Proof goes to `scripts/e2e/out/<name>/`.
 
 ## Architecture
 
@@ -38,8 +40,11 @@ Graphics quality ("wow") and joy matter more than anything else; it is played lo
 - **Never a game over.** Mistakes restart the current attempt with a kind line.
 - **Text is German, for a 7-year-old:** short sentences, simple words, warm and funny.
 - **Every speaker needs a face and a voice:** add new speakers to `SPEAKERS` in `ui/Dialogue.ts`
-  (portrait or emoji, colour) and to `SPEAKER_VOICES` in `systems/NarrationManager.ts`.
-  Voices are defined in `scripts/voice/tts_server.py`.
+  (portrait or emoji, colour) and to `CAST` in `scripts/voice/generate.mjs`.
+- **Every spoken line is a recording in `public/voices/`:** after adding or changing a line, run `npm run voices`
+  and commit the files. `scripts/voice/lines.mjs` finds lines next to their speaker; a line in a plain constant
+  needs an `OWNERS` entry there. The game logs `[voice] no recording` and uses browser speech for a line it misses.
+- **Lines with a changing value** (a time, a length) cannot be recorded: give them a fixed `spoken` version.
 - **Controls are arrows + Space only** (M = mute, V = voice toggle are global).
 - **Input:** read presses with `input.consume(code)`. Presses stay readable from the start of a frame
   until the next frame begins, so code resuming after an `await` still sees them.

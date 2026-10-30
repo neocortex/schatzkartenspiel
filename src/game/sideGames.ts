@@ -63,6 +63,3 @@ export const SIDE_GAMES: SideGame[] = [
     cheer: "Gack, gack! Hoch lebe König Tadeo, der Hühnerkönig!",
   },
 ];
-
-/** Every line of the side games, so the voice server can prepare them early. */
-export const SIDE_GAME_LINES = SIDE_GAMES.flatMap((s) => [...s.invite, ...s.again]);

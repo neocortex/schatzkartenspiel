@@ -1,0 +1,258 @@
+/* The riddle card: old stone with the glowing runes of the lake tablets. Sizes follow the screen's height. */
+
+.riddle-card {
+  --rune: #6fe6ff;
+  --rune-glow: #26c9f2;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(6, 14, 22, 0.35), rgba(6, 14, 22, 0.84));
+  animation: riddle-dim 0.3s ease both;
+}
+
+.riddle-stone {
+  position: relative;
+  box-sizing: border-box;
+  width: min(94vw, 82vh);
+  padding: 2.4vh 9% 3.6vh;
+  border-radius: 44% 44% 2.4vh 2.4vh / 15% 15% 2.4vh 2.4vh;
+  /* Reason: two layers of noise, fine grit and big blotches, so the slab reads as rock and not as a grey box */
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 .08 0 0 0 0 .1 0 0 0 0 .13 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='260' height='260' filter='url(%23g)'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='520'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.012' numOctaves='4' seed='9'/%3E%3CfeColorMatrix values='0 0 0 0 .1 0 0 0 0 .12 0 0 0 0 .15 0 0 0 1.1 -.35'/%3E%3C/filter%3E%3Crect width='520' height='520' filter='url(%23b)'/%3E%3C/svg%3E"),
+    linear-gradient(172deg, #a9aeb7, #8a909b 52%, #6f7580);
+  box-shadow:
+    inset 0 0 0 0.8vh rgba(44, 48, 58, 0.5),
+    inset 0 0 7vh rgba(20, 24, 30, 0.6),
+    0 1.8vh 0 #4a4f59,
+    0 4vh 7vh rgba(0, 0, 0, 0.6);
+  color: #20252d;
+  text-align: center;
+  animation: riddle-in 0.5s cubic-bezier(0.2, 1.2, 0.4, 1) both;
+}
+/* Moss grows at the foot of every tablet */
+.riddle-stone::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 17%;
+  border-radius: 0 0 2.4vh 2.4vh;
+  background:
+    radial-gradient(ellipse 34% 100% at 14% 100%, rgba(104, 146, 58, 0.9), transparent),
+    radial-gradient(ellipse 28% 80% at 52% 100%, rgba(84, 124, 48, 0.7), transparent),
+    radial-gradient(ellipse 30% 100% at 90% 100%, rgba(98, 140, 54, 0.85), transparent);
+  pointer-events: none;
+}
+
+.riddle-sun {
+  display: block;
+  width: 8.6vh;
+  height: 8.6vh;
+  margin: 0 auto 0.6vh;
+  color: var(--rune);
+  stroke: var(--rune);
+  filter: drop-shadow(0 0 1.1vh var(--rune-glow));
+  animation: riddle-glow 2.4s ease-in-out infinite;
+}
+.riddle-runes {
+  position: absolute;
+  top: 27%;
+  width: 5.2%;
+  height: 52%;
+  stroke: var(--rune);
+  opacity: 0.8;
+  filter: drop-shadow(0 0 0.7vh var(--rune-glow));
+  animation: riddle-glow 2.4s ease-in-out 0.8s infinite;
+}
+.riddle-runes:nth-of-type(2) {
+  left: 3.4%;
+}
+.riddle-runes:nth-of-type(3) {
+  right: 3.4%;
+}
+
+.riddle-lines {
+  min-height: 11vh;
+  font-size: min(3.1vh, 4vw);
+  font-weight: 600;
+  line-height: 1.28;
+  text-shadow: 0 0.14vh 0 rgba(255, 255, 255, 0.4);
+}
+.riddle-lines p {
+  margin: 0 0 0.7vh;
+}
+
+.riddle-answers {
+  display: grid;
+  gap: 1.9vh;
+  margin: 2.2vh 0 0;
+  padding: 0;
+  list-style: none;
+}
+.riddle-answer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 10.4vh;
+  border-radius: 1.8vh;
+  background: linear-gradient(180deg, #4d535e, #3b404a);
+  box-shadow:
+    inset 0 0.5vh 1vh rgba(0, 0, 0, 0.5),
+    inset 0 -0.3vh 0 rgba(255, 255, 255, 0.12),
+    0 0.35vh 0 rgba(255, 255, 255, 0.28);
+  color: #d4dbdf;
+  transition:
+    transform 0.18s cubic-bezier(0.3, 1.6, 0.5, 1),
+    background 0.18s,
+    box-shadow 0.18s,
+    color 0.18s;
+}
+.riddle-word {
+  font-size: min(6.4vh, 9vw);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-shadow: 0 -0.2vh 0 rgba(0, 0, 0, 0.55);
+}
+/* The ring and dot of the tablets' sun, dim until the answer is lit */
+.riddle-mark {
+  position: absolute;
+  left: 2.6vh;
+  box-sizing: border-box;
+  width: 4.4vh;
+  height: 4.4vh;
+  border: 0.5vh solid rgba(111, 230, 255, 0.28);
+  border-radius: 50%;
+}
+.riddle-mark::after {
+  content: "";
+  position: absolute;
+  inset: 22%;
+  border-radius: 50%;
+  background: rgba(111, 230, 255, 0.28);
+}
+
+.riddle-answer.active {
+  transform: scale(1.06);
+  color: #fff;
+  background: linear-gradient(180deg, #667584, #4a5865);
+  box-shadow:
+    0 0 0 0.55vh var(--rune),
+    0 0 3.6vh 0.8vh rgba(38, 201, 242, 0.7),
+    inset 0 0 3vh rgba(111, 230, 255, 0.5);
+}
+.riddle-answer.active .riddle-word {
+  text-shadow: 0 0 1.5vh var(--rune-glow);
+}
+.riddle-answer.active .riddle-mark {
+  border-color: var(--rune);
+  box-shadow: 0 0 1.6vh var(--rune-glow);
+  animation: riddle-pulse 1s ease-in-out infinite;
+}
+.riddle-answer.active .riddle-mark::after {
+  background: #fff;
+  box-shadow: 0 0 1vh var(--rune);
+}
+.riddle-answer.chosen {
+  animation: riddle-chosen 0.45s ease-out both;
+}
+
+/* Pictures of the keys, shown once Space can pick */
+.riddle-keys {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1.2vh;
+  margin-top: 2.6vh;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.riddle-card.ready .riddle-keys {
+  opacity: 1;
+}
+.riddle-keycap,
+.riddle-space {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  height: 4.4vh;
+  border: 0.3vh solid var(--wood);
+  border-radius: 0.9vh;
+  background: #fff;
+  box-shadow: 0 0.4vh 0 var(--wood);
+  color: var(--ink);
+  font-size: 2.1vh;
+}
+.riddle-keycap {
+  width: 4.4vh;
+}
+.riddle-space {
+  width: 15vh;
+  align-items: end;
+  padding-bottom: 0.8vh;
+}
+.riddle-space::after {
+  content: "";
+  width: 10vh;
+  height: 0.8vh;
+  border: 0.35vh solid var(--ink);
+  border-top: 0;
+  border-radius: 0 0 0.4vh 0.4vh;
+}
+.riddle-card.ready .riddle-space {
+  animation: nudge 0.9s ease-in-out infinite;
+}
+
+.riddle-card.closing {
+  animation: riddle-dim 0.26s ease reverse both;
+}
+.riddle-card.closing .riddle-stone {
+  animation: riddle-out 0.26s ease-in both;
+}
+
+@keyframes riddle-dim {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes riddle-in {
+  from {
+    transform: translateY(24vh) scale(0.82);
+    opacity: 0;
+  }
+}
+@keyframes riddle-out {
+  to {
+    transform: translateY(14vh) scale(0.9);
+    opacity: 0;
+  }
+}
+@keyframes riddle-glow {
+  50% {
+    opacity: 0.55;
+  }
+}
+@keyframes riddle-pulse {
+  50% {
+    transform: scale(1.18);
+  }
+}
+@keyframes riddle-chosen {
+  0% {
+    transform: scale(1.06);
+  }
+  35% {
+    transform: scale(1.14);
+    background: linear-gradient(180deg, #d9fbff, #8be8ff);
+    color: #12303a;
+  }
+  100% {
+    transform: scale(1.06);
+  }
+}

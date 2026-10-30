@@ -5,8 +5,9 @@
  *     down to the landing beach, Chuleta and the call for help
  *  2. Quest 1 ends with the opening → quest 2 starts, game is saved (version 4), twelve quests exist
  *  3. Coins: walk through a coin → counter goes up
- *  4. Quest 3 (debug start): talk to the village elder → quest 4 starts
- *  5. Quest 4 (debug start): read all three lake tablets → quest 5 starts
+ *  4. Quest 3 (debug start): the elder tells the legend, the map card opens and closes → quest 4 starts
+ *  5. Quest 4 (debug start): three riddles at the lake (mashing Space, a wrong answer, any order), the Hüter rises,
+ *     speaks the rhyme and Tadeo repeats it → quest 5 starts
  *  6. Village (debug start): chat with a villager
  *  6b. The new cast: portraits, faces in the dialogue box, Paco beside the elder, the mole in the cave, the Hüter on the lake
  *  7. Quest 12 (debug start): the island runs without a gate
@@ -242,9 +243,25 @@ check("walking through a coin collects it", s.coins === coinsBefore + 1, `${coin
 check("HUD shows the coin count", (await page.textContent(".hud-coins"))?.includes(`${s.coins} / 30`) ?? false);
 await shot("05-coin");
 
-// ── 4. Quest 3: the village elder ───────────────────────────
+// ── 4. Quest 3: the elder tells the legend ──────────────────
+/** Every line the dialogue box begins, as "Name: text": read from the box itself, so a quick line is never missed. */
+async function recordLines() {
+  await page.evaluate(() => {
+    const box = Object.getPrototypeOf(window.game.ui.dialogue);
+    const begin = box.showLine;
+    window.said = [];
+    box.showLine = function () {
+      begin.call(this);
+      window.said.push(`${this.script[this.index].speaker}: ${this.script[this.index].text}`);
+    };
+  });
+}
+const said = () => page.evaluate(() => window.said);
+const plain = (list) => list.map((l) => l.replace(/^[^:]+: /, ""));
+const onIsland = () => page.evaluate(() => window.engine.scene === window.game.island);
 await page.goto(`${BASE}?quest=3`);
 await wait(4000);
+await recordLines();
 const elder = await page.evaluate(() => {
   const p = window.game.npcs.get("elder").position;
   return [p.x, p.z];
@@ -255,31 +272,175 @@ s = await state();
 check("elder: prompt to talk", s.prompt?.includes("Sprechen") ?? false, s.prompt ?? "no prompt");
 await page.keyboard.press("Space");
 await wait(600);
-check("elder: the talk opens a dialogue, no challenge starts", (await state()).dialogue && (await page.evaluate(() => window.engine.scene === window.game.island)));
-await finishDialogue();
+check("elder: the talk opens a dialogue, no challenge starts", (await state()).dialogue && (await onIsland()));
+await readUntil(mapCardOpen);
+const mapCardSeen = await mapCardOpen();
+await wait(500);
+await shot("04-map-card-quest3");
+// The card is held up inside the elder's talk, where the island leaves Space alone
+await page.keyboard.press("Space");
+await wait(100);
+check("the map card stays open when Space comes in its first 0.4 s", await mapCardOpen());
+await wait(1500);
+await page.keyboard.press("Space");
+check("Space closes the map card at quest 3", await until(async () => !(await mapCardOpen()), 2000));
+await readUntil(async () => (await state()).milestone === 4, 30000);
 await waitUntilFree();
 s = await state();
+let heard = await said();
+let lines = plain(heard);
+check("elder tells the legend at quest 3 and no challenge starts", heard[0]?.startsWith("Dorfältester: ") && (await onIsland()));
+check("the elder tells of the Feuerherz and the stolen heart", ["Unser Vulkan hat ein Herz: das Feuerherz.", "Aber ein Pirat hat es gestohlen. Jetzt wacht der Vulkan auf!"].every((l) => lines.includes(l)));
+check("the map card appears", mapCardSeen);
+check("Tadeo asks for a moment before the card", lines.indexOf("Moment! Ich habe eine Karte!") === lines.indexOf("Und niemand weiß, wo das Herz ist.") + 1);
+check("Paco says Hm, hm.", heard.includes("Käpt'n Paco: Hm, hm."));
+check("the elder sends him to the ghost at the lake", lines.at(-1) === "Wie du hinkommst, weiß nur der Geist am See.", lines.at(-1));
+check("the legend is nine lines", heard.length === 9, `${heard.length} lines`);
 check("quest 4 (See) is active after the elder", s.milestone === 4, `milestone ${s.milestone}`);
+await shot("04b-quest4");
 
-// ── 5. Quest 4: three lake tablets ──────────────────────────
+// ── 5. Quest 4: three riddles at the lake ───────────────────
 // [x, z, approach dx, approach dz] — tablet 2 stands on a steep lake bank, reachable only from the east
 const tablets = [[-14, -9, 0, 1], [17, -9, 1, 0], [2, 19, 0, 1]];
-for (const [i, [tx, tz, ax, az]] of tablets.entries()) {
+const RIGHT = [1, 2, 1];
+const lake = () => page.evaluate(() => window.game.lake.e2e);
+const riddleOpen = () => page.isVisible(".riddle-card");
+const highlighted = () => page.evaluate(() => [...document.querySelectorAll(".riddle-answer")].findIndex((a) => a.classList.contains("active")));
+const answersShown = () => page.evaluate(() => [...document.querySelectorAll(".riddle-answer")].map((a) => a.textContent.trim()));
+const saidAloud = () => page.evaluate(() => window.spokenAloud.map((l) => l.replace(/^[^:]+: /, "")));
+await page.goto(`${BASE}?quest=4`);
+await wait(4000);
+await recordLines();
+// Every spoken line is noted, so the answers read aloud can be checked
+await page.evaluate(async () => {
+  const { NarrationManager } = await import("/src/systems/NarrationManager.ts");
+  const narration = NarrationManager.getInstance();
+  const speak = narration.speakLine.bind(narration);
+  window.spokenAloud = [];
+  narration.speakLine = (text, speaker) => (window.spokenAloud.push(`${speaker}: ${text}`), speak(text, speaker));
+});
+check("all three tablets start dark and asleep", (await lake()).lit.every((l) => !l) && (await lake()).solved === 0 && !(await lake()).ghost);
+
+async function goToTablet(i) {
+  const [tx, tz, ax, az] = tablets[i];
   await page.evaluate(([x, z]) => window.game.placePlayer(x, z), [tx + ax * 3.2, tz + az * 3.2]);
   await wait(500);
   await walkTo(tx + ax * 2.2, tz + az * 2.2, 0.6, 6000);
   s = await state();
   check(`tablet ${i + 1}: prompt to read`, s.prompt?.includes("Lesen") ?? false, s.prompt ?? "no prompt");
-  await page.keyboard.press("Space");
-  await wait(500);
-  if (i === 2) await shot("06-ghost-tablet");
-  await finishDialogue();
-  await wait(400);
 }
+
+/** Read a tablet's lines and wait for its card; the card is then at least 0.5 s old when this returns. */
+async function openRiddle() {
+  await page.keyboard.press("Space");
+  await readUntil(riddleOpen, 20000);
+  await wait(550);
+}
+
+/** Choose answer k with the arrows and Space. */
+async function choose(k) {
+  // Reason: two presses inside one frame count as one, so a person's presses are told apart by a pause
+  for (let n = await highlighted(); n < k; n++) {
+    await page.keyboard.press("ArrowDown");
+    await wait(120);
+  }
+  await wait(150);
+  await page.keyboard.press("Space");
+}
+
+// First tablet: mashing Space gets nowhere, a wrong answer is kind, the right one lights the tablet
+await goToTablet(0);
+await page.keyboard.press("Space");
+check("tablet 1: Steintafel reads the riddle", await until(async () => (await state()).dialogue && (await page.textContent(".dialogue .name")) === "Steintafel", 3000));
+let sawKindLine = false;
+let kindSpeaker = "";
+let presses = 0;
+const mashUntil = Date.now() + 14000;
+while (Date.now() < mashUntil && !sawKindLine) {
+  if ((await state()).dialogue) {
+    sawKindLine = (await page.evaluate(() => window.game.ui.dialogue.full)).includes("passt noch nicht");
+    kindSpeaker = await page.textContent(".dialogue .name");
+  }
+  await page.keyboard.press("Space");
+  presses++;
+  await wait(90);
+}
+check("mashing Space never solves a riddle", (await lake()).solved === 0 && sawKindLine, `${presses} presses`);
+check("the kind line is the tablet's", kindSpeaker === "Steintafel", kindSpeaker);
+await shot("05-wrong-answer");
+check("a wrong answer keeps the tablet dark", !(await lake()).lit[0]);
+await readUntil(riddleOpen, 20000);
+check("after a wrong answer the question comes back", await riddleOpen());
+check("the highlight starts on the first answer again", (await highlighted()) === 0);
+check("the card shows the three answers", (await answersShown()).join() === "Chuleta,Schatten,Wind", (await answersShown()).join());
+check("the first answer is read aloud when it is highlighted", (await saidAloud()).includes("Chuleta"));
+await page.keyboard.press("Space");
+await wait(100);
+check("Space does nothing in the first 0.4 s of a card", await riddleOpen());
+await wait(500);
+await page.keyboard.press("ArrowDown");
+await wait(150);
+check("ArrowDown moves the highlight", (await highlighted()) === 1);
+check("the new answer is read aloud", (await saidAloud()).includes("Schatten"));
+await shot("06-riddle-card");
+await page.keyboard.press("ArrowUp");
+await wait(100);
+await page.keyboard.press("ArrowUp");
+await wait(100);
+check("the highlight stops at the first answer", (await highlighted()) === 0);
+await page.keyboard.press("ArrowDown");
+await wait(150);
+await page.keyboard.press("Space");
+check("the card closes when an answer is chosen", await until(async () => !(await riddleOpen()), 2000));
+check("the right answer lights the tablet", await until(async () => (await lake()).lit[0] && (await lake()).solved === 1, 3000), JSON.stringify(await lake()));
+await wait(500);
+await shot("07-tablet-lit");
+await waitUntilFree();
+
+// The other two, in the order 3, 2: any order works
+for (const i of [2, 1]) {
+  await goToTablet(i);
+  await openRiddle();
+  if (i === 2) await shot("08-ghost-riddle");
+  await choose(RIGHT[i]);
+  check(`tablet ${i + 1}: the right answer lights it`, await until(async () => (await lake()).lit[i], 3000), JSON.stringify(await lake()));
+  if (i === 2) {
+    check("the ghost has not risen before the third riddle", !(await lake()).ghost);
+    await wait(1500);
+    await shot("09-two-lit");
+    await waitUntilFree();
+  }
+}
+
+// The third riddle wakes the ghost
+await page.evaluate(() => (window.said = []));
+check("any order works", (await lake()).lit.every(Boolean) && (await lake()).solved === 3, JSON.stringify(await lake()));
+check("the ghost rises after the third", await until(async () => (await lake()).ghost, 8000));
+await wait(1500);
+await shot("10-hueter-rising");
+await wait(2500);
+await shot("11-hueter-risen");
+await readUntil(async () => (await state()).milestone === 5, 60000);
 await waitUntilFree();
 s = await state();
-check("quest 5 (Höhle) is active after all tablets", s.milestone === 5, `milestone ${s.milestone}`);
-await shot("07-quest5");
+heard = await said();
+lines = plain(heard);
+check("the Hüter speaks first", heard[0] === "Hüter: Ich bin der Hüter. Ich habe auf das Herz aufgepasst.", heard[0]);
+check("the rhyme is said and Tadeo repeats it", lines.includes("Das Schwert aus dem Fels zerschneidet den Dorn,") && lines.some((l) => l.startsWith("Also: Das Schwert")));
+check("the whole rhyme is four lines, then Tadeo's two", lines.indexOf("Also: Das Schwert für die Dornen. Die Beeren für die Monster.") - lines.indexOf("Das Schwert aus dem Fels zerschneidet den Dorn,") === 4);
+check("the ghost has the last word before Chuleta", lines.at(-1) === "Und der Pirat... Er ist näher, als du denkst.", lines.at(-1));
+check("the conversation with the ghost is 11 lines, under the limit of 12", heard.length === 11, `${heard.length} lines`);
+check("the ghost is gone after he has spoken", await until(async () => !(await lake()).ghost, 6000));
+check("quest 5 (Höhle) is active", s.milestone === 5, `milestone ${s.milestone}`);
+await shot("12-quest5");
+
+// A reload keeps nothing of the riddles: all three come back dark, and can be answered again
+await page.goto(`${BASE}?quest=4`);
+await wait(4000);
+check("after a reload the tablets are dark again", (await lake()).lit.every((l) => !l) && (await lake()).solved === 0);
+await goToTablet(1);
+await openRiddle();
+check("a riddle can be asked again after a reload", (await riddleOpen()) && (await highlighted()) === 0);
 
 // ── 6. Village chat ─────────────────────────────────────────
 await page.goto(`${BASE}?quest=8`);

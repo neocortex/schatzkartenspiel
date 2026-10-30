@@ -8,6 +8,7 @@ import * as THREE from "three";
 import { Heightfield } from "../Heightfield";
 import { Colliders } from "../Colliders";
 import { WorldUniforms } from "../Terrain";
+import { TabletRunes } from "../TabletRunes";
 import { Model, emptyModel, addModel, placeAt } from "./shapes";
 import { SignAtlas } from "./signs";
 import { LandmarkMaterials } from "./effects";
@@ -32,6 +33,8 @@ export interface LandmarkContext {
   readonly world: WorldUniforms;
   readonly materials: LandmarkMaterials;
   readonly vents: THREE.Vector3[];
+  /** The lake tablets' runes, which sleep until their riddle is solved. */
+  readonly tablets: TabletRunes;
   /** Create a site whose model is merged into meshes once building is done. */
   site(name: string): Site;
   /** Register a walkable deck (also opens the heightfield underneath). */

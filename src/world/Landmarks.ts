@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { Heightfield } from "./Heightfield";
 import { Colliders, Circle } from "./Colliders";
 import { WorldUniforms } from "./Terrain";
+import { TabletRunes } from "./TabletRunes";
 import { merge } from "../core/geo";
 import { Model } from "./models/shapes";
 import { SignAtlas } from "./models/signs";
@@ -45,6 +46,7 @@ export class Landmarks implements LandmarkContext {
   readonly vents: THREE.Vector3[] = [];
   readonly atlas = new SignAtlas();
   readonly materials: LandmarkMaterials;
+  readonly tablets: TabletRunes;
   private sites: Site[] = [];
   private decks: Deck[] = [];
   private boats: Boat[] = [];
@@ -56,6 +58,8 @@ export class Landmarks implements LandmarkContext {
     readonly world: WorldUniforms,
   ) {
     this.materials = createMaterials(world);
+    this.tablets = new TabletRunes(this.materials.pulse);
+    this.group.add(this.tablets.group);
     buildSpawnBeach(this);
     buildVolcano(this);
     buildTablets(this);
@@ -94,6 +98,16 @@ export class Landmarks implements LandmarkContext {
     return best;
   }
 
+  /** Wake a lake tablet's runes with a flash and sparkles (0 to 2, in the order of `LANDMARKS.tablets`). */
+  lightTablet(i: number): void {
+    this.tablets.light(i);
+  }
+
+  /** Whether a lake tablet's runes are awake. */
+  isTabletLit(i: number): boolean {
+    return this.tablets.isLit(i);
+  }
+
   /** World position and heading (radians about Y, bow = +x) of a named boat ("north" or "lagoon"). */
   boatPose(name: string): { position: THREE.Vector3; yaw: number } | null {
     const b = this.boats.find((o) => o.name === name);
@@ -121,6 +135,7 @@ export class Landmarks implements LandmarkContext {
       b.group.position.set(b.base.x, b.base.y + Math.sin(t * 1.25) * 0.07, b.base.z);
       b.group.rotation.set(Math.sin(t * 0.9) * 0.045, b.yaw, Math.sin(t * 1.25 + 0.8) * 0.025, "YXZ");
     }
+    this.tablets.update(dt);
     for (const fn of this.animations) fn(time, dt);
   }
 

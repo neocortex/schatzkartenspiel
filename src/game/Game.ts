@@ -20,14 +20,16 @@ import { Wardrobe } from "./Wardrobe";
 import { SIDE_GAMES, SideGame } from "./sideGames";
 import { Sightings } from "./Sightings";
 import { StoryWorld } from "./StoryWorld";
+import { Lake } from "./lake";
 import { playOpening } from "./opening";
 import { showEndCard } from "../ui/EndCard";
+import { showMapCard } from "../ui/MapCard";
 import { QuestManager } from "../systems/QuestManager";
 import { InventoryManager } from "../systems/InventoryManager";
 import { SaveManager } from "../systems/SaveManager";
 import { NarrationManager } from "../systems/NarrationManager";
 import { QUESTS } from "../data/quests";
-import { DialogueScript } from "../data/dialogues";
+import { DIALOGUES, DialogueScript } from "../data/dialogues";
 import { LANDMARKS, VILLAGE, P2 } from "../world/layout";
 import { loadChallenge } from "../challenges/registry";
 import { ChallengeName } from "../challenges/types";
@@ -57,7 +59,6 @@ const GATES: Record<number, { at: P2; challenge: ChallengeName; back?: P2 }> = {
   11: { at: LANDMARKS.northDockEnd, challenge: "treasure" },
 };
 
-const TABLET_DIALOGUES = ["lake_tablet1", "lake_tablet2", "lake_tablet3"];
 const TALK_RANGE = 2.8;
 /** Seconds without progress before Chuleta offers a hint. */
 const HINT_AFTER = 45;
@@ -75,13 +76,13 @@ export class Game {
   private wardrobe: Wardrobe;
   private sightings: Sightings;
   private story: StoryWorld;
+  private lake: Lake;
   private quest = QuestManager.getInstance();
   /** True while a cutscene, conversation or challenge owns the controls. */
   private busy = true;
   private title: Title | null = null;
   private cinematic: ((t: number) => Shot) | null = null;
   private cinematicTime = 0;
-  private tabletsRead = new Set<number>();
   private remarkCooldown = 0;
   private tmp = new THREE.Vector3();
 
@@ -97,6 +98,7 @@ export class Game {
     this.sightings = new Sightings(walkHeight, colliders, this.ui.layer);
     this.story = new StoryWorld(this.island.island, this.island.rig, this.npcs, this.sightings);
     this.island.scene.add(this.sightings.group, this.story.group);
+    this.lake = new Lake({ island: this.island, ui: this.ui, input: engine.input, talk: (script) => this.talk(script) });
     // Reason: coins come after the NPCs so none lands inside a villager, and after the story's rocks and thorns for the same reason
     this.coins = new Coins(hf, colliders);
     this.island.scene.add(this.coins.group);
@@ -160,6 +162,7 @@ export class Game {
       return s.behind ? null : this.pixels(s);
     });
     this.story.update(dt, time);
+    this.lake.update(dt, time);
     if (this.cinematic) {
       this.cinematicTime += dt;
       this.island.rig.jumpToShot(this.cinematic(this.cinematicTime));
@@ -233,7 +236,7 @@ export class Game {
     if (m === 4) {
       return LANDMARKS.tablets
         .map((at, i) => ({ at, i }))
-        .filter(({ i }) => !this.tabletsRead.has(i))
+        .filter(({ i }) => !this.lake.solved.has(i))
         .map(({ at, i }) => ({ at, radius: 3.2, verb: "Lesen", run: () => this.readTablet(i) }));
     }
     const gate = GATES[m];
@@ -249,16 +252,22 @@ export class Game {
     return best;
   }
 
+  /** The legend of the Feuerherz; Tadeo's map shows where the heart is. */
   private async meetElder(): Promise<void> {
-    await this.talk("village_enter", this.npcs.get("elder"));
+    const elder = this.npcs.get("elder");
+    await this.talk("elder_legend", elder);
+    // Reason: the card closes on Space, which the island leaves alone while controls are off
+    await showMapCard(this.ui.layer, this.engine.input);
+    await this.talk("elder_after_map", elder);
     await this.advance();
   }
 
+  /** A riddle at a tablet. The third one wakes the Hüter, who speaks the rhyme of the four things. */
   private async readTablet(i: number): Promise<void> {
-    await this.talk(TABLET_DIALOGUES[this.tabletsRead.size]);
-    this.tabletsRead.add(i);
-    if (this.tabletsRead.size < 3) return;
-    await this.talk("lake_complete");
+    if (!(await this.lake.solve(i))) return;
+    await this.lake.rise();
+    await this.talk([...DIALOGUES.lake_hueter, ...DIALOGUES.lake_rhyme, ...DIALOGUES.lake_after_rhyme]);
+    await this.lake.fade();
     await this.advance();
   }
 
@@ -328,7 +337,6 @@ export class Game {
       this.wardrobe.reset();
     }
     this.wardrobe.dress(this.coins.collected);
-    this.tabletsRead.clear();
     this.ui.hud.refresh();
     await playOpening({
       engine: this.engine,

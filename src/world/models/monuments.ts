@@ -49,11 +49,13 @@ function rune(rand: () => number, x: number, y: number, c: number, color: THREE.
 }
 
 /**
- * Ancient stone tablet on a stepped base with glowing carved runes on both
- * faces. The ghost tablet is taller and paler, with violet runes and a cradle
- * for the floating crystal (returned as `crystalAt`).
+ * Ancient stone tablet on a stepped base with carved runes on both faces. The
+ * ghost tablet is taller and paler, with violet runes and a cradle for the
+ * floating crystal (returned as `crystalAt`). The runes come back apart from
+ * the stone (`runes`, placed like the model), because they sleep until the
+ * tablet's riddle is solved.
  */
-export function tablet(seed: number, ghost: boolean): { model: Model; crystalAt: THREE.Vector3 | null } {
+export function tablet(seed: number, ghost: boolean): { model: Model; crystalAt: THREE.Vector3 | null; runes: THREE.BufferGeometry } {
   const rand = mulberry32(seed + 73);
   const m = emptyModel();
   const w = ghost ? 1.95 : 1.75;
@@ -74,6 +76,7 @@ export function tablet(seed: number, ghost: boolean): { model: Model; crystalAt:
     return c.lerp(moss, mossy * 0.8);
   }));
   // Carved face panels with runes on both sides
+  const carved: THREE.BufferGeometry[] = [];
   const panel = new THREE.Color(stone).multiplyScalar(0.62);
   for (const side of [1, -1]) {
     const face = new THREE.ShapeGeometry(archShape(w - 0.34, h - 0.4), 10);
@@ -98,7 +101,7 @@ export function tablet(seed: number, ghost: boolean): { model: Model; crystalAt:
     for (const rg of runes) {
       rg.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0, 0.012));
       rg.applyMatrix4(xf);
-      m.pulse.push(rg);
+      carved.push(rg);
     }
   }
   let crystalAt: THREE.Vector3 | null = null;
@@ -117,7 +120,7 @@ export function tablet(seed: number, ghost: boolean): { model: Model; crystalAt:
       }
     }
   }
-  return { model: m, crystalAt };
+  return { model: m, crystalAt, runes: merge(carved) };
 }
 
 /** Elongated glowing crystal with a tilted halo ring (for the ghost tablet), centred at the origin. */

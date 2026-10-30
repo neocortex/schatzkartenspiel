@@ -134,39 +134,129 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   ],
 
   // -----------------------------------------------------------------------
-  // Milestone 3: Lake
+  // Quest 3: the elder tells the legend; the map shows where the heart is
   // -----------------------------------------------------------------------
-  lake_tablet1: [
+  elder_legend: [
+    {
+      speaker: "Dorfältester",
+      portrait: "portrait_npc0",
+      text: "Du hast Paco gerettet. Danke, Tadeo!",
+    },
+    {
+      speaker: "Dorfältester",
+      portrait: "portrait_npc0",
+      text: "Unser Vulkan hat ein Herz: das Feuerherz.",
+    },
+    {
+      speaker: "Dorfältester",
+      portrait: "portrait_npc0",
+      text: "Solange es auf dem alten Stein liegt, schläft der Vulkan.",
+    },
+    {
+      speaker: "Dorfältester",
+      portrait: "portrait_npc0",
+      text: "Aber ein Pirat hat es gestohlen. Jetzt wacht der Vulkan auf!",
+    },
+    {
+      speaker: "Dorfältester",
+      portrait: "portrait_npc0",
+      text: "Und niemand weiß, wo das Herz ist.",
+    },
+    // Tadeo's line ends the script; the map card follows it
+    {
+      speaker: "Tadeo",
+      portrait: "portrait_tadeo",
+      text: "Moment! Ich habe eine Karte!",
+    },
+  ],
+  elder_after_map: [
+    {
+      speaker: "Dorfältester",
+      portrait: "portrait_npc0",
+      text: "Das X! Dort muss es sein!",
+    },
+    {
+      speaker: "Käpt'n Paco",
+      portrait: "",
+      text: "Hm, hm.",
+    },
+    {
+      speaker: "Dorfältester",
+      portrait: "portrait_npc0",
+      text: "Wie du hinkommst, weiß nur der Geist am See.",
+    },
+  ],
+
+  // -----------------------------------------------------------------------
+  // Quest 4: three riddles wake the ghost at the lake (the riddles are in game/lake.ts)
+  // -----------------------------------------------------------------------
+  lake_wrong: [
     {
       speaker: "Steintafel",
       portrait: "",
-      text: "Vor langer Zeit lebte ein mächtiger König auf dieser Insel. Sein größter Schatz wurde an einem geheimen Ort versteckt.",
+      text: "Hm, das passt noch nicht. Versuch es noch einmal!",
     },
   ],
-  lake_tablet2: [
-    {
-      speaker: "Steintafel",
-      portrait: "",
-      text: "Nur wer mutig genug ist, alle Prüfungen zu bestehen, wird den Schatz finden. Vier Gegenstände zeigen den Weg.",
-    },
-  ],
-  lake_tablet3: [
+  lake_hueter: [
     {
       speaker: "Hüter",
       portrait: "",
-      text: "Du bist also der Auserwählte... Bestehe die Prüfungen der Insel, junger Held. Der Schatz wartet auf dich.",
+      text: "Ich bin der Hüter. Ich habe auf das Herz aufgepasst.",
+    },
+    {
+      speaker: "Hüter",
+      portrait: "",
+      text: "Aber ich bin ein Geist. Ich habe keine Hände.",
+    },
+    {
+      speaker: "Hüter",
+      portrait: "",
+      text: "Du hast Hände, Tadeo. Bring das Herz zurück!",
     },
   ],
-  lake_complete: [
+  // The four rhyming lines, then Tadeo's plain version of them
+  lake_rhyme: [
     {
-      speaker: "Tadeo",
-      portrait: "portrait_tadeo",
-      text: "Vier Gegenstände also... Schwert, Beeren, Schlüssel und Hammer. Ich muss sie alle finden!",
+      speaker: "Hüter",
+      portrait: "",
+      text: "Das Schwert aus dem Fels zerschneidet den Dorn,",
+    },
+    {
+      speaker: "Hüter",
+      portrait: "",
+      text: "die Beere im Wald nimmt den Monstern den Zorn.",
+    },
+    {
+      speaker: "Hüter",
+      portrait: "",
+      text: "Der Hammer vom Berg zerschlägt das Eis,",
+    },
+    {
+      speaker: "Hüter",
+      portrait: "",
+      text: "der Schlüssel vom Dorf für das Herz, so heiß.",
     },
     {
       speaker: "Tadeo",
       portrait: "portrait_tadeo",
-      text: "Die Tafeln erwähnen ein Schwert in einer Höhle im Nordwesten. Da fange ich an!",
+      text: "Also: Das Schwert für die Dornen. Die Beeren für die Monster.",
+    },
+    {
+      speaker: "Tadeo",
+      portrait: "portrait_tadeo",
+      text: "Der Hammer für das Eis. Der Schlüssel für die Truhe!",
+    },
+  ],
+  lake_after_rhyme: [
+    {
+      speaker: "Hüter",
+      portrait: "",
+      text: "Keine Angst vor dem Herz. Es verbrennt nur Diebe.",
+    },
+    {
+      speaker: "Hüter",
+      portrait: "",
+      text: "Und der Pirat... Er ist näher, als du denkst.",
     },
   ],
 

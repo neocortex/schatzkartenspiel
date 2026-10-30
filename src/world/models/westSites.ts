@@ -94,7 +94,7 @@ export function buildVolcano(ctx: LandmarkContext): void {
   }
 }
 
-/** Three rune tablets around the lake, facing the water; the third (ghost) tablet carries a floating crystal. */
+/** Three rune tablets around the lake, facing the water; the third (ghost) tablet carries a floating crystal. Their runes sleep until `ctx.tablets` lights them. */
 export function buildTablets(ctx: LandmarkContext): void {
   const site = ctx.site("tablets");
   const [lx, lz] = LANDMARKS.lake;
@@ -103,8 +103,9 @@ export function buildTablets(ctx: LandmarkContext): void {
     const ghost = i === 2;
     const rot = faceDir(lx - x, lz - z);
     const y = site.groundMin(x, z, 1.0) - 0.1;
-    const { model, crystalAt } = tablet(30 + i, ghost);
+    const { model, crystalAt, runes } = tablet(30 + i, ghost);
     site.putAt(model, x, y, z, rot);
+    ctx.tablets.add(runes, x, y, z, rot, ghost ? 3.7 : 2.8, new THREE.Color(ghost ? "#d9b8ff" : "#aaf4ff"));
     site.block(x, z, 1.3);
     site.clearGrass(x, z, 1.9);
     for (let k = 0; k < 3; k++) {

@@ -31,6 +31,7 @@ const OWNERS = {
   },
   "challenges/fishing/species.ts": { fact: "Fischer Jonas" },
   "challenges/hens/script.ts": { CHULETA: "Chuleta", homeLine: "Kleine Mia" },
+  "game/lake.ts": { lines: "Steintafel", answers: "Steintafel" },
   "game/chuletaLines.ts": { CHULETA_HINTS: "Chuleta", CHULETA_CHEERS: "Chuleta" },
   "game/Wardrobe.ts": { cheer: "Chuleta" },
   "game/sideGames.ts": { cheer: "Chuleta" },

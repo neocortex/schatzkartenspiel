@@ -7,8 +7,7 @@
 import * as THREE from "three";
 import { Humanoid, blobShadow } from "../characters/Humanoid";
 import { createElder, createWiseWoman, createWiseMan, createVillager } from "../characters/cast";
-import { Heightfield } from "../world/Heightfield";
-import { Colliders } from "../world/Colliders";
+import { Colliders, Circle } from "../world/Colliders";
 import { VILLAGE, P2 } from "../world/layout";
 import { DialogueScript } from "../data/dialogues";
 
@@ -24,6 +23,9 @@ export interface Npc {
   /** Lines for casual chats (picked in turn). */
   chatter: DialogueScript;
   chatIndex: number;
+  /** Null while they are away from the island. */
+  collider: Circle | null;
+  shadow: THREE.Mesh;
 }
 
 const line = (speaker: string, text: string) => ({ speaker, portrait: "", text });
@@ -62,9 +64,9 @@ const VILLAGERS: { at: P2; facing: number; name: string; lines: string[] }[] = [
 export class Npcs {
   readonly group = new THREE.Group();
   readonly list: Npc[] = [];
-  private shadows: THREE.Mesh[] = [];
 
-  constructor(private hf: Heightfield, colliders: Colliders) {
+  /** @param ground Walk-surface height at a point (a deck where there is one, else the terrain). */
+  constructor(private ground: (x: number, z: number) => number, private colliders: Colliders) {
     this.spawn("elder", "Dorfältester", createElder(), VILLAGE.elder, 0, [
       line("Dorfältester", "Ah, Tadeo! Schön, dass du uns besuchst."),
       line("Dorfältester", "Unser Dorf ist klein, aber unsere Herzen sind groß."),
@@ -81,22 +83,36 @@ export class Npcs {
       const id = `villager${i}` as NpcId;
       this.spawn(id, v.name, createVillager(i), v.at, v.facing, v.lines.map((t) => ({ ...line(v.name, t), portrait: id })));
     });
-    for (const npc of this.list) colliders.add(npc.position.x, npc.position.z, 0.45);
   }
 
   private spawn(id: NpcId, speaker: string, avatar: Humanoid, at: P2, facing: number, chatter: DialogueScript): void {
-    const position = new THREE.Vector3(at[0], this.hf.heightAt(at[0], at[1]), at[1]);
-    avatar.root.position.copy(position);
-    avatar.root.rotation.y = facing;
     const shadow = blobShadow(0.5);
-    shadow.position.set(position.x, position.y + 0.04, position.z);
     this.group.add(avatar.root, shadow);
-    this.shadows.push(shadow);
-    this.list.push({ id, speaker, avatar, position, homeFacing: facing, chatter, chatIndex: 0 });
+    const npc: Npc = { id, speaker, avatar, position: new THREE.Vector3(), homeFacing: facing, chatter, chatIndex: 0, collider: null, shadow };
+    this.list.push(npc);
+    this.setSpot(id, at, facing);
   }
 
   get(id: NpcId): Npc {
     return this.list.find((n) => n.id === id)!;
+  }
+
+  /**
+   * Stand someone at another spot, or send them away with null: hidden, no collider and nobody to talk to.
+   * @param facing Direction they then face when nobody is around; by default the one they had.
+   */
+  setSpot(id: NpcId, at: P2 | null, facing?: number): void {
+    const npc = this.get(id);
+    if (npc.collider) this.colliders.remove(npc.collider);
+    npc.collider = null;
+    npc.avatar.root.visible = npc.shadow.visible = at !== null;
+    if (!at) return;
+    npc.position.set(at[0], this.ground(at[0], at[1]), at[1]);
+    npc.avatar.root.position.copy(npc.position);
+    npc.homeFacing = facing ?? npc.homeFacing;
+    npc.avatar.root.rotation.y = npc.homeFacing;
+    npc.shadow.position.set(npc.position.x, npc.position.y + 0.04, npc.position.z);
+    npc.collider = this.colliders.add(npc.position.x, npc.position.z, 0.45);
   }
 
   /** Nearest NPC within `range` of a point, if any. */
@@ -104,6 +120,7 @@ export class Npcs {
     let best: Npc | null = null;
     let bestD = range;
     for (const n of this.list) {
+      if (!n.avatar.root.visible) continue;
       const d = Math.hypot(n.position.x - p.x, n.position.z - p.z);
       if (d < bestD) {
         best = n;
@@ -122,6 +139,7 @@ export class Npcs {
 
   update(dt: number, player: THREE.Vector3): void {
     for (const n of this.list) {
+      if (!n.avatar.root.visible) continue;
       const d = Math.hypot(player.x - n.position.x, player.z - n.position.z);
       // Reason: people turn towards Tadeo when he is close, then drift back to their usual view
       const target = d < 5 ? Math.atan2(player.x - n.position.x, player.z - n.position.z) : n.homeFacing;

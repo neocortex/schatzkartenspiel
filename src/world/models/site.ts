@@ -38,6 +38,8 @@ export interface LandmarkContext {
   deck(d: Deck): void;
   /** Add a separately animated boat (bobbing on the water). */
   boat(name: string, model: Model, x: number, z: number, rotY: number): void;
+  /** Add a boat lying on land (model in world space, no bobbing); `setBoatVisible` puts up its colliders and takes them away. */
+  beached(name: string, model: Model, blockers: [number, number, number][]): void;
   /** Add a custom object (lava, waterfall, ...). */
   add(obj: THREE.Object3D): void;
   /** Run every frame. */

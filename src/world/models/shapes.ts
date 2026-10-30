@@ -200,6 +200,16 @@ export function stoneFn(base: THREE.ColorRepresentation, mossy = 0, rand: () => 
   };
 }
 
+/** Sharp point from `base` along `dir` (a splinter, a thorn). In a colour function, p.y runs from 0 at the base to `length` at the tip. */
+export function spike(base: THREE.Vector3, dir: THREE.Vector3, length: number, width: number, color: THREE.ColorRepresentation | ColorFn, sides = 4): THREE.BufferGeometry {
+  const cone = new THREE.ConeGeometry(width, length, sides);
+  cone.translate(0, length / 2, 0);
+  const painted = part(cone, color);
+  painted.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize()));
+  painted.translate(base.x, base.y, base.z);
+  return painted;
+}
+
 /** Attach a per-vertex wind weight (`aSway`) used by the cloth shader. */
 export function withSway(g: THREE.BufferGeometry, weight: (p: THREE.Vector3) => number): THREE.BufferGeometry {
   const pos = g.attributes.position as THREE.BufferAttribute;

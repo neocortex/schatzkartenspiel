@@ -6,7 +6,7 @@
 
 import * as THREE from "three";
 import { Heightfield } from "./Heightfield";
-import { Colliders } from "./Colliders";
+import { Circle, Colliders } from "./Colliders";
 import { LANDMARKS, SPOTS, P2, WORLD_HALF } from "./layout";
 import { Noise2D, mulberry32, smoothstep } from "../core/noise";
 import { UNFLIPPED_NORMAL_GLSL } from "../core/glsl";
@@ -59,10 +59,14 @@ const KEEP_OUT: { at: P2; r: number }[] = [
   { at: SPOTS.windmill, r: 7 },
 ];
 
+/** Where no tree, bush or rock stands, so the thorn hedge across the forest gate can be seen from the follow camera in the south. */
+const CLEARING: { at: P2; r: number } = { at: [-11, 31.5], r: 7.6 };
+
 export class Vegetation {
   readonly group = new THREE.Group();
   private species: Record<string, Species>;
   private placements = new Map<flora.FloraModel, THREE.Matrix4[]>();
+  private felled: Circle[] = [];
   private noise = new Noise2D(4242);
 
   constructor(
@@ -110,6 +114,7 @@ export class Vegetation {
         if (kind) this.place(kind, x, z, rand);
       }
     }
+    for (const c of this.felled) this.colliders.remove(c);
   }
 
   /** Decide which species (if any) grows at a spot. */
@@ -248,6 +253,11 @@ export class Vegetation {
       new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand() * Math.PI * 2),
       new THREE.Vector3(s, s * (0.9 + rand() * 0.2), s),
     );
+    // Reason: a tree in the clearing is planted and felled once the scatter is done; skipping it would change the random sequence and move every tree south of it
+    if (sp.collider > 0 && Math.hypot(x - CLEARING.at[0], z - CLEARING.at[1]) < CLEARING.r) {
+      this.felled.push(this.colliders.add(x, z, sp.collider * s));
+      return;
+    }
     let list = this.placements.get(model);
     if (!list) this.placements.set(model, (list = []));
     list.push(m);

@@ -1,8 +1,9 @@
 /**
  * Island cameos of the big story characters, so the adventure foreshadows
  * what is coming: the grumpy ogre guards the bridge until Tadeo has won the
- * ogre quest (then he sits by the river as a friend and waves), and the giant
- * shark's fin circles off the north pier until the sea crossing.
+ * ogre quest (then he sits by the river as a friend and waves, and later sees
+ * Tadeo off at the north dock), and the giant shark's fin circles off the north
+ * pier until the sea crossing.
  */
 
 import * as THREE from "three";
@@ -22,11 +23,15 @@ const SEA_QUEST = 10;
 const GUARD: P2 = LANDMARKS.bridge;
 /** Open grass east of the mountain path, just past the bridge (in view when Tadeo comes back). */
 const FRIEND: P2 = [57.5, -3];
+/** On the shore beside the way onto the north pier, where he sees Tadeo off. */
+const DOCK: P2 = [-18, -50];
 /** Deep water off the north pier where the fin circles. */
 const SHARK_RING = { x: -44, z: -84, r: 6 };
 
 const GUARD_LINES = ["GRRR! Das ist MEINE Brücke!", "Keiner kommt hier rüber! Grrr!"];
 const FRIEND_LINES = ["Hallo Tadeo! Danke für die leckere Beere!", "Hmm, Beeren sind viel besser als Brücken bewachen!"];
+
+export type OgreSpot = "bridge" | "friend" | "dock";
 
 export class Sightings {
   readonly group = new THREE.Group();
@@ -35,7 +40,7 @@ export class Sightings {
   private shark: Shark = createShark();
   private bubble: Bubble;
   private collider: Circle | null = null;
-  private friendly: boolean | null = null;
+  private spot: OgreSpot | null = null;
   private poseTimer = 0;
   private cooldown = 0;
   private lineIndex = 0;
@@ -52,17 +57,28 @@ export class Sightings {
     this.group.add(this.ogre.root, this.ogreShadow, this.shark.root);
   }
 
+  /** Where the ogre stands right now. */
+  get ogreSpot(): OgreSpot {
+    return this.spot ?? "bridge";
+  }
+
+  /** Stand the ogre where he belongs at this quest. Safe to call every frame. */
+  place(milestone: number): void {
+    const spot = milestone >= SEA_QUEST ? "dock" : milestone > OGRE_QUEST ? "friend" : "bridge";
+    if (spot !== this.spot) this.placeOgre(spot);
+  }
+
   /**
    * @param project world point → screen pixels (null when off screen), for the ogre's speech bubble
    */
   update(dt: number, player: THREE.Vector3, milestone: number, project: (v: THREE.Vector3) => { x: number; y: number } | null): void {
-    this.updateOgre(dt, player, milestone > OGRE_QUEST);
+    this.place(milestone);
+    this.updateOgre(dt, player, this.spot !== "bridge");
     this.bubble.place(this.bubble.speaking ? project(this.ogre.headPos(this.head).setY(this.head.y + 1.2)) : null);
     this.updateShark(dt, milestone <= SEA_QUEST);
   }
 
   private updateOgre(dt: number, player: THREE.Vector3, friendly: boolean): void {
-    if (friendly !== this.friendly) this.placeOgre(friendly);
     const o = this.ogre;
     const pos = o.root.position;
     const d = Math.hypot(player.x - pos.x, player.z - pos.z);
@@ -87,13 +103,14 @@ export class Sightings {
     o.update(dt);
   }
 
-  private placeOgre(friendly: boolean): void {
-    this.friendly = friendly;
-    const [x, z] = friendly ? FRIEND : GUARD;
+  private placeOgre(spot: OgreSpot): void {
+    this.spot = spot;
+    const friendly = spot !== "bridge";
+    const [x, z] = spot === "dock" ? DOCK : friendly ? FRIEND : GUARD;
     const o = this.ogre;
     o.root.position.set(x, this.height(x, z), z);
-    // Reason: the guard faces west, towards Tadeo coming from the lake; the friend looks down the path
-    o.root.rotation.y = friendly ? -0.85 : -Math.PI / 2;
+    // Reason: the guard faces west, towards Tadeo coming from the lake; the friend looks down the path, and at the dock towards the way in
+    o.root.rotation.y = spot === "dock" ? -0.6 : friendly ? -0.85 : -Math.PI / 2;
     o.mood = friendly ? "happy" : "grumpy";
     o.snapPose(friendly ? "sit" : "idle");
     this.ogreShadow.position.set(x, o.root.position.y + 0.05, z);

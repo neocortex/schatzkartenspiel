@@ -36,7 +36,7 @@ import { SPOTS } from "./layout";
 export class Ambient {
   readonly group = new THREE.Group();
   private smoke: SmokeSystem;
-  private volcano: Volcano;
+  readonly volcano: Volcano;
   private butterflies: Butterflies;
   private birds: Birds;
   private motes: Motes;

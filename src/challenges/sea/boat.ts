@@ -9,14 +9,11 @@ import * as THREE from "three";
 import { Humanoid } from "../../characters/Humanoid";
 import { createTadeo } from "../../characters/cast";
 import { createHammer } from "../../world/models/items";
-import { sailboat, BoatColors } from "../../world/models/boats";
+import { sailboat, NORTH_DOCK_BOAT } from "../../world/models/boats";
 import { SignAtlas } from "../../world/models/signs";
 import { ModelMaterials, modelGroup, clamp01, ease, lerp } from "../ogre/kit";
 import { Fx } from "../ogre/fx";
 import { seaHeight } from "./ocean";
-
-/** Same colours as the boat waiting at the island's north dock. */
-const NORTH_DOCK_BOAT: BoatColors = { hull: "#d24a35", stripe: "#fff4e0", sail: ["#2f9a8f", "#fff4e0"], pennant: "#3f7fbf" };
 
 export type SailorPose = "sit" | "stand" | "swing" | "cheer" | "duck";
 

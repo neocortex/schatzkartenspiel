@@ -1,18 +1,20 @@
 /**
- * Coastal set pieces: the spawn beach pier with Tadeo's sailboat, the north
- * dock with the boat for the sea crossing, the treasure island (painted X,
- * skull rock, shipwreck, shovel) and the lighthouse on its rocky point.
+ * Coastal set pieces: the spawn beach pier with Tadeo's wrecked boat on the sand
+ * beside it, the north dock with the mended boat for the sea crossing, the
+ * treasure island (painted X, skull rock, shipwreck, shovel) and the lighthouse
+ * on its rocky point.
  */
 
 import * as THREE from "three";
-import { LANDMARKS, PATHS, P2 } from "../layout";
+import { LANDMARKS, PATHS, SPOTS, P2 } from "../layout";
 import { part, displace, facet } from "../../core/geo";
 import { mulberry32 } from "../../core/noise";
 import { LandmarkContext, Site } from "./site";
-import { Model, PAL, emptyModel, addModel, placeAt, pointDir, faceDir, ball, box, pole, rope, rockBlob, stoneFn, flip } from "./shapes";
+import { Model, PAL, V3, emptyModel, addModel, placeAt, pointDir, faceDir, ball, box, pole, rope, rockBlob, stoneFn, flip } from "./shapes";
 import { pier, lighthouse } from "./structures";
-import { sailboat, shipwreck, BoatColors } from "./boats";
+import { sailboat, shipwreck, BoatColors, NORTH_DOCK_BOAT } from "./boats";
 import { crate, barrel, lanternPost } from "./props";
+import { wreckedBoat } from "./storyProps";
 
 const PIER_WIDTH = 2.6;
 const HEAD_LENGTH = 5;
@@ -33,7 +35,7 @@ interface PierInfo {
 
 /**
  * Build a pier from the shore near `landward` out to `end`, register its deck
- * and moor a boat beside the head on side `boatSide` (+1/-1 across the pier).
+ * and moor a boat (if any) beside the head on side `boatSide` (+1/-1 across the pier).
  */
 export function buildPier(
   ctx: LandmarkContext,
@@ -41,7 +43,7 @@ export function buildPier(
   landward: P2,
   end: P2,
   deckY: number,
-  boat: { id: string; colors: BoatColors; name: string | null },
+  boat: { id: string; colors: BoatColors; name: string | null } | null,
   boatSide: number,
   seed: number,
 ): PierInfo {
@@ -63,12 +65,6 @@ export function buildPier(
     seed,
     ground: (s, z) => hf.heightAt(...at(s, z)) - deckY,
   });
-  // Mooring ropes from the bollards to the boat
-  const bz = boatSide * (HEAD_WIDTH / 2 + BOAT_SCALE + 0.3);
-  for (const ds of [-2.4, 2.4]) {
-    const bs = ds < 0 ? length - HEAD_LENGTH + 0.6 : length - 0.6;
-    model.solid.push(rope([bs, 0.45, boatSide * (HEAD_WIDTH / 2 - 0.35)], [length - HEAD_LENGTH / 2 + ds, 0.8 - deckY, bz - boatSide * 0.7], 0.25, 0.035));
-  }
   // Lantern at the far end, crates and a barrel on the head
   addModel(model, lanternPost(3.0), placeAt(length - 0.5, 0, -boatSide * (HEAD_WIDTH / 2 - 0.45), Math.PI / 2 * boatSide));
   addModel(model, crate(seed, 0.8), placeAt(length - HEAD_LENGTH + 1.0, 0, -boatSide * 1.4, 0.3));
@@ -86,17 +82,48 @@ export function buildPier(
     const [x, zz] = at(s, z);
     site.block(x, zz, r);
   }
-  const [bx, bzw] = at(length - HEAD_LENGTH / 2, bz);
-  const boatModel = addModel(emptyModel(), sailboat(ctx.atlas, boat.colors, boat.name, seed), new THREE.Matrix4().makeScale(BOAT_SCALE, BOAT_SCALE, BOAT_SCALE));
-  ctx.boat(boat.id, boatModel, bx, bzw, rotY);
+  if (boat) {
+    const bz = boatSide * (HEAD_WIDTH / 2 + BOAT_SCALE + 0.3);
+    const [bx, bzw] = at(length - HEAD_LENGTH / 2, bz);
+    const boatModel = addModel(emptyModel(), sailboat(ctx.atlas, boat.colors, boat.name, seed), new THREE.Matrix4().makeScale(BOAT_SCALE, BOAT_SCALE, BOAT_SCALE));
+    // Mooring ropes from the bollards to the boat
+    // Reason: they are part of the boat so they leave with it; boat space is pier space moved to the boat's spot
+    const [ox, oy, oz] = [length - HEAD_LENGTH / 2, -deckY, bz];
+    for (const ds of [-2.4, 2.4]) {
+      const bs = ds < 0 ? length - HEAD_LENGTH + 0.6 : length - 0.6;
+      const bollard: V3 = [bs - ox, 0.45 - oy, boatSide * (HEAD_WIDTH / 2 - 0.35) - oz];
+      boatModel.solid.push(rope(bollard, [ds, 0.8, -boatSide * 0.7], 0.25, 0.035));
+    }
+    ctx.boat(boat.id, boatModel, bx, bzw, rotY);
+  }
   return { start, dir, perp, length, deckY, rotY, at };
 }
 
-/** Spawn beach: long pier with Tadeo's boat, crates and barrels. */
+/** Tadeo's wrecked boat on the wet sand, stern to the waves, draped over the beach's own slope. */
+function buildWreck(ctx: LandmarkContext): void {
+  const [x, z] = SPOTS.wreck;
+  // Reason: the bow points up the beach, and its +z side (name, bite, fallen sail) faces the follow camera in the south
+  const rotY = 0.46;
+  const model = addModel(emptyModel(), wreckedBoat(ctx.atlas), placeAt(x, 0, z, rotY, BOAT_SCALE));
+  for (const key of ["solid", "cloth", "text"] as const) {
+    for (const g of model[key]) {
+      const pos = g.attributes.position as THREE.BufferAttribute;
+      for (let i = 0; i < pos.count; i++) {
+        const ground = ctx.hf.heightAt(pos.getX(i), pos.getZ(i));
+        // Reason: the hull digs into the wet sand under the waves, the sail floats where it reaches the water
+        pos.setY(i, pos.getY(i) + (key === "cloth" ? Math.max(ground, 0) : ground));
+      }
+    }
+  }
+  const blockers: [number, number, number][] = [-2.3, 0, 2.3].map((l) => [...Site.local(x, z, rotY, l, 0), 1.45]);
+  ctx.beached("wreck", model, blockers);
+}
+
+/** Spawn beach: long pier, Tadeo's wreck on the sand beside it, crates and barrels. */
 export function buildSpawnBeach(ctx: LandmarkContext): void {
   const site = ctx.site("spawn");
-  const boat: BoatColors = { hull: "#2f74c8", stripe: "#ffffff", sail: ["#e2432f", "#fff4e0"], pennant: "#ffd23f" };
-  const info = buildPier(ctx, site, LANDMARKS.spawn, LANDMARKS.spawnPierEnd, 0.85, { id: "spawn", colors: boat, name: "TADEO" }, -1, 11);
+  const info = buildPier(ctx, site, LANDMARKS.spawn, LANDMARKS.spawnPierEnd, 0.85, null, -1, 11);
+  buildWreck(ctx);
   const rand = mulberry32(5);
   // Cargo unloaded on the beach beside the pier
   const cargo: [number, number, number][] = [[-1.5, 3.0, 0], [-0.6, 3.6, 1], [-1.2, 4.6, 2], [-2.4, -3.0, 3]];
@@ -124,11 +151,11 @@ function shoreAlongPath(ctx: LandmarkContext, target: P2, h: number): P2 {
   return target;
 }
 
-/** North dock: pier with the boat for the crossing to the treasure island. */
+/** North dock: pier with Tadeo's mended boat for the crossing to the treasure island. */
 export function buildNorthDock(ctx: LandmarkContext): void {
   const site = ctx.site("northDock");
-  const boat: BoatColors = { hull: "#d24a35", stripe: "#fff4e0", sail: ["#2f9a8f", "#fff4e0"], pennant: "#3f7fbf" };
-  const info = buildPier(ctx, site, shoreAlongPath(ctx, LANDMARKS.northDock, 0.6), LANDMARKS.northDockEnd, 0.9, { id: "north", colors: boat, name: null }, -1, 23);
+  const boat: BoatColors = { ...NORTH_DOCK_BOAT, patched: true };
+  const info = buildPier(ctx, site, shoreAlongPath(ctx, LANDMARKS.northDock, 0.6), LANDMARKS.northDockEnd, 0.9, { id: "north", colors: boat, name: "TADEO" }, -1, 23);
   const rand = mulberry32(8);
   for (const [s, z, k] of [[-1.0, -3.0, 0], [-1.8, -3.6, 1], [-0.4, -3.9, 0]] as const) {
     const [x, zz] = info.at(s, z);

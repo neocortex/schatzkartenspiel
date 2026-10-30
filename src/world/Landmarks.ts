@@ -10,7 +10,7 @@
 
 import * as THREE from "three";
 import { Heightfield } from "./Heightfield";
-import { Colliders } from "./Colliders";
+import { Colliders, Circle } from "./Colliders";
 import { WorldUniforms } from "./Terrain";
 import { merge } from "../core/geo";
 import { Model } from "./models/shapes";
@@ -29,6 +29,10 @@ interface Boat {
   base: THREE.Vector3;
   yaw: number;
   phase: number;
+  afloat: boolean;
+  /** Collider circles [x, z, r] that stand while the boat is visible. */
+  blockers: [number, number, number][];
+  colliders: Circle[];
 }
 
 export class Landmarks implements LandmarkContext {
@@ -90,14 +94,29 @@ export class Landmarks implements LandmarkContext {
     return best;
   }
 
-  /** World position and heading (radians about Y, bow = +x) of a named boat ("spawn" or "north"). */
+  /** World position and heading (radians about Y, bow = +x) of a named boat ("north" or "lagoon"). */
   boatPose(name: string): { position: THREE.Vector3; yaw: number } | null {
     const b = this.boats.find((o) => o.name === name);
     return b ? { position: b.base.clone(), yaw: b.yaw } : null;
   }
 
+  /** Show or hide a named boat. A hidden boat leaves no colliders behind. A name no boat has is ignored. */
+  setBoatVisible(name: string, visible: boolean): void {
+    const b = this.boats.find((o) => o.name === name);
+    if (!b) return;
+    b.group.visible = visible;
+    for (const c of b.colliders) this.colliders.remove(c);
+    b.colliders = visible ? b.blockers.map(([x, z, r]) => this.colliders.add(x, z, r)) : [];
+  }
+
+  /** Whether a boat of this name exists and is showing. */
+  isBoatVisible(name: string): boolean {
+    return this.boats.find((o) => o.name === name)?.group.visible ?? false;
+  }
+
   update(dt: number, time: number): void {
     for (const b of this.boats) {
+      if (!b.afloat || !b.group.visible) continue;
       const t = time + b.phase;
       b.group.position.set(b.base.x, b.base.y + Math.sin(t * 1.25) * 0.07, b.base.z);
       b.group.rotation.set(Math.sin(t * 0.9) * 0.045, b.yaw, Math.sin(t * 1.25 + 0.8) * 0.025, "YXZ");
@@ -126,11 +145,19 @@ export class Landmarks implements LandmarkContext {
   }
 
   boat(name: string, model: Model, x: number, z: number, rotY: number): void {
+    this.boats.push({ name, group: this.boatGroup(name, model), base: new THREE.Vector3(x, 0, z), yaw: rotY, phase: this.boats.length * 2.1, afloat: true, blockers: [], colliders: [] });
+  }
+
+  beached(name: string, model: Model, blockers: [number, number, number][]): void {
+    this.boats.push({ name, group: this.boatGroup(name, model), base: new THREE.Vector3(), yaw: 0, phase: 0, afloat: false, blockers, colliders: [] });
+  }
+
+  private boatGroup(name: string, model: Model): THREE.Group {
     const group = new THREE.Group();
     group.name = `boat:${name}`;
     this.meshesFor(model, name).forEach((m) => group.add(m));
     this.group.add(group);
-    this.boats.push({ name, group, base: new THREE.Vector3(x, 0, z), yaw: rotY, phase: this.boats.length * 2.1 });
+    return group;
   }
 
   add(obj: THREE.Object3D): void {

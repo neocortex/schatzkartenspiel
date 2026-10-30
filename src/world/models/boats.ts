@@ -7,22 +7,22 @@
 import * as THREE from "three";
 import { part } from "../../core/geo";
 import { mulberry32, smoothstep } from "../../core/noise";
-import { Model, PAL, emptyModel, tint, withSway, rbox, box, cyl, beam, pole, rope, triangles, flip, V3 } from "./shapes";
+import { Model, PAL, emptyModel, tint, withSway, rbox, box, cyl, ball, beam, pole, rope, triangles, flip, V3 } from "./shapes";
 import { SignAtlas } from "./signs";
 
-const HALF_LEN = 2.5;
-const HALF_BEAM = 1.0;
-const DEPTH = 0.95;
-const RIM = 0.5;
+export const HALF_LEN = 2.5;
+export const HALF_BEAM = 1.0;
+export const DEPTH = 0.95;
+export const RIM = 0.5;
 
 /** How much the hull narrows towards the bow at normalised length t = x / HALF_LEN. */
 const pinch = (t: number): number => (t > 0 ? 1 - 0.82 * smoothstep(0.25, 1, t) : 1 - 0.25 * smoothstep(0.5, 1, -t));
 /** Upward sweep of the gunwale towards bow and stern. */
-const sheer = (t: number): number => (t > 0 ? 0.42 * t * t : 0.18 * t * t);
+export const sheer = (t: number): number => (t > 0 ? 0.42 * t * t : 0.18 * t * t);
 
 /** Hull surface (lower half of a squashed sphere, pinched into a bow). */
-function hullSurface(xMax = 1): THREE.BufferGeometry {
-  const g = new THREE.SphereGeometry(1, 22, 9, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
+export function hullSurface(xMax = 1, around = 22, down = 9): THREE.BufferGeometry {
+  const g = new THREE.SphereGeometry(1, around, down, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
   const pos = g.attributes.position as THREE.BufferAttribute;
   for (let i = 0; i < pos.count; i++) {
     const t = Math.min(pos.getX(i), xMax);
@@ -35,7 +35,7 @@ function hullSurface(xMax = 1): THREE.BufferGeometry {
 }
 
 /** A point on the gunwale at angle a (0 = bow). */
-function rimPoint(a: number): THREE.Vector3 {
+export function rimPoint(a: number): THREE.Vector3 {
   const t = Math.cos(a);
   return new THREE.Vector3(t * HALF_LEN, RIM + sheer(t), Math.sin(a) * HALF_BEAM * pinch(t));
 }
@@ -45,6 +45,60 @@ export interface BoatColors {
   stripe: THREE.ColorRepresentation;
   sail: [THREE.ColorRepresentation, THREE.ColorRepresentation];
   pennant: THREE.ColorRepresentation;
+  /** Mended: wooden boards nailed over the holes in the hull, cloth patches on the sail. */
+  patched?: boolean;
+}
+
+/** Tadeo's boat: the one the shark breaks, and the one Paco mends and moors at the north dock. */
+export const NORTH_DOCK_BOAT: BoatColors = { hull: "#d24a35", stripe: "#fff4e0", sail: ["#2f9a8f", "#fff4e0"], pennant: "#3f7fbf" };
+
+/** Name painted on one side of the bow (side = +1 / -1), following the hull's curve. */
+export function bowName(atlas: SignAtlas, name: string, side: number): THREE.BufferGeometry {
+  const a = side > 0 ? Math.acos(0.5) : -Math.acos(0.5);
+  const p = rimPoint(a);
+  const q = rimPoint(a + side * 0.05);
+  const tangent = q.sub(p);
+  const g = atlas.quad(name, 1.3, 0.32, "#ffffff");
+  g.rotateY(side > 0 ? Math.atan2(-tangent.z, tangent.x) + Math.PI : Math.atan2(-tangent.z, tangent.x));
+  g.translate(p.x - 0.05, p.y - 0.36, p.z + side * 0.02);
+  return g;
+}
+
+/** A board lying on the hull, from t0 to t1 along the length at depth s (see `hullPoint`), with a nail at each end. */
+function hullBoard(m: Model, t0: number, t1: number, s: number, width: number, side: number, color: THREE.ColorRepresentation): void {
+  const rows = 6;
+  const v: number[] = [];
+  const at = (t: number, sv: number) => {
+    const p = hullPoint(t, sv, side);
+    // Reason: push the board off the hull along the outward normal of its cross-section, so it never z-fights
+    const c = Math.sqrt(Math.max(0, 1 - sv * sv));
+    return [p.x, p.y - sv * 0.035, p.z + side * c * 0.035];
+  };
+  for (let i = 0; i < rows; i++) {
+    const a = t0 + ((t1 - t0) * i) / rows;
+    const b = t0 + ((t1 - t0) * (i + 1)) / rows;
+    const [p, q, r, u] = [at(a, s), at(b, s), at(a, s + width), at(b, s + width)];
+    v.push(...p, ...q, ...r, ...r, ...q, ...u);
+  }
+  const g = triangles(v, color);
+  // Reason: the winding follows the board's direction, so turn it to face away from the hull
+  m.solid.push((g.attributes.normal as THREE.BufferAttribute).getZ(0) * side < 0 ? flip(g) : g);
+  for (const t of [t0 + 0.02, t1 - 0.02]) {
+    const nail = at(t, s + width / 2);
+    m.solid.push(ball(0.028, PAL.iron, nail as V3, 0));
+  }
+}
+
+/** Mended holes: raw wooden boards on the hull's quarters and amidships, where they show from behind and the side. */
+function hullPatches(m: Model, rand: () => number): void {
+  const boards: [number, number, number, number, number][] = [
+    // side, t0, t1, s, width
+    [1, -0.86, -0.46, 0.16, 0.13], [1, -0.82, -0.42, 0.31, 0.13], [1, -0.87, -0.5, 0.46, 0.13],
+    [-1, -0.84, -0.5, 0.26, 0.13], [-1, -0.88, -0.46, 0.41, 0.13], [-1, -0.8, -0.52, 0.56, 0.13],
+    [1, -0.1, 0.22, 0.34, 0.12], [1, -0.06, 0.26, 0.48, 0.12],
+    [-1, 0.0, 0.32, 0.3, 0.12], [-1, -0.04, 0.28, 0.44, 0.12],
+  ];
+  for (const [side, t0, t1, s, w] of boards) hullBoard(m, t0, t1, s, w, side, tint("#e0b57e", rand, 0.14));
 }
 
 /** Small sailboat with an optional name painted on both sides of the bow. */
@@ -121,16 +175,16 @@ export function sailboat(atlas: SignAtlas, colors: BoatColors, name: string | nu
   m.solid.push(part(new THREE.TorusGeometry(0.2, 0.06, 5, 10), PAL.rope, { pos: [-1.6, 0.1, 0.25], rot: [Math.PI / 2, 0, 0] }));
   m.solid.push(rbox(0.45, 0.4, 0.45, tint(PAL.woodLight, rand), { pos: [-0.5, 0.24, -0.35], rot: [0, 0.3, 0] }, 0.04));
   // Name on both sides of the bow, following the hull's curve
-  if (name) {
-    for (const side of [-1, 1]) {
-      const a = side > 0 ? Math.acos(0.5) : -Math.acos(0.5);
-      const p = rimPoint(a);
-      const q = rimPoint(a + side * 0.05);
-      const tangent = q.sub(p);
-      const g = atlas.quad(name, 1.3, 0.32, "#ffffff");
-      g.rotateY(side > 0 ? Math.atan2(-tangent.z, tangent.x) + Math.PI : Math.atan2(-tangent.z, tangent.x));
-      g.translate(p.x - 0.05, p.y - 0.36, p.z + side * 0.02);
-      m.text.push(g);
+  if (name) for (const side of [-1, 1]) m.text.push(bowName(atlas, name, side));
+  if (colors.patched) {
+    hullPatches(m, rand);
+    // Cloth patches sewn on both faces of the sail, in the pennant's colour and a warm yellow
+    for (const [u0, u1, v0, v1, color] of [[0.42, 0.78, 0.12, 0.4, colors.pennant], [0.12, 0.42, 0.42, 0.68, "#f2c14e"]] as const) {
+      for (const dz of [-0.025, 0.025]) {
+        const [a, b, c, d] = [sailAt(u0, v0), sailAt(u1, v0), sailAt(u0, v1), sailAt(u1, v1)];
+        const patch = triangles([a.x, a.y, a.z + dz, b.x, b.y, b.z + dz, c.x, c.y, c.z + dz, c.x, c.y, c.z + dz, b.x, b.y, b.z + dz, d.x, d.y, d.z + dz], color);
+        m.cloth.push(withSway(patch, (p) => Math.max(0, mx - p.x) * 0.025));
+      }
     }
   }
   return m;
@@ -140,7 +194,7 @@ export function sailboat(atlas: SignAtlas, colors: BoatColors, name: string | nu
  * Point on the hull surface: t in [-1, 1] along the length (bow = +1), s in
  * [0, 1] from gunwale to keel, side = +1 / -1. Matches `hullSurface`.
  */
-function hullPoint(t: number, s: number, side: number): THREE.Vector3 {
+export function hullPoint(t: number, s: number, side: number): THREE.Vector3 {
   const q = Math.sqrt(Math.max(0, 1 - t * t));
   const y = -s * q;
   return new THREE.Vector3(t * HALF_LEN, y * DEPTH + RIM + sheer(t) * (1 + y), side * q * Math.sqrt(1 - s * s) * HALF_BEAM * pinch(t));

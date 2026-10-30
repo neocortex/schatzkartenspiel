@@ -51,6 +51,10 @@ export const SPOTS = {
   boardwalk: [-64.5, 50.5] as P2,
   boardwalkEnd: [-61, 61.5] as P2,
   windmill: [126, 2] as P2,
+  /** Tadeo's wrecked boat on the sand beside the landing pier. */
+  wreck: [-71.5, 43] as P2,
+  /** The giant boulder that closes the mountain trail until the ogre lifts it. */
+  trailBoulder: [55.5, -8.6] as P2,
 } as const;
 
 export const LANDMARKS = {

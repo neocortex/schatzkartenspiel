@@ -14,7 +14,7 @@ import { glowTexture, puffTexture } from "./textures";
 /** Direction the wind blows smoke (matches the grass sway and drifting clouds). */
 export const WIND = new THREE.Vector3(0.9, 0, 0.4).normalize();
 
-export type SmokeStyle = "chimney" | "steam" | "campfire" | "volcano" | "seaSteam" | "mist";
+export type SmokeStyle = "chimney" | "steam" | "campfire" | "volcano" | "volcanoBurst" | "seaSteam" | "mist";
 
 interface SmokeParams {
   /** Puffs alive per source. */
@@ -48,6 +48,11 @@ const STYLES: Record<SmokeStyle, SmokeParams> = {
     puffs: 64, life: 20, rise: 36, spread: 7, size: [5, 22], wind: 34, turb: 3.2,
     colorA: "#2e2a29", colorB: "#d8d3cf", opacity: 0.9, glow: "#ff5a14",
   },
+  // A rumble: a dark, faster cloud thrown up through the plume, only ever seen inside a birth window (see `birthWindow`)
+  volcanoBurst: {
+    puffs: 36, life: 8, rise: 46, spread: 8, size: [6, 25], wind: 18, turb: 3,
+    colorA: "#1e1a1a", colorB: "#8d8682", opacity: 0.95, glow: "#ff6a1c",
+  },
   seaSteam: { puffs: 14, life: 6, rise: 8, spread: 2, size: [1.2, 6], wind: 6, turb: 0.8, colorA: "#f4f6f8", colorB: "#ffffff", opacity: 0.32, pulse: 0.35 },
   // Low jungle mist: big faint banks that barely rise and creep along with the wind. They fade out within
   // the follow camera's reach (≈ 15 units), so the mist hangs between the far trees and Tadeo's ground stays clear
@@ -64,6 +69,7 @@ uniform vec3 uWind;
 uniform float uTurb;
 uniform float uPulse;
 uniform float uNearFade;
+uniform vec2 uBorn;
 attribute vec4 aSource;  // xyz origin, w seed
 attribute vec4 aParams;  // x phase, y size multiplier, z spin, w spread angle
 varying vec2 vUv;
@@ -84,11 +90,12 @@ void main() {
   float size = mix(uSize.x, uSize.y, pow(age, 0.65)) * aParams.y;
 
   vAlpha = smoothstep(0.0, 0.1, age) * (1.0 - smoothstep(0.45, 1.0, age));
+  float born = uTime - age * uLife;
   if (uPulse > 0.0) {
     // Intermittent sources: fade puffs by the moment they were emitted
-    float born = uTime - age * uLife;
     vAlpha *= smoothstep(0.3, 0.8, sin(born * uPulse + seed * 6.28));
   }
+  vAlpha *= step(uBorn.x, born) * step(born, uBorn.y);
   vAge = age;
   vCorner = position.xy;
   // Reason: keep the spin small so the baked top-lighting of the puff stays roughly on top
@@ -220,6 +227,7 @@ export class SmokeSystem {
         uTurb: { value: s.turb },
         uPulse: { value: s.pulse ?? 0 },
         uNearFade: { value: s.nearFade ?? 0 },
+        uBorn: { value: new THREE.Vector2(-1e9, 1e9) },
         uTex: { value: puffTexture() },
         uColorA: { value: new THREE.Color(s.colorA) },
         uColorB: { value: new THREE.Color(s.colorB) },
@@ -234,6 +242,12 @@ export class SmokeSystem {
     if (style === "campfire") holder.add(this.sparks(points, CAMPFIRE_SPARKS));
     this.group.add(holder);
     return holder;
+  }
+
+  /** Show only the puffs born between two times of `uTime`, so a column starts at its source and runs out. */
+  birthWindow(smoke: THREE.Object3D, from: number, to: number): void {
+    const mesh = smoke.children[0] as THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+    mesh.material.uniforms.uBorn.value.set(from, to);
   }
 
   /** Fountain of glowing sparks/embers shooting up from each point (not added to the scene). */

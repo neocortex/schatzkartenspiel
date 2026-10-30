@@ -8,6 +8,7 @@
  *  3. Screenshots: map from above, every region from the ground, landmark close-ups
  *  4. No lettered signs in the wild, and the cave mouth from the ground
  *  5. Smoothness and console errors
+ *  6. The island follows the story (storyChecks.mjs)
  *
  * Run (dev server on :5199 must be running):  node scripts/e2e/world.mjs
  * Proof: scripts/e2e/out/world/summary.json + screenshots
@@ -15,6 +16,7 @@
 
 import { chromium } from "playwright";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { storyChecks } from "./storyChecks.mjs";
 
 const BASE = process.env.GAME_URL ?? "http://localhost:5199/";
 const OUT = new URL("./out/world/", import.meta.url).pathname;
@@ -374,7 +376,10 @@ await wait(6000);
 await shot("40_cave_mouth");
 check("cave mouth view renders (not black)", (await brightness()) > 40);
 
-// ── 6. Errors ───────────────────────────────────────────────
+// ── 6. The island follows the story ─────────────────────────
+await storyChecks({ page, BASE, check, shot, wait, brightness });
+
+// ── 7. Errors ───────────────────────────────────────────────
 check("no page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
 
 await browser.close();

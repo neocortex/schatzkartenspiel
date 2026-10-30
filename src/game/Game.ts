@@ -19,6 +19,7 @@ import { Coins, COIN_COUNT } from "./Coins";
 import { Wardrobe } from "./Wardrobe";
 import { SIDE_GAMES, SideGame } from "./sideGames";
 import { Sightings } from "./Sightings";
+import { StoryWorld } from "./StoryWorld";
 import { showEndCard } from "../ui/EndCard";
 import { QuestManager } from "../systems/QuestManager";
 import { InventoryManager } from "../systems/InventoryManager";
@@ -75,6 +76,7 @@ export class Game {
   private coins: Coins;
   private wardrobe: Wardrobe;
   private sightings: Sightings;
+  private story: StoryWorld;
   private quest = QuestManager.getInstance();
   /** True while a cutscene, conversation or challenge owns the controls. */
   private busy = true;
@@ -86,20 +88,23 @@ export class Game {
   private tmp = new THREE.Vector3();
 
   constructor(private engine: Engine) {
-    this.npcs = new Npcs(this.island.island.hf, this.island.island.colliders);
+    const { landmarks, hf, colliders } = this.island.island;
+    const walkHeight = (x: number, z: number) => landmarks.surfaceHeight(x, z) ?? hf.heightAt(x, z);
+    this.npcs = new Npcs(walkHeight, colliders);
     this.chuleta = new Chuleta(this.island.player);
     this.chuleta.snap();
     this.island.scene.add(this.npcs.group, this.beacon.group, this.chuleta.root);
     this.bubble = new Bubble(this.ui.layer);
     this.chuletaBubble = new Bubble(this.ui.layer);
-    // Reason: coins come after the NPCs so none lands inside a villager
-    this.coins = new Coins(this.island.island.hf, this.island.island.colliders);
+    this.sightings = new Sightings(walkHeight, colliders, this.ui.layer);
+    this.story = new StoryWorld(this.island.island, this.island.rig, this.npcs, this.sightings);
+    this.island.scene.add(this.sightings.group, this.story.group);
+    // Reason: coins come after the NPCs so none lands inside a villager, and after the story's rocks and thorns for the same reason
+    this.coins = new Coins(hf, colliders);
     this.island.scene.add(this.coins.group);
     this.wardrobe = new Wardrobe(this.island.player.avatar, this.chuleta, this.ui, (t) => this.chuletaSay(t));
     this.wardrobe.dress(this.coins.collected);
-    const { landmarks, hf, colliders } = this.island.island;
-    this.sightings = new Sightings((x, z) => landmarks.surfaceHeight(x, z) ?? hf.heightAt(x, z), colliders, this.ui.layer);
-    this.island.scene.add(this.sightings.group);
+    this.story.apply(this.quest.currentMilestone);
     engine.onFrame = (dt, time) => this.frame(dt, time);
   }
 
@@ -156,6 +161,7 @@ export class Game {
       const s = this.project(v.x, v.y, v.z);
       return s.behind ? null : this.pixels(s);
     });
+    this.story.update(dt, time);
     if (this.cinematic) {
       this.cinematicTime += dt;
       this.island.rig.jumpToShot(this.cinematic(this.cinematicTime));
@@ -305,6 +311,7 @@ export class Game {
 
     const data = choice === "continue" ? save.load() : null;
     if (data) {
+      this.story.apply(this.quest.currentMilestone);
       this.placePlayer(data.playerX, data.playerY);
       this.endCinematic(0.01);
       this.ui.hud.refresh();
@@ -316,6 +323,7 @@ export class Game {
       return;
     }
     save.fullReset();
+    this.story.apply(1);
     // Reason: only a running adventure is abandoned; after a save from an older version the coins and hats stay
     if (hasSave) {
       this.coins.reset();
@@ -356,6 +364,8 @@ export class Game {
   /** Fade into a challenge scene, wait for the win, then reward and return to the island. */
   private async playChallenge(milestone: number): Promise<void> {
     const gate = GATES[milestone];
+    // Reason: a debug start has no island on screen yet, and the finale comes straight from the sea
+    if (this.engine.scene === this.island) await this.story.beforeQuest(milestone);
     await this.enterChallenge(gate.challenge);
 
     const reward = QUESTS[milestone - 1].reward as ItemKey | null;
@@ -371,6 +381,7 @@ export class Game {
     const back = gate.back ?? gate.at;
     await this.backToIsland([back[0], back[1] + (gate.back ? 0 : 2.5)]);
     if (reward) this.ui.hud.popItem(reward);
+    await this.story.afterQuest(milestone);
     await this.advance();
   }
 
@@ -410,6 +421,8 @@ export class Game {
   private async advance(): Promise<void> {
     const finished = this.quest.currentMilestone;
     this.quest.completeMilestone();
+    this.story.apply(this.quest.currentMilestone);
+    this.story.rumble(finished);
     const p = this.island.player.position;
     this.saveAt([p.x, p.z]);
     this.ui.hud.refresh();
@@ -463,6 +476,7 @@ export class Game {
   /** Set quest state as if milestones 1..m-1 were done (debug starts) and place Tadeo near the goal. */
   private setupMilestone(m: number): void {
     this.quest.setMilestone(m);
+    this.story.apply(m);
     const items = QUESTS.slice(0, m - 1).map((q) => q.reward).filter((r): r is string => !!r);
     InventoryManager.getInstance().setItems(items);
     this.ui.hud.refresh();

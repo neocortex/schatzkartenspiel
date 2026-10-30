@@ -24,7 +24,7 @@ export class Island {
   private clouds: Clouds;
   private grass: GrassField;
   readonly landmarks: Landmarks;
-  private ambient: Ambient;
+  readonly ambient: Ambient;
   private focus = new THREE.Vector3();
   private shadowFocus = new THREE.Vector3();
 

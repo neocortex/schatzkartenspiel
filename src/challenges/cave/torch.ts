@@ -16,7 +16,7 @@ const BASE_INTENSITY = 7;
 export class Torch {
   readonly group = new THREE.Group();
   readonly light: THREE.PointLight;
-  /** Extra brightness multiplier (the altar scene dims the torch). */
+  /** Extra brightness multiplier (the sword scene dims the torch). */
   boost = 1;
   private flame: THREE.Mesh;
   private halo: THREE.Sprite;

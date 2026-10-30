@@ -23,7 +23,7 @@ interface Spot {
 /** Big crystal clusters at hand-picked spots (cell coords); the first ones get a real light. */
 export const HERO_CRYSTALS: { cell: [number, number]; kind: Kind; scale: number }[] = [
   { cell: [3.1, 5.0], kind: "violet", scale: 1.5 },
-  { cell: [12.9, 7.1], kind: "teal", scale: 1.5 },
+  { cell: [12.9, 7.1], kind: "violet", scale: 1.5 },
   { cell: [4.7, 13.6], kind: "teal", scale: 1.4 },
   { cell: [11.4, 10.0], kind: "violet", scale: 1.4 },
   { cell: [1.0, 12.3], kind: "violet", scale: 1.2 },
@@ -31,12 +31,14 @@ export const HERO_CRYSTALS: { cell: [number, number]; kind: Kind; scale: number 
   { cell: [6.0, 1.0], kind: "teal", scale: 1.3 },
   { cell: [10.0, 1.0], kind: "violet", scale: 1.3 },
   { cell: [9.6, 16.4], kind: "violet", scale: 1.0 },
-  { cell: [12.9, 5.0], kind: "teal", scale: 1.1 },
-  { cell: [3.1, 7.1], kind: "teal", scale: 1.1 },
+  // Reason: nothing near the test may look like its green crystal, so the hall is violet only
+  { cell: [12.9, 5.0], kind: "violet", scale: 1.1 },
+  { cell: [3.1, 7.1], kind: "violet", scale: 1.1 },
 ];
 
 export const CRYSTAL_HEX: Record<Kind, string> = { teal: "#3ff2d8", violet: "#b77bff" };
-const MUSHROOM_CAPS = [new THREE.Color(0.08, 0.55, 0.85), new THREE.Color(0.75, 0.13, 0.8), new THREE.Color(0.18, 0.75, 0.28)];
+// Reason: all cool colours, so the mole's golden mushrooms are the only warm ones in the cave and can't be mixed up
+const MUSHROOM_CAPS = [new THREE.Color(0.08, 0.55, 0.85), new THREE.Color(0.35, 0.25, 0.95), new THREE.Color(0.08, 0.7, 0.62)];
 
 export class CaveDecor {
   readonly group = new THREE.Group();
@@ -201,6 +203,8 @@ export class CaveDecor {
     const rock = rockMaterial({ xray: true });
     const crystal = crystalMaterial(2.3, time);
     const caps = glowMaterial();
+    // Reason: a soft glimmer, below the bloom; only the mole's golden mushrooms may catch the eye
+    caps.color.setScalar(0.5);
     const puddle = new THREE.MeshStandardMaterial({ color: "#3a4d6e", emissive: "#1d2c48", roughness: 0.06, transparent: true, opacity: 0.6, depthWrite: false });
     materials.push(rock, crystal, caps, puddle);
 

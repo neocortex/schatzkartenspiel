@@ -9,6 +9,8 @@
  */
 
 import * as THREE from "three";
+import { merge } from "../../core/geo";
+import { Model } from "../../world/models/shapes";
 import { patchXray } from "../../world/xray";
 
 export interface GlowSource {
@@ -117,7 +119,7 @@ export function crystalMaterial(glow: number, time: { value: number }): THREE.Me
   return m;
 }
 
-/** Unlit HDR vertex colours (values above 1 bloom): glow-worm drops, runes, flames. */
+/** Unlit HDR vertex colours (values above 1 bloom): glow-worm drops, mushroom caps, flames. */
 export function glowMaterial(opts: { transparent?: boolean; additive?: boolean } = {}): THREE.MeshBasicMaterial {
   return new THREE.MeshBasicMaterial({
     vertexColors: true,
@@ -157,4 +159,36 @@ export function instances(
   mesh.receiveShadow = true;
   mesh.computeBoundingSphere();
   return mesh;
+}
+
+/** Merge a Model's solid and pulse parts into meshes with baked glow. */
+export function modelMeshes(m: Model, glow: GlowField, time: { value: number }, owned: THREE.Material[]): THREE.Group {
+  const group = new THREE.Group();
+  if (m.solid.length) {
+    const geo = merge(m.solid);
+    const pos = geo.attributes.position as THREE.BufferAttribute;
+    const nrm = geo.attributes.normal as THREE.BufferAttribute;
+    const data = new Float32Array(pos.count * 3);
+    const p = new THREE.Vector3();
+    const n = new THREE.Vector3();
+    const c = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) {
+      glow.at(p.fromBufferAttribute(pos, i), n.fromBufferAttribute(nrm, i), c);
+      data.set([c.r, c.g, c.b], i * 3);
+    }
+    geo.setAttribute("aGlow", new THREE.BufferAttribute(data, 3));
+    const mat = rockMaterial({ roughness: 0.8, xray: true });
+    owned.push(mat);
+    const mesh = new THREE.Mesh(geo, mat);
+    // Reason: the torch hangs high above Tadeo, so beams and carts would throw hard black bands across the path
+    mesh.castShadow = false;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+  }
+  if (m.pulse.length) {
+    const mat = crystalMaterial(1.2, time);
+    owned.push(mat);
+    group.add(new THREE.Mesh(merge(m.pulse), mat));
+  }
+  return group;
 }

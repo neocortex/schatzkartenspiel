@@ -112,24 +112,24 @@ export const DIALOGUES: Record<string, DialogueScript> = {
     {
       speaker: "Tadeo",
       portrait: "portrait_tadeo",
-      text: "Eine dunkle Höhle... Zum Glück habe ich eine Fackel dabei. Irgendwo hier soll ein magisches Schwert versteckt sein!",
+      text: "Eine dunkle Höhle! Zum Glück habe ich meine Fackel.",
+    },
+    {
+      speaker: "Tadeo",
+      portrait: "portrait_tadeo",
+      text: "Da vorne versperren Steine den Weg. Und da sitzt ein Maulwurf!",
     },
   ],
   cave_sword: [
     {
-      speaker: "Erzähler",
-      portrait: "",
-      text: "In einer verborgenen Kammer liegt ein altes Schwert auf einem Steinaltar. Es leuchtet schwach blau.",
+      speaker: "Tadeo",
+      portrait: "portrait_tadeo",
+      text: "Das Schwert! Es leuchtet blau.",
     },
     {
       speaker: "Tadeo",
       portrait: "portrait_tadeo",
-      text: "Das Magische Schwert! Damit kann ich mich gegen die Gefahren der Insel verteidigen!",
-    },
-    {
-      speaker: "Tadeo",
-      portrait: "portrait_tadeo",
-      text: "Jetzt brauche ich die Zauberbeeren. Im Süden liegt ein geheimnisvoller Wald...",
+      text: "Damit komme ich durch die Dornen!",
     },
   ],
 

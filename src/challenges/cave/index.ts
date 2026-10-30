@@ -1,9 +1,9 @@
 /**
- * Cave challenge (quest 4): the crystal cave. Tadeo explores a dark cave by
- * torchlight and opens three doors with levers: one lever for the first
- * gate, two hidden in side alcoves for the second, and three coloured levers
- * pulled in the order shown on the secret wall. Behind it the magic sword
- * waits on an altar in a shaft of light. Mistakes only reset the levers.
+ * Cave challenge (quest 5): the natural cave. Tadeo explores it by torchlight. A
+ * hungry mole digs through two rockfalls in exchange for glowing mushrooms (one,
+ * then two from the side alcoves). The last door is the old people's test: three
+ * crystals touched in the order the cave paintings show. Behind it the magic sword
+ * rests in a great crystal in a shaft of daylight. Mistakes only dim the crystals.
  */
 
 import * as THREE from "three";
@@ -16,18 +16,29 @@ import { GameUI } from "../../ui/GameUI";
 import { xrayUniforms } from "../../world/xray";
 import { Challenge, ChallengeContext, ChallengeFactory } from "../types";
 import { CaveWorld } from "./world";
-import { CELL, COLS, LEVERS, ROOMS, ROWS, START_CELL, TILE_ROWS, cellPos, inRoom } from "./layout";
+import { CELL, COLS, CRYSTAL_ORDER, MOLE_CELLS, MOLE_WANTS, ROOMS, ROWS, START_CELL, TILE_ROWS, cellPos, inRoom } from "./layout";
+import { TEST_HEX } from "./mechanisms";
+import { MoleActor } from "./moleActor";
+import { CaveView } from "./view";
 import { SpeechBubble, toNdc, toScreen } from "../shared/speech";
 import { Torch } from "./torch";
 import { glowTexture } from "../../world/ambient/textures";
-import { HINTS, LINES } from "./script";
+import { LINES, PHASE_HINTS, TADEO_REMARKS, WRONG_CRYSTAL } from "./script";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const REACH = 1.9;
-/** Seconds without progress before the compass arrow starts pointing the way. */
+const MOLE_REACH = 2.4;
+/** How close Tadeo comes before the mole speaks up by himself. */
+const MOLE_TALK = 3.4;
+/** Seconds without progress before Tadeo thinks aloud and the compass arrow points the way. */
 const HINT_AFTER = 22;
+/** Seconds after a talk or a scene in which Space does nothing. */
+const SPACE_GUARD = 0.4;
 
-type Phase = "intro" | "gate1" | "gate2" | "runes" | "chamber" | "done";
+const GOLD = new THREE.Color(2.8, 1.9, 0.5);
+
+type Phase = "intro" | "rockfall1" | "rockfall2" | "test" | "chamber" | "done";
+type Thing = { kind: "mushroom" | "crystal"; i: number; at: THREE.Vector3 } | { kind: "mole"; at: THREE.Vector3 };
 
 class CaveChallenge implements Challenge {
   readonly scene: THREE.Scene;
@@ -54,10 +65,16 @@ class CaveChallenge implements Challenge {
   private phase: Phase = "intro";
   private busy = true;
   private holdingTorch = true;
-  /** Rune hall: lever indices in the order the wall asks for, and how far along we are. */
-  readonly order: number[];
+  /** How many mushrooms Tadeo carries for the mole. */
+  private carried = 0;
+  private moleActor: MoleActor;
+  private view!: CaveView;
+  /** How many crystals of the order are lit. */
   private orderStep = 0;
+  private wrongTries = 0;
+  private spaceGuard = SPACE_GUARD;
   private idle = 0;
+  private lastHint = 0;
   private told = new Set<string>();
   private tmp = new THREE.Vector3();
   private islandXray = 1.15;
@@ -79,21 +96,18 @@ class CaveChallenge implements Challenge {
     this.player.teleport(sx, sz, 0.35);
     this.torch = new Torch(this.player.avatar, glowTexture(), w.sparks, w.owned);
     this.scene.add(this.torch.light);
+    this.moleActor = new MoleActor(w, this.player.avatar.root);
 
     this.rig = new CameraRig(this.camera, (x, z) => w.field.heightAt(x, z));
     this.rig.offset.set(0, 10.2, 6.9);
     this.rig.follow(this.player.position, this.player.velocity);
     this.rig.snap();
     this.bubble = new SpeechBubble(this.ui.layer);
-
-    // Rune hall order (lever indices 3, 4, 5): any order except plain left-to-right
-    const orders = [[4, 3, 5], [5, 3, 4], [3, 5, 4], [4, 5, 3], [5, 4, 3]];
-    this.order = orders[Math.floor(Math.random() * orders.length)];
-    this.world.wall.showOrder(this.order.map((i) => new THREE.Color(LEVERS[i].color)));
   }
 
   enter(engine: Engine): void {
     this.engine = engine;
+    this.view = new CaveView(this.rig, this.world, engine, this.post);
     // Reason: the cave walls are bulky, so cut a wider see-through hole around Tadeo (restored on exit)
     this.islandXray = xrayUniforms.uXrayRadius.value;
     xrayUniforms.uXrayRadius.value = 1.6;
@@ -105,16 +119,16 @@ class CaveChallenge implements Challenge {
   // ── Flow ─────────────────────────────────────────────────────
 
   private async intro(): Promise<void> {
-    const gate = this.world.gates[0].group.position;
+    const at = this.world.rockfalls[0].at;
     const p = this.player.position;
-    this.rig.jumpToShot({ pos: new THREE.Vector3(gate.x + 5, 13, gate.z + 9), look: new THREE.Vector3(gate.x, 1, gate.z + 2) });
-    this.rig.setShot({ pos: new THREE.Vector3(p.x + 3, 7, p.z + 7), look: new THREE.Vector3(p.x, 1.2, p.z - 3) }, 3.2);
+    this.rig.jumpToShot({ pos: new THREE.Vector3(at.x - 0.5, 9, at.z + 13), look: new THREE.Vector3(at.x - 1.2, 0.8, at.z + 2.8) });
     await wait(600);
-    await this.ui.hud.showBanner("Kapitel 5", "Die Kristallhöhle", 2400);
+    await this.ui.hud.showBanner("Kapitel 5", "Die Höhle", 2400);
     await this.talk("cave_enter");
-    await this.talk(LINES.firstGate);
-    this.rig.setShot(null, 1.2);
-    this.phase = "gate1";
+    this.rig.setShot({ pos: new THREE.Vector3(p.x + 1.5, 9, p.z + 6.5), look: new THREE.Vector3(p.x, 1, p.z - 1) }, 1);
+    await wait(900);
+    this.rig.setShot(null, 1);
+    this.phase = "rockfall1";
     this.updateStatus();
     this.busy = false;
   }
@@ -129,112 +143,185 @@ class CaveChallenge implements Challenge {
     this.rig.setZoom(1);
   }
 
-  private updateStatus(): void {
-    const open = this.world.gates.filter((g) => g.open).length + (this.world.wall.open ? 1 : 0);
-    this.ui.status(`🔓 Tore offen: ${open} / 3`);
+  /** Which rockfall the mole is working on. */
+  private get stop(): number {
+    return this.phase === "rockfall2" ? 1 : 0;
   }
 
-  private pullLever(i: number): void {
-    const w = this.world;
-    const lever = w.levers[i];
-    const spec = LEVERS[i];
-    lever.pull();
+  private get wants(): number {
+    return MOLE_WANTS[this.stop];
+  }
+
+  private get moleBusy(): boolean {
+    return this.phase === "rockfall1" || this.phase === "rockfall2";
+  }
+
+  /** A picture is worth a counter: the mushrooms he still has to bring, on top of the screen and over the mole. */
+  private updateStatus(): void {
+    if (this.moleBusy) this.ui.status(`🍄 ${this.carried} / ${this.wants}`);
+    else this.ui.status(null);
+    this.world.wish.show(this.wants, this.carried);
+    this.moleActor.showHeld(this.carried);
+  }
+
+  /** A puff of golden sparks where a mushroom is picked or eaten. */
+  private goldSparks(at: THREE.Vector3, count: number): void {
+    this.world.sparks.emit(at, { count, color: GOLD, speed: [1, 3], up: 1.5, life: [0.35, 0.85], size: [0.07, 0.15], gravity: 5 });
+  }
+
+  private use(thing: Thing): void {
     this.idle = 0;
-    audio.playSfx("sfx_key_unlock", 0.9);
-    this.rig.addShake(0.25);
-    w.sparks.emit(lever.knobPosition(this.tmp), {
-      count: 26,
-      color: new THREE.Color(spec.color).multiplyScalar(2.6),
+    this.lastHint = 0;
+    if (thing.kind === "mushroom") this.pickMushroom(thing.i);
+    else if (thing.kind === "crystal") this.touchCrystal(thing.i);
+    else if (this.carried >= this.wants) void this.feedMole();
+    else void this.scripted(this.stop === 0 ? LINES.moleReminder : this.carried === 0 ? LINES.moleReminderTwo : LINES.moleOneMore);
+  }
+
+  private pickMushroom(i: number): void {
+    const m = this.world.mushrooms[i];
+    m.pick();
+    this.carried++;
+    audio.playSfx("sfx_berry_collect");
+    this.goldSparks(m.group.position.clone().add(new THREE.Vector3(0, 0.9, 0)), 26);
+    this.updateStatus();
+    const remark = this.stop === 0 ? TADEO_REMARKS.pickedForMole : this.carried < this.wants ? TADEO_REMARKS.pickedOneOfTwo : TADEO_REMARKS.pickedBoth;
+    this.bubble.say(remark, 3000, true);
+  }
+
+  /** Hand the mushrooms over; the mole munches, digs, and the rocks roll aside. */
+  private async feedMole(): Promise<void> {
+    this.busy = true;
+    const w = this.world;
+    const stop = this.stop;
+    const rock = w.rockfalls[stop];
+    const mole = w.mole;
+    const p = this.player.position;
+    this.player.facing = Math.atan2(mole.root.position.x - p.x, mole.root.position.z - p.z);
+    this.ui.prompt.show(null);
+    this.rig.setShot({ pos: new THREE.Vector3(rock.at.x + 5.8, 5.4, rock.at.z + 9.5), look: new THREE.Vector3(rock.at.x + 0.7, 0.9, rock.at.z + 1.8) }, 0.9);
+    await this.talk(LINES.handOver[stop]);
+
+    // The mushrooms fly to him in an arc
+    this.moleActor.tossHeld(this.scene);
+    this.carried = 0;
+    this.updateStatus();
+    this.ui.status(null);
+    audio.playSfx("sfx_heal", 0.7);
+    await wait(stop === 0 ? 700 : 950);
+    this.goldSparks(mole.root.position.clone().add(new THREE.Vector3(0, 0.95, 0.2)), 22);
+    mole.hungry = false;
+    await this.talk(LINES.moleFed[stop]);
+
+    // He goes to the rock and digs; only then do the stones start to move
+    const side = p.x < rock.at.x + 0.2 ? 1 : -1;
+    this.moleActor.walkTo(rock.at.x + side * 0.85, rock.at.z + 2.55);
+    this.moleActor.atRock = true;
+    await wait(650);
+    audio.playSfx("sfx_dig");
+    const dug = mole.dig();
+    this.rig.addShake(0.2);
+    await wait(1200);
+    audio.playSfx("sfx_lava_fall", 0.5, 0.6);
+    audio.playSfx("sfx_door", 0.5);
+    await Promise.all([dug, rock.clear()]);
+    this.moleActor.atRock = false;
+    this.phase = stop === 0 ? "rockfall2" : "test";
+
+    if (stop === 0) {
+      await this.moleActor.dive(1);
+    } else {
+      const [x, z] = cellPos(...MOLE_CELLS[1]);
+      this.moleActor.walkTo(x, z);
+    }
+    await wait(400);
+    this.updateStatus();
+    this.rig.setShot(null, 1);
+    await wait(700);
+    this.busy = false;
+    this.bubble.say(stop === 0 ? TADEO_REMARKS.wayOpen : TADEO_REMARKS.hallOpen, 3000, true);
+  }
+
+  /** The grotto: cut to the mole at the next rockfall, so Tadeo knows where he has to go back to. */
+  private async moleAsksAgain(): Promise<void> {
+    this.busy = true;
+    const at = this.world.mole.root.position;
+    this.rig.setShot({ pos: new THREE.Vector3(at.x + 2.2, 6.2, at.z + 8.5), look: new THREE.Vector3(at.x - 1.4, 1.1, at.z - 1) }, 1);
+    await wait(1000);
+    await this.talk(LINES.moleAsksTwo);
+    this.rig.setShot(null, 1);
+    await wait(700);
+    this.busy = false;
+  }
+
+  /** The head of the hall: Tadeo looks up at the pictures and reads them aloud. */
+  private async readPaintings(): Promise<void> {
+    this.busy = true;
+    const at = this.world.wall.group.position;
+    this.view.aim({ pos: new THREE.Vector3(at.x, 6.8, at.z + 15), look: new THREE.Vector3(at.x, 2.1, at.z + 1) });
+    this.world.paintings.setSweep(true);
+    await wait(1200);
+    await this.talk(LINES.paintings);
+    this.world.paintings.setSweep(false);
+    this.view.aim(null);
+    await wait(800);
+    this.busy = false;
+  }
+
+  private touchCrystal(i: number): void {
+    const w = this.world;
+    const crystal = w.crystals[i];
+    w.sparks.emit(crystal.topPosition(this.tmp), {
+      count: 30,
+      color: new THREE.Color(TEST_HEX[crystal.color]).multiplyScalar(2.6),
       speed: [1.5, 4],
       up: 1.5,
       life: [0.4, 0.9],
       size: [0.08, 0.16],
       gravity: 6,
     });
-    if (spec.gate === 2) {
-      this.runeHallPull(i);
-      return;
-    }
-    const gate = w.gates[spec.gate];
-    const gem = LEVERS.filter((l) => l.gate === spec.gate).indexOf(spec);
-    w.trails[i].onArrive = () => {
-      gate.light(gem);
-      audio.playSfx("sfx_simon_correct", 0.7);
-      const all = LEVERS.every((l, k) => l.gate !== spec.gate || w.levers[k].pulled);
-      if (all) void this.openGate(spec.gate);
-      else this.bubble.say(LINES.oneMore, 2600, true);
-    };
-    w.trails[i].ignite();
-  }
-
-  private runeHallPull(i: number): void {
-    const w = this.world;
-    if (this.order[this.orderStep] === i) {
+    if (crystal.color === CRYSTAL_ORDER[this.orderStep]) {
+      crystal.touch();
       this.orderStep++;
+      w.paintings.setStep(this.orderStep);
       w.wall.setProgress(this.orderStep);
-      w.trails[i].ignite();
       audio.playSfx("sfx_simon_correct", 0.8, 0.9 + this.orderStep * 0.1);
-      if (this.orderStep === 3) void this.openSecretWall();
+      this.rig.addShake(0.15);
+      if (this.orderStep === CRYSTAL_ORDER.length) void this.openWall();
       return;
     }
-    // Wrong lever: blink red, then gently put every lever back
+    // Wrong crystal: they all go dark, and Tadeo says something kind
     audio.playSfx("sfx_simon_wrong", 0.8);
-    w.wall.flashWrong();
+    for (const c of w.crystals) c.dim();
     this.orderStep = 0;
-    this.bubble.say(HINTS[Math.floor(Math.random() * HINTS.length)], 3200, true);
+    w.paintings.setStep(0);
+    w.wall.setProgress(0);
+    this.bubble.say(WRONG_CRYSTAL[this.wrongTries++ % WRONG_CRYSTAL.length], 3400, true);
     this.busy = true;
-    void wait(900).then(() => {
-      for (const k of [3, 4, 5]) {
-        w.levers[k].reset();
-        w.trails[k].extinguish();
-      }
-      audio.playSfx("sfx_door", 0.35, 1.6);
-      this.busy = false;
-    });
+    void wait(900).then(() => (this.busy = false));
   }
 
-  /** Cut to the gate, let it rumble into the floor, then hand the camera back. */
-  private async openGate(g: number): Promise<void> {
-    this.busy = true;
-    const gate = this.world.gates[g];
-    const at = gate.group.position;
-    await wait(300);
-    this.rig.setShot({ pos: new THREE.Vector3(at.x + 1.5, 6.5, at.z + 8.5), look: new THREE.Vector3(at.x, 1.4, at.z) }, 0.9);
-    await wait(950);
-    gate.startOpening();
-    audio.playSfx("sfx_door");
-    audio.playSfx("sfx_lava_fall", 0.5, 0.6);
-    await wait(2500);
-    this.updateStatus();
-    this.rig.setShot(null, 1);
-    this.phase = g === 0 ? "gate2" : "runes";
-    await wait(700);
-    this.busy = false;
-    this.bubble.say(g === 0 ? LINES.gate1Open : LINES.gate2Open, 3000, true);
-  }
-
-  private async openSecretWall(): Promise<void> {
+  private async openWall(): Promise<void> {
     this.busy = true;
     const w = this.world;
     const at = w.wall.group.position;
     await wait(600);
-    this.rig.setShot({ pos: new THREE.Vector3(at.x + 1, 7.5, at.z + 9.5), look: new THREE.Vector3(at.x, 1.6, at.z - 1.5) }, 1);
+    this.view.aim({ pos: new THREE.Vector3(at.x + 1, 6.6, at.z + 11.5), look: new THREE.Vector3(at.x, 1.8, at.z) });
     await wait(1100);
     w.wall.startOpening();
     audio.playSfx("sfx_door");
     audio.playSfx("sfx_lava_fall", 0.6, 0.5);
-    await wait(2900);
+    await w.wall.opening;
     audio.playSfx("sfx_special", 0.7);
-    this.updateStatus();
     await wait(900);
-    this.rig.setShot(null, 1.2);
+    this.view.aim(null);
     this.phase = "chamber";
     await wait(600);
     this.busy = false;
-    this.bubble.say(LINES.wallOpen, 3000, true);
+    this.bubble.say(TADEO_REMARKS.wallOpen, 3000, true);
   }
 
-  /** The sword wakes up, flies out of the altar and Tadeo holds it high. */
+  /** The sword wakes up, flies out of the great crystal and Tadeo holds it high. */
   private async finale(): Promise<void> {
     this.busy = true;
     this.phase = "done";
@@ -245,7 +332,7 @@ class CaveChallenge implements Challenge {
     const c = ch.center;
     const p = this.player.position;
     this.player.facing = Math.atan2(c.x - p.x, c.z - p.z);
-    this.rig.setShot({ pos: new THREE.Vector3(c.x + 3.2, 3.6, c.z + 7.2), look: new THREE.Vector3(c.x, 1.3, c.z + 1) }, 1.4);
+    this.view.aim({ pos: new THREE.Vector3(c.x + 2, 7.6, c.z + 8.4), look: new THREE.Vector3(c.x, 2, c.z + 0.6) });
     await wait(1300);
     await this.talk(DIALOGUES.cave_sword.slice(0, 1));
 
@@ -254,13 +341,11 @@ class CaveChallenge implements Challenge {
     this.torch.boost = 0.55;
     this.player.avatar.pose = "holdUp";
     this.scene.attach(ch.sword);
-    this.world.swordFree = true;
-    this.swordLift = 0;
-    ch.flare(1);
+    ch.pull();
     audio.playSfx("sfx_special");
     this.world.sparks.emit(ch.swordAt, { count: 70, color: new THREE.Color(1.2, 2.4, 3.2), speed: [2, 6], up: 1, life: [0.6, 1.4], size: [0.08, 0.2], gravity: 2 });
     this.player.facing = 0;
-    this.rig.setShot({ pos: new THREE.Vector3(p.x + 1.4, p.y + 2.6, p.z + 4.6), look: new THREE.Vector3(p.x, p.y + 1.5, p.z) }, 1.2);
+    this.view.aim({ pos: new THREE.Vector3(p.x + 2.2, p.y + 2.6, p.z + 4), look: new THREE.Vector3(p.x, p.y + 1.85, p.z) });
     await wait(900);
     await this.ui.itemGet("sword");
     await this.talk(DIALOGUES.cave_sword.slice(1), true);
@@ -268,8 +353,6 @@ class CaveChallenge implements Challenge {
     await wait(1200);
     this.resolveFinished();
   }
-
-  private swordLift = -1;
 
   // ── Frame ────────────────────────────────────────────────────
 
@@ -279,21 +362,27 @@ class CaveChallenge implements Challenge {
     const w = this.world;
     const free = !this.busy && !this.ui.dialogue.isOpen && !this.engine.isSwitching;
     this.player.controlsEnabled = free;
+    // Reason: the Space that closes a talk or arrives during a scene must not touch whatever Tadeo stands next to
+    this.spaceGuard = free ? Math.max(0, this.spaceGuard - dt) : SPACE_GUARD;
 
-    const near = free ? this.nearestLever() : -1;
+    const near = free ? this.nearestThing() : null;
     if (free) {
-      if (near >= 0 && input.consume("Space")) this.pullLever(near);
+      if (this.spaceGuard > 0) input.consume("Space");
+      else if (near && input.consume("Space")) this.use(near);
       else if (input.consume("Space")) this.player.jump();
     }
     this.player.update(dt, input, this.rig.yaw);
     this.torch.pose(this.holdingTorch);
     this.torch.update(dt, time);
     w.update(dt, time, this.player.position, this.torch.light.position);
-    this.animateSword(dt, time);
+    this.moleActor.update(dt, time, this.player.position, w.rockfalls[this.stop].at, this.moleBusy);
+    w.chamber.carrySword(dt, time, this.player.position, w.sparks);
 
-    for (const g of [...w.gates, w.wall]) if (g.rumbling) this.rumble(g.group.position, dt);
-    if (w.wall.open || w.wall.rumbling) w.chamber.setReveal(Math.min(1, w.chamber.spot.intensity / 260 + dt * 0.5));
+    for (const r of w.rockfalls) if (r.rumbling) this.rumble(r.at, dt);
+    if (w.wall.rumbling) this.rumble(w.wall.group.position, dt);
+    if (w.wall.open || w.wall.rumbling) w.chamber.setReveal(Math.min(1, w.chamber.revealed + dt * 0.5));
 
+    this.view.update(dt, this.player.position, this.phase);
     this.rig.follow(this.player.position, this.player.velocity);
     this.rig.update(dt);
     xrayUniforms.uXrayTarget.value.copy(this.player.position).add(new THREE.Vector3(0, 0.9, 0));
@@ -302,58 +391,36 @@ class CaveChallenge implements Challenge {
     this.hud(near, dt);
   }
 
-  private nearestLever(): number {
-    let best = -1;
-    let bestD = REACH;
-    this.world.levers.forEach((l, i) => {
-      if (l.pulled) return;
-      const d = Math.hypot(l.group.position.x - this.player.position.x, l.group.position.z - this.player.position.z);
-      if (d < bestD) {
+  private nearestThing(): Thing | null {
+    const w = this.world;
+    const p = this.player.position;
+    let best: Thing | null = null;
+    let bestD = Infinity;
+    const offer = (thing: Thing, reach: number) => {
+      const d = Math.hypot(thing.at.x - p.x, thing.at.z - p.z);
+      if (d < reach && d < bestD) {
         bestD = d;
-        best = i;
+        best = thing;
       }
+    };
+    w.mushrooms.forEach((m, i) => {
+      if (!m.picked) offer({ kind: "mushroom", i, at: m.group.position }, REACH);
     });
-    return best;
-  }
-
-  private animateSword(dt: number, time: number): void {
-    if (this.swordLift < 0) return;
-    this.swordLift = Math.min(1, this.swordLift + dt * 1.6);
-    const sword = this.world.chamber.sword;
-    const above = this.tmp.copy(this.player.position).add(new THREE.Vector3(0, 2.05 + Math.sin(time * 3) * 0.04, 0.05));
-    const k = 1 - (1 - this.swordLift) ** 3;
-    sword.position.lerpVectors(this.world.chamber.swordAt, above, k);
-    sword.rotation.set(0, time * 0.8 * k, Math.PI * (1 - k) * 0.5);
-    if (Math.random() < dt * 14) {
-      this.world.sparks.emit(sword.position.clone().add(new THREE.Vector3(0, 0.7, 0)), {
-        count: 1,
-        color: new THREE.Color(1.4, 2.6, 3.4),
-        speed: [0.3, 0.9],
-        life: [0.5, 0.9],
-        size: [0.06, 0.12],
-        spread: 0.8,
+    if (this.moleBusy) offer({ kind: "mole", at: w.mole.root.position }, MOLE_REACH);
+    if (this.phase === "test") {
+      w.crystals.forEach((c, i) => {
+        if (!c.lit) offer({ kind: "crystal", i, at: c.group.position }, REACH);
       });
     }
+    return best;
   }
 
   private rumble(at: THREE.Vector3, dt: number): void {
     this.rig.addShake(dt * 1.4);
-    if (Math.random() < dt * 22) {
-      this.world.dust.emit(new THREE.Vector3(at.x + (Math.random() - 0.5) * 3, 0.15, at.z + 0.6), {
-        count: 2,
-        color: "#8a7f96",
-        speed: [0.3, 1.2],
-        up: 0.6,
-        life: [0.8, 1.5],
-        size: [0.4, 0.8],
-        grow: 2.2,
-        drag: 2,
-        flat: true,
-      });
-    }
+    this.world.rumbleDust(at, dt);
   }
 
-  /** First-time remarks when Tadeo walks into a new room, and the finale trigger. */
+  /** The talks that start by themselves when Tadeo gets somewhere, and the finale. */
   private storyTriggers(): void {
     if (this.busy || this.ui.dialogue.isOpen) return;
     const p = this.player.position;
@@ -362,8 +429,12 @@ class CaveChallenge implements Challenge {
       this.told.add(key);
       run();
     };
-    if (this.phase === "gate2" && inRoom(p.x, p.z, ROOMS.grotto)) once("grotto", () => void this.scripted(LINES.grotto));
-    if (this.phase === "runes" && inRoom(p.x, p.z, ROOMS.runeHall)) once("runes", () => void this.scripted(LINES.runeHall));
+    if (this.phase === "rockfall1") {
+      const m = this.world.mole.root.position;
+      if (Math.hypot(p.x - m.x, p.z - m.z) < MOLE_TALK) once("mole", () => void this.scripted(this.carried > 0 ? LINES.moleSmells : LINES.moleAsks));
+    }
+    if (this.phase === "rockfall2" && inRoom(p.x, p.z, ROOMS.grotto)) once("grotto", () => void this.moleAsksAgain());
+    if (this.phase === "test" && inRoom(p.x, p.z, ROOMS.hall)) once("hall", () => void this.readPaintings());
     if (this.phase === "chamber") {
       const c = this.world.chamber.center;
       if (Math.hypot(p.x - c.x, p.z - c.z) < 3.6) void this.finale();
@@ -376,11 +447,12 @@ class CaveChallenge implements Challenge {
     this.busy = false;
   }
 
-  private hud(near: number, dt: number): void {
+  private hud(near: Thing | null, dt: number): void {
     const ui = this.ui;
-    if (near >= 0 && !this.busy) {
-      const l = this.world.levers[near].group.position;
-      ui.prompt.show(toScreen(this.camera, this.tmp.set(l.x, l.y + 2.3, l.z)), "Ziehen");
+    if (near && !this.busy) {
+      const verb = near.kind === "mushroom" ? "Pflücken" : near.kind === "crystal" ? "Berühren" : this.carried >= this.wants ? "Füttern" : "Reden";
+      const lift = near.kind === "crystal" ? 3.3 : near.kind === "mole" ? 1.9 : 2;
+      ui.prompt.show(toScreen(this.camera, this.tmp.set(near.at.x, near.at.y + lift, near.at.z)), verb);
     } else {
       ui.prompt.show(null);
     }
@@ -391,33 +463,53 @@ class CaveChallenge implements Challenge {
     this.idle += this.busy ? 0 : dt;
     const target = this.idle > HINT_AFTER ? this.nextTarget() : null;
     ui.hud.updateCompass(target ? toNdc(this.camera, target) : null);
+    if (target && !this.busy && !ui.dialogue.isOpen && this.idle - this.lastHint > HINT_AFTER) {
+      this.lastHint = this.idle;
+      this.bubble.say(this.hintLine(), 4500, true);
+    }
   }
 
   /** Where the next step of the puzzle is (for the hint arrow). */
   private nextTarget(): THREE.Vector3 | null {
     const w = this.world;
-    const gate = this.phase === "gate1" ? 0 : this.phase === "gate2" ? 1 : this.phase === "runes" ? 2 : -1;
-    if (gate < 0) return this.phase === "chamber" ? w.chamber.center : null;
-    if (gate === 2) {
-      const next = this.order[this.orderStep];
-      return w.levers[next].group.position;
+    if (this.moleBusy) {
+      if (this.carried >= this.wants || (this.stop === 0 && !this.told.has("mole"))) return w.mole.root.position;
+      const next = w.mushrooms.find((m, i) => !m.picked && (this.stop === 0 ? i === 0 : i > 0));
+      return next ? next.group.position : w.mole.root.position;
     }
-    const i = LEVERS.findIndex((l, k) => l.gate === gate && !w.levers[k].pulled);
-    return i >= 0 ? w.levers[i].group.position : null;
+    if (this.phase === "test") {
+      const crystal = w.crystals.find((c) => c.color === CRYSTAL_ORDER[this.orderStep]);
+      return crystal ? crystal.group.position : null;
+    }
+    return this.phase === "chamber" ? w.chamber.center : null;
+  }
+
+  /** The reason and the place for the next step. */
+  private hintLine(): string {
+    if (this.phase === "test") return PHASE_HINTS.test;
+    if (this.phase === "chamber") return PHASE_HINTS.chamber;
+    if (this.carried >= this.wants) return PHASE_HINTS.bring;
+    if (this.stop === 1) return this.carried === 1 ? PHASE_HINTS.findOther : PHASE_HINTS.findTwo;
+    return this.told.has("mole") ? PHASE_HINTS.findFirst : PHASE_HINTS.meetMole;
   }
 
   /** Read-only snapshot for the E2E test (it steers with real key presses). */
   get e2e(): object {
     const w = this.world;
+    const m = w.mole.root.position;
     return {
       phase: this.phase,
       busy: this.busy,
       player: [this.player.position.x, this.player.position.z],
-      levers: w.levers.map((l, i) => ({ x: l.group.position.x, z: l.group.position.z, pulled: l.pulled, gate: LEVERS[i].gate })),
-      gates: [...w.gates.map((g) => g.open), w.wall.open],
-      order: this.order,
+      mushrooms: w.mushrooms.map((k) => ({ x: k.group.position.x, z: k.group.position.z, picked: k.picked })),
+      carried: this.carried,
+      rockfalls: w.rockfalls.map((r) => r.open),
+      mole: { x: m.x, z: m.z, hungry: w.mole.hungry },
+      crystals: w.crystals.map((c) => ({ x: c.group.position.x, z: c.group.position.z, color: c.color, lit: c.lit })),
+      order: CRYSTAL_ORDER,
       orderStep: this.orderStep,
-      altar: [w.chamber.center.x, w.chamber.center.z],
+      wallOpen: w.wall.open,
+      sword: { x: w.chamber.center.x, z: w.chamber.center.z },
       tiles: TILE_ROWS,
       cell: CELL,
       cols: COLS,

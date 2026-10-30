@@ -9,8 +9,7 @@ import { NOISE_GLSL } from "../../core/glsl";
 import { mulberry32 } from "../../core/noise";
 import { displace, facet, merge, part } from "../../core/geo";
 import { Model, PAL, beam, box, cyl, emptyModel, rbox, tint } from "../../world/models/shapes";
-import { GlowField } from "../cave/materials";
-import { modelMeshes } from "../cave/mine";
+import { GlowField, modelMeshes } from "../cave/materials";
 import { BRIDGE, ForestField, MAX_Z, MIN_Z, STONES, WATER_LEVEL, brookX } from "./layout";
 
 const VERT = /* glsl */ `

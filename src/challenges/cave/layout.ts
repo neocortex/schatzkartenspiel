@@ -1,7 +1,7 @@
 /**
- * Cave layout: the hand-drawn tile map of the crystal cave, the positions of
- * levers, gates and the altar, and a signed-distance field baked from the map
- * that gives the rock walls their organic shape. The same field answers the
+ * Cave layout: the hand-drawn tile map of the natural cave, the positions of
+ * mushrooms, rockfalls, crystals and the sword, and a signed-distance field baked
+ * from the map that gives the rock walls their organic shape. The same field answers the
  * player's "can I stand here?" and "how high is the floor?" questions, so the
  * walls you see are exactly the walls you bump into.
  */
@@ -16,22 +16,22 @@ export const CELL = 3;
 const MAP = [
   "#################", // 0
   "######.....######", // 1  hidden chamber
-  "######.....######", // 2  altar
+  "######.....######", // 2  the sword in the great crystal
   "######.....######", // 3
-  "########.########", // 4  secret wall (gate 3)
-  "###...........###", // 5  rune hall
-  "###...........###", // 6  three coloured levers
+  "########.########", // 4  crystal wall (the old people's test)
+  "###...........###", // 5  painted hall
+  "###...........###", // 6  three crystals
   "###...........###", // 7
-  "########.########", // 8  gate 2
-  "#...###...###...#", // 9  alcoves with the gate-2 levers
+  "########.########", // 8  second rockfall
+  "#...###...###...#", // 9  alcoves with the two mushrooms
   "#...#.......#...#", // 10
   "#...#..www..#...#", // 11 pool grotto
   "#......www......#", // 12
   "####...ww...#####", // 13
   "#####.......#####", // 14
-  "########.########", // 15 gate 1
-  "#######...#######", // 16 entrance tunnel
-  "######.....######", // 17 first lever + mine cart
+  "########.########", // 15 first rockfall
+  "#######...#######", // 16 entrance tunnel, the mole
+  "######.....######", // 17 first mushroom
   "#######...#######", // 18
   "########.########", // 19 start
   "########E########", // 20 cave mouth
@@ -53,57 +53,50 @@ export function tileAt(c: number, r: number): string {
 /** The raw map rows (exposed for the E2E path finder). */
 export const TILE_ROWS = MAP;
 
-export type GateId = 0 | 1 | 2;
-
-export interface LeverSpec {
-  cell: [number, number];
-  gate: GateId;
-  color: string;
-  /** Rune trail from the lever to its gate, in (fractional) cell coordinates. */
-  trail: [number, number][];
-}
-
-export const GATE_CELLS: [number, number][] = [
+/** The rockfalls the mole digs through, in the order Tadeo meets them. */
+export const ROCKFALL_CELLS: [number, number][] = [
   [8, 15],
   [8, 8],
-  [8, 4],
 ];
 
-export const COLORS = {
-  gold: "#ffc94a",
-  teal: "#3ff2d8",
-  violet: "#b77bff",
-  blue: "#4fb6ff",
-  pink: "#ff6fc4",
-  green: "#6cf27c",
-};
-
-export const LEVERS: LeverSpec[] = [
-  { cell: [6.15, 17], gate: 0, color: COLORS.gold, trail: [[6.45, 17.05], [7.2, 16.7], [7.85, 16], [7.9, 15.25]] },
-  {
-    cell: [2, 9.2],
-    gate: 1,
-    color: COLORS.teal,
-    trail: [[2, 9.5], [2.1, 11.4], [3.2, 12.1], [4.6, 12.0], [5.35, 11.0], [5.7, 10.2], [7.0, 9.7], [7.75, 9.1], [7.85, 8.3]],
-  },
-  {
-    cell: [14, 9.2],
-    gate: 1,
-    color: COLORS.violet,
-    trail: [[14, 9.5], [13.9, 11.4], [12.8, 12.1], [11.4, 12.0], [10.65, 11.0], [10.3, 10.2], [9.0, 9.7], [8.25, 9.1], [8.15, 8.3]],
-  },
-  { cell: [5, 6.2], gate: 2, color: COLORS.blue, trail: [[5.25, 6.0], [6.2, 5.3], [7.6, 4.4]] },
-  { cell: [8, 6.4], gate: 2, color: COLORS.pink, trail: [[8, 6.1], [8, 4.4]] },
-  { cell: [11, 6.2], gate: 2, color: COLORS.green, trail: [[10.75, 6.0], [9.8, 5.3], [8.4, 4.4]] },
+/** Where the mole waits, beside each rockfall on Tadeo's side of it. */
+export const MOLE_CELLS: [number, number][] = [
+  [8.88, 16.05],
+  [8.88, 9.15],
 ];
+
+/** The smooth wall in front of the sword chamber. */
+export const CRYSTAL_WALL_CELL: [number, number] = [8, 4];
+
+/** Glowing mushrooms: the first near the first rockfall, the other two in the side alcoves. */
+export const MUSHROOMS: [number, number][] = [
+  [6.15, 17],
+  [2, 9.2],
+  [14, 9.2],
+];
+
+/** How many mushrooms the mole wants at each rockfall. */
+export const MOLE_WANTS = [1, 2];
+
+export type CrystalColor = "red" | "white" | "green";
+
+// Reason: the crystals don't stand in the paintings' order, so the paintings are what solves the test
+export const CRYSTALS: { cell: [number, number]; color: CrystalColor }[] = [
+  { cell: [5, 6.2], color: "green" },
+  { cell: [8, 6.4], color: "red" },
+  { cell: [11, 6.2], color: "white" },
+];
+
+/** The order the paintings show: volcano, snowy peak, forest. */
+export const CRYSTAL_ORDER: CrystalColor[] = ["red", "white", "green"];
 
 export const START_CELL: [number, number] = [8, 19];
-export const ALTAR_CELL: [number, number] = [8, 1.75];
+export const SWORD_CELL: [number, number] = [8, 1.75];
 
 /** Rooms the story reacts to when Tadeo first walks in (cell rectangles, inclusive). */
 export const ROOMS = {
   grotto: { c0: 4, c1: 12, r0: 10, r1: 14 },
-  runeHall: { c0: 3, c1: 13, r0: 5, r1: 7 },
+  hall: { c0: 3, c1: 13, r0: 5, r1: 7 },
   chamber: { c0: 6, c1: 10, r0: 1, r1: 3 },
 };
 

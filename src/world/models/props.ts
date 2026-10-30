@@ -245,25 +245,6 @@ export function bucket(): Model {
   return m;
 }
 
-/** Mine cart on two rails, filled with glowing crystals. */
-export function mineCart(seed: number): Model {
-  const rand = mulberry32(seed + 29);
-  const m = emptyModel();
-  m.solid.push(rbox(1.3, 0.7, 0.9, "#7a5233", { pos: [0, 0.65, 0] }, 0.05));
-  for (const y of [0.4, 0.9]) m.solid.push(box(1.34, 0.08, 0.94, PAL.iron, { pos: [0, y, 0] }));
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    m.solid.push(cyl(0.17, 0.17, 0.08, PAL.iron, { pos: [sx * 0.42, 0.18, sz * 0.47], rot: [Math.PI / 2, 0, 0] }, 10));
-  }
-  m.solid.push(box(1.1, 0.1, 0.7, "#3b2a1c", { pos: [0, 0.98, 0] }));
-  for (let i = 0; i < 6; i++) {
-    const c = new THREE.Color(rand() < 0.5 ? "#5fe3ff" : "#8f7bff").multiplyScalar(1.8);
-    const g = new THREE.OctahedronGeometry(0.14 + rand() * 0.1, 0);
-    g.scale(1, 1.8, 1);
-    m.pulse.push(part(g, c, { pos: [(rand() - 0.5) * 0.8, 1.08 + rand() * 0.1, (rand() - 0.5) * 0.45], rot: [(rand() - 0.5) * 0.8, rand() * 3, (rand() - 0.5) * 0.8] }));
-  }
-  return m;
-}
-
 /** Ring of dark jagged rocks around a glowing ember vent. */
 export function ventRing(seed: number, r = 1.4): Model {
   const rand = mulberry32(seed + 31);

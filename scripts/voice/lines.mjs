@@ -17,7 +17,7 @@ const SRC = new URL("../../src/", import.meta.url).pathname;
 
 /** Speaker per file and constant, for strings spoken without a speaker next to them. */
 const OWNERS = {
-  "challenges/cave/script.ts": { oneMore: "Tadeo", gate1Open: "Tadeo", gate2Open: "Tadeo", wallOpen: "Tadeo", HINTS: "Tadeo" },
+  "challenges/cave/script.ts": { TADEO_REMARKS: "Tadeo", WRONG_CRYSTAL: "Tadeo", PHASE_HINTS: "Tadeo" },
   "challenges/forest/script.ts": { BERRY_LINES: "Tadeo", OUCH_LINES: "Tadeo", WADE_LINE: "Tadeo" },
   "challenges/fishing/script.ts": {
     aimHelp: "Fischer Jonas",

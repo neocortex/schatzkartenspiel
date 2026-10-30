@@ -1,254 +1,446 @@
 /**
- * The cave's puzzle hardware: stone levers with glowing crystal knobs, iron
- * portcullis gates with rune gems, the secret wall in front of the sword
- * chamber, and the rune trails that carry a lever's light along the floor to
- * its gate. Each piece animates itself; the challenge only flips their state.
+ * The cave's puzzle pieces: the golden mushrooms the mole loves, his wish in a
+ * thought bubble, the rockfalls he digs through, the three crystals of the old
+ * people's test and the smooth crystal wall in front of the sword. Each piece
+ * animates itself; the challenge only flips their state.
  */
 
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { mat, toonMesh } from "../../characters/parts";
+import { mulberry32 } from "../../core/noise";
+import { Bursts } from "../shared/bursts";
+import { CrystalColor } from "./layout";
+import { GlowField, crystalMaterial, instances, rockMaterial } from "./materials";
+import { boulder, crystalCluster } from "./models";
 
-const STONE = "#6d6690";
-const STONE_DARK = "#655c80";
-const IRON = "#4b4f63";
-
-const easeOutBack = (t: number) => 1 + 2.4 * (t - 1) ** 3 + 1.4 * (t - 1) ** 2;
 const easeInOut = (t: number) => t * t * (3 - 2 * t);
 
-/** A floor lever on a rune pedestal. Swings from left to right when pulled. */
-export class Lever {
+/** Glow colour of each test crystal (also used for its pool of light). */
+export const TEST_HEX: Record<CrystalColor, string> = { red: "#ff2f2a", white: "#f2f6ff", green: "#2dff4e" };
+
+// Reason: deep tints, because a pale tip would burn to white under the bloom and the colour is the whole clue
+const TEST_TINTS: Record<CrystalColor, [string, string]> = {
+  red: ["#8a070c", "#ff3a2a"],
+  white: ["#93a4cc", "#f4f7ff"],
+  green: ["#07701c", "#4dff62"],
+};
+
+/** Inner glow of each test crystal: resting and touched. White needs less to look just as bright. */
+const TEST_GLOW: Record<CrystalColor, [number, number]> = { red: [1.05, 2.3], white: [0.55, 1.15], green: [0.9, 2.0] };
+
+const additiveHalo = (tex: THREE.Texture, color: THREE.ColorRepresentation, size: number) => {
+  const material = new THREE.MeshBasicMaterial({
+    map: tex,
+    color,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    fog: false,
+  });
+  return new THREE.Mesh(new THREE.PlaneGeometry(size, size).rotateX(-Math.PI / 2), material);
+};
+
+/** One golden mushroom with pale spots, about 0.7 tall: the only kind the mole wants. */
+export function goldenMushroom(scale = 1): THREE.Group {
+  const g = new THREE.Group();
+  const stem = toonMesh(new THREE.CylinderGeometry(0.1, 0.15, 0.44, 10), mat("#fff1cf", 0.7, 0.6));
+  stem.position.y = 0.22;
+  const dome = new THREE.SphereGeometry(0.34, 18, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+  dome.scale(1, 0.8, 1);
+  const cap = toonMesh(dome, mat("#ffab14", 0.45, 0.62));
+  cap.position.y = 0.4;
+  const dot = new THREE.SphereGeometry(0.052, 8, 6);
+  const white = mat("#fff8dc", 0.4, 0.8);
+  for (const [a, up] of [[0.4, 0.55], [1.9, 0.5], [3.2, 0.62], [4.6, 0.48], [5.6, 0.72], [0, 1.25]]) {
+    const spot = new THREE.Mesh(dot, white);
+    spot.position.set(Math.cos(a) * Math.cos(up) * 0.33, 0.4 + Math.sin(up) * 0.262, Math.sin(a) * Math.cos(up) * 0.33);
+    spot.scale.set(1, 0.6, 1);
+    g.add(spot);
+  }
+  g.add(stem, cap);
+  g.scale.setScalar(scale);
+  return g;
+}
+
+/** A clump of golden mushrooms on the floor, pulsing and sparkling so it can be seen from afar. */
+export class Mushroom {
   readonly group = new THREE.Group();
-  readonly color: THREE.Color;
-  pulled = false;
-  private arm = new THREE.Group();
-  private knob: THREE.Mesh;
-  private glyph: THREE.Mesh;
+  picked = false;
+  private body = new THREE.Group();
   private halo: THREE.Mesh;
-  private t = 1;
-  private from = 0.75;
-  private to = 0.75;
+  private pickT = -1;
+  private sparkleIn = 0;
 
-  constructor(color: string, halo: THREE.Texture) {
-    this.color = new THREE.Color(color);
-    const base = toonMesh(new RoundedBoxGeometry(0.95, 0.7, 0.75, 3, 0.12), mat(STONE, 0.8));
-    base.position.y = 0.35;
-    const cap = toonMesh(new RoundedBoxGeometry(0.75, 0.16, 0.55, 2, 0.05), mat(STONE_DARK, 0.7));
-    cap.position.y = 0.76;
-    this.glyph = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), mat(color, 0.3, 0.5));
-    this.glyph.scale.set(1, 1.4, 0.35);
-    this.glyph.position.set(0, 0.38, 0.39);
-    this.group.add(base, cap, this.glyph);
+  constructor(
+    tex: THREE.Texture,
+    private sparks: Bursts,
+  ) {
+    const big = goldenMushroom(2.1);
+    const left = goldenMushroom(1.2);
+    left.position.set(-0.68, 0, 0.22);
+    left.rotation.z = 0.12;
+    const right = goldenMushroom(0.9);
+    right.position.set(0.56, 0, 0.42);
+    right.rotation.z = -0.16;
+    this.body.add(big, left, right);
+    this.halo = additiveHalo(tex, new THREE.Color(1.1, 0.72, 0.2), 3.4);
+    this.halo.position.y = 0.06;
+    this.group.add(this.body, this.halo);
+  }
 
-    this.arm.position.y = 0.8;
-    const stick = toonMesh(new THREE.CylinderGeometry(0.055, 0.07, 0.9, 8), mat("#8a5530", 0.7));
-    stick.position.y = 0.45;
-    this.knob = toonMesh(new THREE.IcosahedronGeometry(0.17, 1), mat(color, 0.25, 1.4));
-    this.knob.position.y = 0.95;
-    const hinge = toonMesh(new THREE.CylinderGeometry(0.1, 0.1, 0.3, 10), mat(IRON, 0.5));
-    hinge.rotation.x = Math.PI / 2;
-    this.arm.add(stick, this.knob, hinge);
-    this.arm.rotation.z = this.from;
-    this.group.add(this.arm);
+  /** Take it: it hops up and vanishes (Tadeo carries it from here). */
+  pick(): void {
+    this.picked = true;
+    this.pickT = 0;
+  }
 
-    // Soft pulsing halo on the floor so unpulled levers are easy to spot in the dark
-    const haloMat = new THREE.MeshBasicMaterial({
-      map: halo,
-      color: this.color.clone().multiplyScalar(1.2),
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-    this.halo = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.6).rotateX(-Math.PI / 2), haloMat);
-    this.halo.position.y = 0.05;
-    this.group.add(this.halo);
+  update(dt: number, time: number): void {
+    const halo = this.halo.material as THREE.MeshBasicMaterial;
+    if (this.picked) {
+      if (this.pickT >= 1) return;
+      this.pickT = Math.min(1, this.pickT + dt / 0.4);
+      const k = this.pickT;
+      this.body.position.y = Math.sin(k * Math.PI) * 0.9;
+      this.body.scale.setScalar(1 - k * k);
+      halo.opacity = 0.7 * (1 - k);
+      if (k >= 1) this.group.visible = false;
+      return;
+    }
+    this.body.scale.setScalar(1 + Math.sin(time * 3.2) * 0.035);
+    halo.opacity = 0.46 + Math.sin(time * 3.2) * 0.14;
+    this.sparkleIn -= dt;
+    if (this.sparkleIn <= 0) {
+      this.sparkleIn = 0.28;
+      const p = this.group.position;
+      this.sparks.emit(new THREE.Vector3(p.x + (Math.random() - 0.5) * 1.2, p.y + 0.5 + Math.random() * 0.8, p.z + (Math.random() - 0.5) * 1.2), {
+        count: 1,
+        color: new THREE.Color(2.6, 1.9, 0.6),
+        speed: [0.1, 0.3],
+        up: 0.9,
+        life: [0.8, 1.3],
+        size: [0.06, 0.12],
+        gravity: -0.2,
+      });
+    }
   }
 
   dispose(): void {
     (this.halo.material as THREE.Material).dispose();
   }
+}
 
-  /** World position of the knob (for sparks). */
-  knobPosition(out: THREE.Vector3): THREE.Vector3 {
-    return this.knob.getWorldPosition(out);
-  }
-
-  pull(): void {
-    this.pulled = true;
-    this.swing(-0.75);
-    this.glyph.material = mat(`#${this.color.getHexString()}`, 0.3, 3.2);
-  }
-
-  reset(): void {
-    this.pulled = false;
-    this.swing(0.75);
-    this.glyph.material = mat(`#${this.color.getHexString()}`, 0.3, 0.5);
-  }
-
-  private swing(to: number): void {
-    this.from = this.arm.rotation.z;
-    this.to = to;
-    this.t = 0;
-  }
-
-  update(dt: number, time: number): void {
-    if (this.t < 1) {
-      this.t = Math.min(1, this.t + dt / 0.4);
-      this.arm.rotation.z = THREE.MathUtils.lerp(this.from, this.to, easeOutBack(this.t));
-    }
-    const m = this.halo.material as THREE.MeshBasicMaterial;
-    m.opacity = this.pulled ? 0.25 : 0.55 + 0.35 * Math.sin(time * 3);
-    this.knob.scale.setScalar(this.pulled ? 1 : 1 + Math.sin(time * 4) * 0.08);
+/** A little golden mushroom drawn on a thought bubble: full colour when Tadeo has it, a grey outline when not. */
+function drawWishMushroom(ctx: CanvasRenderingContext2D, x: number, y: number, have: boolean): void {
+  ctx.lineWidth = 7;
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = have ? "#7a4a0c" : "#b9b2a6";
+  ctx.fillStyle = have ? "#fff1cf" : "#f1ede4";
+  ctx.beginPath();
+  ctx.roundRect(x - 13, y - 4, 26, 42, 10);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = have ? "#ffab14" : "#e4dfd4";
+  ctx.beginPath();
+  ctx.moveTo(x - 46, y + 6);
+  ctx.bezierCurveTo(x - 46, y - 48, x + 46, y - 48, x + 46, y + 6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  if (!have) return;
+  ctx.fillStyle = "#fff8dc";
+  for (const [dx, dy, r] of [[-20, -12, 7], [6, -20, 8], [24, -6, 6]]) {
+    ctx.beginPath();
+    ctx.arc(x + dx, y + dy, r, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 
-/** Iron portcullis between two stone pillars, with one rune gem per lever on the lintel. */
-export class Gate {
+/** The mole's thought bubble: one mushroom per wish, coloured in as Tadeo finds them. */
+export class MoleWish {
+  readonly sprite: THREE.Sprite;
+  private canvas = document.createElement("canvas");
+  private texture: THREE.CanvasTexture;
+
+  constructor() {
+    this.canvas.width = 340;
+    this.canvas.height = 220;
+    this.texture = new THREE.CanvasTexture(this.canvas);
+    this.texture.colorSpace = THREE.SRGBColorSpace;
+    // Reason: tinted below the bloom threshold, so the white cloud doesn't swallow the mushrooms drawn on it
+    const material = new THREE.SpriteMaterial({ map: this.texture, color: new THREE.Color(0.6, 0.6, 0.6), transparent: true, depthTest: false, depthWrite: false, fog: false, toneMapped: false });
+    this.sprite = new THREE.Sprite(material);
+    this.sprite.scale.set(2.65, 1.71, 1);
+    this.sprite.renderOrder = 6;
+    this.show(1, 0);
+  }
+
+  /** Draw `wants` mushrooms, `have` of them coloured in. */
+  show(wants: number, have: number): void {
+    const ctx = this.canvas.getContext("2d")!;
+    ctx.clearRect(0, 0, 340, 220);
+    ctx.fillStyle = "#fffdf6";
+    ctx.strokeStyle = "#2a1b12";
+    ctx.lineWidth = 7;
+    const puffs = [[170, 88, 112, 72], [78, 96, 56, 48], [262, 96, 56, 48], [170, 40, 60, 28]];
+    for (const pass of ["stroke", "fill"] as const) {
+      ctx.beginPath();
+      for (const [x, y, rx, ry] of puffs) {
+        ctx.moveTo(x + rx, y);
+        ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+      }
+      ctx.arc(135, 180, 16, 0, Math.PI * 2);
+      ctx.moveTo(115, 208);
+      ctx.arc(107, 208, 9, 0, Math.PI * 2);
+      ctx[pass]();
+    }
+    const gap = wants === 1 ? 0 : 56;
+    for (let i = 0; i < wants; i++) drawWishMushroom(ctx, 170 + (i - (wants - 1) / 2) * gap * 2, 100, i < have);
+    this.texture.needsUpdate = true;
+  }
+
+  dispose(): void {
+    this.texture.dispose();
+    this.sprite.material.dispose();
+  }
+}
+
+/** Boulders tumbled into a corridor. The mole's digging sends them rolling aside. */
+export class Rockfall {
+  /** Middle of the blocked corridor cell (the pile spills towards +z, Tadeo's side). */
+  readonly at: THREE.Vector3;
   readonly group = new THREE.Group();
   open = false;
-  private bars = new THREE.Group();
-  private gems: THREE.Mesh[] = [];
-  private openT = -1;
-  /** Gems light in the colour of their lever. */
-  constructor(private colors: THREE.Color[]) {
-    for (const sx of [-1, 1]) {
-      const pillar = toonMesh(new RoundedBoxGeometry(0.75, 3.0, 0.95, 3, 0.14), mat(STONE, 0.85));
-      pillar.position.set(sx * 1.75, 1.5, 0);
-      const foot = toonMesh(new RoundedBoxGeometry(0.95, 0.4, 1.15, 2, 0.1), mat(STONE_DARK, 0.85));
-      foot.position.set(sx * 1.75, 0.2, 0);
-      this.group.add(pillar, foot);
+  private rocks: { from: THREE.Vector3; to: THREE.Vector3; scale: number; spin: THREE.Euler; delay: number; mesh: number; slot: number }[] = [];
+  private meshes: THREE.InstancedMesh[] = [];
+  private clearT = -1;
+  private cleared: (() => void) | null = null;
+  private clearing: Promise<void> | null = null;
+  private m = new THREE.Matrix4();
+  private q = new THREE.Quaternion();
+  private e = new THREE.Euler();
+  private p = new THREE.Vector3();
+  private s = new THREE.Vector3();
+
+  constructor(at: THREE.Vector3, seed: number, glow: GlowField, owned: THREE.Material[]) {
+    this.at = at.clone();
+    const rand = mulberry32(seed);
+    // Reason: rows from the back of the corridor to the toe of the pile, each lower than the one behind, so it reads as a slope of fallen rock
+    const rows: [number, number, number, number, number][] = [
+      // count, z, y, half width, scale
+      [5, -1.0, 1.9, 1.5, 1.2],
+      [6, -0.6, 0.45, 2.0, 1.55],
+      [4, -0.2, 1.6, 1.5, 1.05],
+      [6, 0.45, 0.35, 2.2, 1.3],
+      [4, 0.75, 1.0, 1.45, 0.85],
+      [6, 1.3, 0.1, 2.15, 0.82],
+      [4, 1.85, 0.0, 1.6, 0.42],
+    ];
+    const lists: THREE.Matrix4[][] = [[], [], []];
+    let n = 0;
+    for (const [count, dz, y, half, size] of rows) {
+      for (let i = 0; i < count; i++, n++) {
+        const side = count > 1 ? i / (count - 1) - 0.5 : 0;
+        const x = at.x + side * 2 * half + (rand() - 0.5) * 0.3;
+        const z = at.z + dz + (rand() - 0.5) * 0.3;
+        const scale = size * (0.82 + rand() * 0.36);
+        const from = new THREE.Vector3(x, y + (rand() - 0.5) * 0.15, z);
+        // Reason: they end up as rubble along the corridor walls, leaving the middle free to walk
+        const sign = side === 0 ? (rand() < 0.5 ? -1 : 1) : Math.sign(side);
+        const to = new THREE.Vector3(at.x + sign * (1.78 + rand() * 0.75), -0.18, at.z + (rand() - 0.5) * 3.4);
+        const spin = new THREE.Euler(rand() * 3, rand() * 6, rand() * 3);
+        const mesh = n % 3;
+        this.rocks.push({ from, to, scale, spin, delay: (1 - y / 2.2) * 0.42 + rand() * 0.28, mesh, slot: lists[mesh].length });
+        this.e.copy(spin);
+        lists[mesh].push(new THREE.Matrix4().compose(from, this.q.setFromEuler(this.e), new THREE.Vector3(scale, scale, scale)));
+      }
     }
-    const lintel = toonMesh(new RoundedBoxGeometry(4.4, 0.7, 1.05, 3, 0.16), mat(STONE, 0.85));
-    lintel.position.y = 3.15;
-    this.group.add(lintel);
-    colors.forEach((c, i) => {
-      const x = (i - (colors.length - 1) / 2) * 0.62;
-      const socket = toonMesh(new THREE.CylinderGeometry(0.22, 0.22, 0.12, 12), mat(STONE_DARK, 0.7));
-      socket.rotation.x = Math.PI / 2;
-      socket.position.set(x, 3.15, 0.53);
-      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.17, 0), mat("#3a3450", 0.4));
-      gem.position.set(x, 3.15, 0.62);
-      this.group.add(socket, gem);
-      this.gems.push(gem);
+    const material = rockMaterial({ xray: true });
+    owned.push(material);
+    lists.forEach((matrices, v) => {
+      const geo = boulder(v + seed);
+      const mesh = instances(geo, material, matrices, glow, false);
+      geo.dispose();
+      mesh.frustumCulled = false;
+      this.meshes.push(mesh);
+      this.group.add(mesh);
     });
-
-    const iron = mat(IRON, 0.45);
-    for (let i = 0; i < 6; i++) {
-      const x = -1.3 + (i * 2.6) / 5;
-      const bar = toonMesh(new THREE.CylinderGeometry(0.075, 0.075, 2.7, 8), iron);
-      bar.position.set(x, 1.35, 0);
-      const tip = toonMesh(new THREE.ConeGeometry(0.12, 0.3, 8), iron);
-      tip.position.set(x, 2.8, 0);
-      this.bars.add(bar, tip);
-    }
-    for (const y of [0.7, 1.95]) {
-      const cross = toonMesh(new RoundedBoxGeometry(2.9, 0.16, 0.16, 2, 0.05), iron);
-      cross.position.y = y;
-      this.bars.add(cross);
-    }
-    this.group.add(this.bars);
   }
 
-  /** Light gem `i` (its lever was pulled). */
-  light(i: number): void {
-    const c = this.colors[i];
-    this.gems[i].material = mat(`#${c.getHexString()}`, 0.2, 3.5);
-    this.gems[i].scale.setScalar(1.6);
-  }
-
-  /** Start the rumbling slide into the floor. */
-  startOpening(): void {
-    this.openT = 0;
-  }
-
-  /** Whether a closed gate blocks the point (x, z) given in the gate's local frame. */
-  blocksLocal(lx: number, lz: number): boolean {
-    return !this.open && Math.abs(lx) < 1.6 && Math.abs(lz) < 0.6;
+  /** Send the rocks rolling aside. Resolves when the way is free. */
+  clear(): Promise<void> {
+    if (this.clearing) return this.clearing;
+    this.clearT = 0;
+    this.clearing = new Promise((resolve) => (this.cleared = resolve));
+    return this.clearing;
   }
 
   get rumbling(): boolean {
-    return this.openT >= 0 && this.openT < 1;
+    return this.clearT >= 0 && !this.open;
   }
 
-  update(dt: number, time: number): void {
-    for (const g of this.gems) {
-      g.rotation.y = time * 1.5;
-      g.scale.setScalar(THREE.MathUtils.lerp(g.scale.x, g.scale.x > 1.05 ? 1.15 : 1, Math.min(dt * 4, 1)));
+  /** Whether the pile blocks a point given relative to the corridor's middle. */
+  blocksLocal(lx: number, lz: number): boolean {
+    return !this.open && Math.abs(lx) < 2.1 && lz > -1.4 && lz < 2.0;
+  }
+
+  update(dt: number): void {
+    if (!this.rumbling) return;
+    this.clearT += dt;
+    let moving = false;
+    for (const r of this.rocks) {
+      const k = THREE.MathUtils.clamp((this.clearT - r.delay) / 1.15, 0, 1);
+      if (k < 1) moving = true;
+      const t = easeInOut(k);
+      this.p.lerpVectors(r.from, r.to, t);
+      // Reason: a hop half way sells each stone rolling off the heap instead of sliding through it
+      this.p.y += Math.sin(k * Math.PI) * 0.65;
+      this.e.set(r.spin.x + t * 4, r.spin.y + t * 2, r.spin.z - t * 3);
+      const s = r.scale * (1 - 0.62 * t);
+      this.s.set(s, s, s);
+      this.m.compose(this.p, this.q.setFromEuler(this.e), this.s);
+      this.meshes[r.mesh].setMatrixAt(r.slot, this.m);
     }
-    if (this.openT < 0 || this.openT >= 1) return;
-    this.openT = Math.min(1, this.openT + dt / 2.2);
-    const k = easeInOut(this.openT);
-    this.bars.position.y = -3.1 * k;
-    // Reason: a little sideways shiver sells the weight of the rumbling iron
-    this.bars.position.x = Math.sin(time * 60) * 0.035 * (1 - k);
-    if (this.openT >= 1) this.open = true;
+    for (const mesh of this.meshes) mesh.instanceMatrix.needsUpdate = true;
+    if (!moving) {
+      this.open = true;
+      this.cleared?.();
+    }
   }
 }
 
-/** Carved slab hiding the sword chamber. Shows the lever order with three gems. */
-export class SecretWall {
+/** A tall crystal of the old test. Glows softly until touched, then blazes. */
+export class CrystalButton {
+  readonly group = new THREE.Group();
+  lit = false;
+  private material: THREE.MeshStandardMaterial;
+  private cluster: THREE.Mesh;
+  private halo: THREE.Mesh;
+  private pop = 0;
+  private flash = 0;
+
+  constructor(
+    readonly color: CrystalColor,
+    tex: THREE.Texture,
+    time: { value: number },
+    owned: THREE.Material[],
+  ) {
+    this.material = crystalMaterial(TEST_GLOW[color][0], time);
+    owned.push(this.material);
+    const seed = { red: 12, white: 3, green: 22 }[color];
+    this.cluster = new THREE.Mesh(crystalCluster(seed, TEST_TINTS[color]), this.material);
+    this.cluster.scale.setScalar(1.75);
+    this.cluster.castShadow = false;
+    this.halo = additiveHalo(tex, new THREE.Color(TEST_HEX[color]), 4.6);
+    this.halo.position.y = 0.07;
+    this.group.add(this.cluster, this.halo);
+  }
+
+  /** World point near its top (for sparks). */
+  topPosition(out: THREE.Vector3): THREE.Vector3 {
+    return out.copy(this.group.position).add(new THREE.Vector3(0, 2.2, 0));
+  }
+
+  touch(): void {
+    this.lit = true;
+    this.pop = 1;
+  }
+
+  dim(): void {
+    this.lit = false;
+    this.flash = 1;
+  }
+
+  update(dt: number, time: number): void {
+    this.pop = Math.max(0, this.pop - dt * 2.4);
+    this.flash = Math.max(0, this.flash - dt * 2.2);
+    const [rest, touched] = TEST_GLOW[this.color];
+    const want = this.lit ? touched : rest * (1 + Math.sin(time * 2 + this.group.position.x) * 0.15);
+    this.material.emissiveIntensity += (want - this.material.emissiveIntensity) * (1 - Math.exp(-dt * 7));
+    this.cluster.scale.setScalar(1.75 * (1 + this.pop * 0.14 - this.flash * Math.sin(this.flash * 18) * 0.04));
+    const halo = this.halo.material as THREE.MeshBasicMaterial;
+    halo.opacity = this.lit ? 0.62 : 0.26 + Math.sin(time * 2 + this.group.position.x) * 0.06;
+    this.halo.scale.setScalar(this.lit ? 1.25 : 1);
+  }
+
+  dispose(): void {
+    (this.halo.material as THREE.Material).dispose();
+  }
+}
+
+const SLAB_FRAG = /* glsl */ `
+uniform float uTime;
+varying vec2 vUv;
+void main() {
+  // Reason: dark at the edges and light around the sword, so one looks deep into the crystal instead of at a blue board
+  vec2 p = (vUv - vec2(0.5, 0.56)) * vec2(1.0, 1.3);
+  float heart = 1.0 - smoothstep(0.0, 0.62, length(p));
+  vec3 col = mix(vec3(0.012, 0.035, 0.13), vec3(0.08, 0.3, 0.66), heart * heart);
+  // Reason: two slow, wide bands of light drifting over it make it read as polished
+  float d = vUv.x * 1.3 + vUv.y;
+  float band = smoothstep(0.3, 1.0, sin(d * 3.1 - uTime * 0.55)) * 0.1 + smoothstep(0.55, 1.0, sin(d * 6.7 + uTime * 0.35)) * 0.05;
+  gl_FragColor = vec4(col + vec3(0.5, 0.75, 1.0) * band, 1.0);
+}`;
+
+const SLAB_VERT = "varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }";
+
+/** The old people's door: a smooth slab of crystal with the sword's shape deep inside and three gems for the test. */
+export class CrystalWall {
   readonly group = new THREE.Group();
   open = false;
+  /** Resolves when the wall has sunk and the way is free. */
+  readonly opening: Promise<void>;
+  private finishOpening!: () => void;
   private slab = new THREE.Group();
   private gems: THREE.Mesh[] = [];
-  private order: THREE.Color[] = [];
-  private progress = 0;
-  private wrongT = 0;
+  private gemHex: string[];
   private openT = -1;
-  private cracks: THREE.Mesh[] = [];
 
-  constructor() {
-    const stone = toonMesh(new RoundedBoxGeometry(3.4, 3.1, 0.9, 3, 0.18), mat("#706790", 0.9));
-    stone.position.y = 1.55;
-    this.slab.add(stone);
-    // Sword emblem: blade, guard and grip in faint carved light
-    const emblem = mat("#9fd8ff", 0.3, 0.9);
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.3, 0.05), emblem);
-    blade.position.set(0, 2.15, 0.46);
-    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.11, 0.05), emblem);
-    guard.position.set(0, 1.5, 0.46);
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.36, 0.05), emblem);
-    grip.position.set(0, 1.28, 0.46);
-    this.slab.add(blade, guard, grip);
+  constructor(order: CrystalColor[], time: { value: number }, owned: THREE.Material[]) {
+    this.opening = new Promise((resolve) => (this.finishOpening = resolve));
+    this.gemHex = order.map((c) => TEST_HEX[c]);
+    const stone = new THREE.MeshStandardMaterial({ color: "#14306e", emissive: "#0a1f5c", emissiveIntensity: 0.5, roughness: 0.14, metalness: 0.1, flatShading: true });
+    owned.push(stone);
+    const body = new THREE.Mesh(new RoundedBoxGeometry(4.2, 3.4, 0.7, 2, 0.14), stone);
+    body.position.y = 1.7;
+    body.castShadow = false;
+    this.slab.add(body);
+
+    const faceMat = new THREE.ShaderMaterial({ uniforms: { uTime: time }, vertexShader: SLAB_VERT, fragmentShader: SLAB_FRAG });
+    owned.push(faceMat);
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(4.1, 3.3), faceMat);
+    face.position.set(0, 1.7, 0.36);
+    this.slab.add(face);
+
+    // The sword's shape, deep inside the crystal: what this door is hiding
+    const inside = mat("#bfe9ff", 0.3, 0.95);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.17, 1.15, 0.05), inside);
+    blade.position.set(0, 1.42, 0.37);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.22, 4).rotateY(Math.PI / 4), inside);
+    tip.scale.z = 0.25;
+    tip.rotation.x = Math.PI;
+    tip.position.set(0, 0.74, 0.37);
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.11, 0.05), mat("#ffd36a", 0.3, 1.4));
+    guard.position.set(0, 2.03, 0.37);
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.34, 0.05), mat("#ffd36a", 0.3, 1.4));
+    grip.position.set(0, 2.25, 0.37);
+    this.slab.add(blade, tip, guard, grip);
+
     for (let i = 0; i < 3; i++) {
-      const socket = toonMesh(new THREE.CylinderGeometry(0.26, 0.26, 0.12, 14), mat("#4f4766", 0.7));
-      socket.rotation.x = Math.PI / 2;
-      socket.position.set((i - 1) * 0.85, 0.7, 0.47);
-      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.2, 0), mat("#3a3450", 0.4));
-      gem.position.set((i - 1) * 0.85, 0.7, 0.56);
-      this.slab.add(socket, gem);
+      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.2, 0), mat(this.gemHex[i], 0.3, 0.25));
+      gem.position.set((i - 1) * 1.15, 0.6, 0.42);
+      this.slab.add(gem);
       this.gems.push(gem);
-    }
-    // Golden light leaking through the cracks around the slab
-    const leak = mat("#ffd27a", 0.4, 1.8);
-    for (const [w, h, x, y] of [[0.05, 2.9, -1.72, 1.5], [0.05, 2.9, 1.72, 1.5], [3.3, 0.05, 0, 3.12]]) {
-      const crack = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.5), leak);
-      crack.position.set(x, y, 0.1);
-      this.cracks.push(crack);
-      this.group.add(crack);
     }
     this.group.add(this.slab);
   }
 
-  /** The colours of the levers in the order they must be pulled. */
-  showOrder(order: THREE.Color[]): void {
-    this.order = order;
-    this.setProgress(0);
-  }
-
-  /** How many levers of the order have been pulled correctly. */
+  /** Light the gems of the crystals touched so far. */
   setProgress(n: number): void {
-    this.progress = n;
     this.gems.forEach((g, i) => {
-      const lit = i < n;
-      g.material = mat(`#${this.order[i].getHexString()}`, 0.25, lit ? 3.4 : 1.1);
+      g.material = mat(this.gemHex[i], 0.3, i < n ? 2.2 : 0.25);
+      g.scale.setScalar(i < n ? 1.35 : 1);
     });
-  }
-
-  /** Blink red and start the order again from the first gem. */
-  flashWrong(): void {
-    this.wrongT = 1;
-    this.progress = 0;
   }
 
   startOpening(): void {
@@ -256,128 +448,24 @@ export class SecretWall {
   }
 
   blocksLocal(lx: number, lz: number): boolean {
-    return !this.open && Math.abs(lx) < 1.7 && Math.abs(lz) < 0.65;
+    return !this.open && Math.abs(lx) < 2.0 && Math.abs(lz) < 0.7;
   }
 
   get rumbling(): boolean {
-    return this.openT >= 0 && this.openT < 1;
+    return this.openT >= 0 && !this.open;
   }
 
   update(dt: number, time: number): void {
-    this.gems.forEach((g, i) => {
-      g.rotation.y = time * 1.2 + i;
-      // Reason: the next gem to match bobs and pulses so it's clear which colour comes next
-      const next = i === this.progress && this.openT < 0;
-      g.scale.setScalar(next ? 1.25 + Math.sin(time * 6) * 0.2 : 1);
-    });
-    if (this.wrongT > 0) {
-      this.wrongT = Math.max(0, this.wrongT - dt * 1.6);
-      const red = Math.sin(this.wrongT * 18) > 0 && this.wrongT > 0.2;
-      if (red) for (const g of this.gems) g.material = mat("#ff3b3b", 0.3, 3);
-      else this.setProgress(this.progress);
-    }
-    if (this.openT < 0 || this.openT >= 1) return;
+    this.gems.forEach((g, i) => (g.rotation.y = time * 1.2 + i));
+    if (!this.rumbling) return;
     this.openT = Math.min(1, this.openT + dt / 2.6);
     const k = easeInOut(this.openT);
-    this.slab.position.y = -3.3 * k;
+    this.slab.position.y = -3.6 * k;
     this.slab.position.x = Math.sin(time * 55) * 0.04 * (1 - k);
-    for (const c of this.cracks) c.scale.y = 1 - k;
     if (this.openT >= 1) {
       this.open = true;
-      for (const c of this.cracks) c.visible = false;
+      this.slab.visible = false;
+      this.finishOpening();
     }
-  }
-}
-
-const TRAIL_VERT = /* glsl */ `
-varying vec2 vUv;
-void main() {
-  vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}`;
-
-const TRAIL_FRAG = /* glsl */ `
-uniform vec3 uColor;
-uniform float uFill;
-uniform float uTime;
-varying vec2 vUv;
-void main() {
-  float d = vUv.x;
-  float across = abs(vUv.y);
-  // A row of diamond-shaped rune stones along the path
-  float seg = fract(d / 0.62);
-  float dia = 1.0 - (abs(seg - 0.5) * 2.2 + across * 0.95);
-  float a = smoothstep(0.0, 0.18, dia);
-  float lit = 1.0 - smoothstep(uFill - 0.05, uFill + 0.05, d);
-  float head = exp(-abs(d - uFill) * 2.5) * step(0.01, uFill);
-  float idle = 0.22 + 0.12 * sin(uTime * 2.4 - d * 0.9);
-  float on = (1.6 + 0.4 * sin(uTime * 4.0 - d * 1.8)) * lit + head * 3.0;
-  gl_FragColor = vec4(uColor * max(idle, on), a);
-}`;
-
-/** Glowing rune path on the floor from a lever to its gate. `fill` animates from 0 to the trail length. */
-export class RuneTrail {
-  readonly mesh: THREE.Mesh;
-  readonly length: number;
-  private uniforms: { uColor: { value: THREE.Color }; uFill: { value: number }; uTime: { value: number } };
-  private filling = false;
-  /** Called once the light reaches the gate. */
-  onArrive: (() => void) | null = null;
-
-  constructor(points: THREE.Vector3[], color: THREE.Color, time: { value: number }) {
-    const curve = new THREE.CatmullRomCurve3(points, false, "centripetal");
-    this.length = curve.getLength();
-    const steps = Math.max(2, Math.ceil(this.length / 0.12));
-    const pos: number[] = [];
-    const uv: number[] = [];
-    const index: number[] = [];
-    const w = 0.17;
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      const p = curve.getPointAt(t);
-      const tan = curve.getTangentAt(t);
-      const side = new THREE.Vector3(-tan.z, 0, tan.x).normalize().multiplyScalar(w);
-      pos.push(p.x + side.x, p.y, p.z + side.z, p.x - side.x, p.y, p.z - side.z);
-      uv.push(t * this.length, 1, t * this.length, -1);
-      if (i < steps) {
-        const a = i * 2;
-        index.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
-      }
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
-    geo.setIndex(index);
-    this.uniforms = { uColor: { value: color.clone() }, uFill: { value: 0 }, uTime: time };
-    const material = new THREE.ShaderMaterial({
-      uniforms: this.uniforms,
-      vertexShader: TRAIL_VERT,
-      fragmentShader: TRAIL_FRAG,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide,
-    });
-    this.mesh = new THREE.Mesh(geo, material);
-    this.mesh.renderOrder = 1;
-  }
-
-  /** Run the light from the lever to the gate. */
-  ignite(): void {
-    this.filling = true;
-  }
-
-  /** Switch the trail dark again (wrong order in the rune hall). */
-  extinguish(): void {
-    this.filling = false;
-    this.uniforms.uFill.value = 0;
-  }
-
-  update(dt: number): void {
-    if (!this.filling) return;
-    const f = this.uniforms.uFill;
-    if (f.value >= this.length) return;
-    f.value = Math.min(this.length + 0.5, f.value + dt * 9);
-    if (f.value >= this.length) this.onArrive?.();
   }
 }

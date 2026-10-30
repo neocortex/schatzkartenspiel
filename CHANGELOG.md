@@ -14,6 +14,7 @@
 
 ### Added
 
+- The game is published to GitHub Pages at <https://tadeo.fun> on every push to `main`
 - A bigger island: four new regions grow out of the old coast, each with its own ground, plants and paths
   - Lagune: a sandy bay with a jetty, beach huts, sea turtles that pull in their heads, and a pod of
     dolphins leaping offshore

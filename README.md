@@ -72,6 +72,12 @@ npm run preview
 
 The build is plain static files, including the voice recordings, so any static host can serve it.
 
+### Deploy
+
+The game is live at <https://tadeo.fun>. Every push to `main` builds it and publishes it to GitHub Pages
+(`.github/workflows/deploy.yml`). The custom domain is a setting of the repository's Pages site, and its DNS
+records are at Namecheap.
+
 ### Voices
 
 Every spoken line is an MP3 in `public/voices/`, rendered once and committed, so playing the game needs no

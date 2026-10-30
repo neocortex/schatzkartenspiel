@@ -5,7 +5,8 @@ Project guidance for coding agents. See README.md for setup, controls and debug 
 ## What this is
 
 A 3D island adventure (Three.js + TypeScript + Vite) for a 7-year-old German-speaking player.
-Graphics quality ("wow") and joy matter more than anything else; it is played locally, not shipped.
+Graphics quality ("wow") and joy matter more than anything else. It is live at https://tadeo.fun: every push to
+`main` publishes it to GitHub Pages (`.github/workflows/deploy.yml`).
 
 ## Run
 

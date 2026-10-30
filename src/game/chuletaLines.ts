@@ -15,26 +15,27 @@ export const CHULETA_INTRO: DialogueScript = [
 
 /** Hint for the current milestone, said when nothing happened for a while. */
 export const CHULETA_HINTS: Record<number, string> = {
-  1: "Gack! Lies mal das Schild da vorne am Strand!",
-  2: "Der Vulkan raucht im Westen. Folge dem goldenen Stern!",
-  3: "Am See stehen drei alte Steintafeln. Lies sie alle!",
-  4: "Die Höhle ist im Nordwesten, unter dem großen Felsen!",
-  5: "Der Zauberwald liegt südlich vom See. Gack!",
-  6: "Die Brücke über den Fluss ist im Osten. Vorsicht, Oger!",
-  7: "Sprich mit dem Dorfältesten. Er steht vor dem großen Haus!",
-  8: "Der Berg ist im Nordosten. Ganz oben glänzt der Hammer!",
-  9: "Zum Steg im Norden! Dort wartet ein Boot auf uns.",
-  10: "Zum Steg im Norden! Auf zur Schatzinsel!",
+  2: "Jemand ruft um Hilfe! Schnell zum Vulkan im Westen!",
+  3: "Paco wartet im Dorf! Geh über die Trittsteine am Fluss.",
+  4: "Nur der Geist weiß den Weg! Lös die Rätsel am See.",
+  5: "Das Schwert liegt in der Höhle im Nordwesten. Gack!",
+  6: "Die Zauberbeeren wachsen im Zauberwald! Er liegt südlich vom See.",
+  7: "Der Schlüssel ist im Dorf. Sprich mit dem Dorfältesten!",
+  8: "Nur der Oger hebt den Felsen! Er sitzt auf der Brücke.",
+  9: "Der Hammer liegt ganz oben auf dem Berg. Gack!",
+  10: "Dein Boot ist fertig! Es wartet am Steg im Norden.",
+  11: "Das X wartet! Zurück zum Boot am Steg im Norden.",
+  12: "Schnell! Das Herz muss zurück auf den alten Stein am Vulkan!",
 };
 
 /** Cheer after finishing a milestone (keyed by the milestone just finished). */
 export const CHULETA_CHEERS: Record<number, string> = {
-  1: "Gack! Ein Vulkan? Ich hab ein bisschen Angst... aber nur ein bisschen!",
   2: "Puh, war das heiß! Fast hätte ich ein gekochtes Ei gelegt!",
-  3: "Ein Geist! Gack! Mir stehen alle Federn zu Berge!",
-  4: "Ein echtes Zauberschwert! Du bist ein richtiger Held!",
-  5: "Mmmh, Zauberbeeren! Darf ich eine picken? Nein? Schade!",
-  6: "Der Oger ist eigentlich ganz nett, oder?",
+  3: "Ein Geist? Gack! Mir stehen jetzt schon die Federn zu Berge!",
+  4: "Gack! Wie meint er das?",
+  5: "Ein echtes Zauberschwert! Du bist ein richtiger Held!",
+  6: "Mmmh, Zauberbeeren! Darf ich eine picken? Nein? Schade!",
   7: "Der goldene Schlüssel! Jetzt fehlt nur noch der Hammer!",
-  8: "Was für eine Aussicht! Ich kann die Schatzinsel sehen!",
+  8: "Der Oger ist eigentlich ganz nett, oder?",
+  9: "Was für eine Aussicht! Ich kann die kleine Insel sehen!",
 };

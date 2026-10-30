@@ -16,14 +16,14 @@ export const ITEMS: Record<string, ItemDef> = {
   sword: {
     key: "sword",
     name: "Magisches Schwert",
-    description: "Ein verzaubertes Schwert, das in der Höhle gefunden wurde. Leuchtet blau im Kampf.",
+    description: "Ein verzaubertes Schwert aus der Höhle. Es schneidet durch die Dornen.",
     frame: 0,
     usableInCombat: true,
   },
   berry: {
     key: "berry",
     name: "Zauberbeeren",
-    description: "Magische Beeren aus dem Zauberwald. Heilen Wunden und verleihen Superkraft.",
+    description: "Magische Beeren aus dem Zauberwald. Damit werden Monster wieder lieb.",
     frame: 1,
     usableInCombat: true,
   },
@@ -37,7 +37,7 @@ export const ITEMS: Record<string, ItemDef> = {
   hammer: {
     key: "hammer",
     name: "Goldener Hammer",
-    description: "Ein mächtiger Hammer vom Berggipfel. Kann Eis und Stein zertrümmern.",
+    description: "Ein mächtiger Hammer vom Berggipfel. Er zerschlägt das Zaubereis.",
     frame: 3,
     usableInCombat: true,
   },

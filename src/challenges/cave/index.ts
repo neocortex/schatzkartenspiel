@@ -110,7 +110,7 @@ class CaveChallenge implements Challenge {
     this.rig.jumpToShot({ pos: new THREE.Vector3(gate.x + 5, 13, gate.z + 9), look: new THREE.Vector3(gate.x, 1, gate.z + 2) });
     this.rig.setShot({ pos: new THREE.Vector3(p.x + 3, 7, p.z + 7), look: new THREE.Vector3(p.x, 1.2, p.z - 3) }, 3.2);
     await wait(600);
-    await this.ui.hud.showBanner("Kapitel 4", "Die Kristallhöhle", 2400);
+    await this.ui.hud.showBanner("Kapitel 5", "Die Kristallhöhle", 2400);
     await this.talk("cave_enter");
     await this.talk(LINES.firstGate);
     this.rig.setShot(null, 1.2);

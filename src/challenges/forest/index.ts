@@ -108,7 +108,7 @@ class ForestChallenge implements Challenge {
     this.rig.jumpToShot({ pos: new THREE.Vector3(0, 24, 26), look: new THREE.Vector3(0, 0, -4) });
     this.rig.setShot({ pos: new THREE.Vector3(p.x + 2.5, 5.5, p.z + 7.5), look: new THREE.Vector3(p.x + 0.8, 1, p.z - 2) }, 3.4);
     await wait(700);
-    await this.ui.hud.showBanner("Kapitel 5", "Der Zauberwald", 2400);
+    await this.ui.hud.showBanner("Kapitel 6", "Der Zauberwald", 2400);
     await this.talk("forest_enter");
     this.fox.hop();
     audio.playSfx("sfx_special", 0.5, 1.4);

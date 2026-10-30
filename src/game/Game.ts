@@ -46,26 +46,14 @@ interface Objective {
  */
 const GATES: Record<number, { at: P2; challenge: ChallengeName; back?: P2 }> = {
   2: { at: LANDMARKS.volcanoGate, challenge: "volcano" },
-  4: { at: [-60, -18.5], challenge: "cave" },
-  5: { at: LANDMARKS.forestGate, challenge: "forest" },
-  6: { at: [38, 0], challenge: "ogre", back: [53.5, 0.5] },
+  5: { at: [-60, -18.5], challenge: "cave" },
+  6: { at: LANDMARKS.forestGate, challenge: "forest" },
   7: { at: VILLAGE.elder, challenge: "village" },
-  8: { at: [55.5, -13.5], challenge: "mountain" },
-  9: { at: LANDMARKS.northDockEnd, challenge: "sea" },
-  10: { at: LANDMARKS.northDockEnd, challenge: "treasure" },
+  8: { at: [53.5, 0.5], challenge: "ogre", back: [53.5, 0.5] },
+  9: { at: [55.5, -13.5], challenge: "mountain" },
+  10: { at: LANDMARKS.northDockEnd, challenge: "sea" },
+  11: { at: LANDMARKS.northDockEnd, challenge: "treasure" },
 };
-
-/** Signpost next to the landing beach (quest 1), placed by src/world/models/coastSites.ts. */
-const SIGN: P2 = [-62.6, 43.6];
-
-const SIGN_TEXT: DialogueScript = [
-  {
-    speaker: "Schild",
-    portrait: "",
-    text: "Willkommen auf der Schatzinsel! Im Westen raucht der Vulkan, in der Mitte glitzert der See, und im Osten liegt das Dorf.",
-  },
-  { speaker: "Tadeo", portrait: "", text: "Der Vulkan ist ganz nah. Da gehe ich zuerst hin!" },
-];
 
 const TABLET_DIALOGUES = ["lake_tablet1", "lake_tablet2", "lake_tablet3"];
 const TALK_RANGE = 2.8;
@@ -199,7 +187,7 @@ export class Game {
     }
 
     this.remarkCooldown -= dt;
-    if (free) this.remarkAtFutureGates();
+    if (free) this.remarkAtFutureGates(objectives);
     const head = this.project(player.position.x, player.position.y + 2.3, player.position.z);
     this.bubble.place(head.behind ? null : this.pixels(head));
 
@@ -237,8 +225,8 @@ export class Game {
 
   private objectives(): Objective[] {
     const m = this.quest.currentMilestone;
-    if (m === 1) return [{ at: SIGN, radius: 3, verb: "Lesen", run: () => this.readSign() }];
-    if (m === 3) {
+    if (m === 3) return [{ at: VILLAGE.elder, radius: TALK_RANGE, verb: "Sprechen", run: () => this.meetElder() }];
+    if (m === 4) {
       return LANDMARKS.tablets
         .map((at, i) => ({ at, i }))
         .filter(({ i }) => !this.tabletsRead.has(i))
@@ -257,8 +245,8 @@ export class Game {
     return best;
   }
 
-  private async readSign(): Promise<void> {
-    await this.talk(SIGN_TEXT);
+  private async meetElder(): Promise<void> {
+    await this.talk("village_enter", this.npcs.get("elder"));
     await this.advance();
   }
 
@@ -276,12 +264,16 @@ export class Game {
   }
 
   /** Short remark when Tadeo wanders to a place whose quest comes later. */
-  private remarkAtFutureGates(): void {
+  private remarkAtFutureGates(open: Objective[]): void {
     if (this.remarkCooldown > 0) return;
     const m = this.quest.currentMilestone;
     const later: P2[] = [];
-    for (const [k, g] of Object.entries(GATES)) if (Number(k) > m && Number(k) !== 10) later.push(g.at);
-    if (m < 3) later.push(...LANDMARKS.tablets);
+    for (const [k, g] of Object.entries(GATES)) {
+      // Reason: quests 11 and 12 reuse the gates of 10 and 2, and quests 3 and 7 share the elder, so neither counts as a later place
+      const ownSpot = open.some((o) => o.at[0] === g.at[0] && o.at[1] === g.at[1]);
+      if (Number(k) > m && Number(k) < 11 && !ownSpot) later.push(g.at);
+    }
+    if (m < 4) later.push(...LANDMARKS.tablets);
     if (later.some((at) => this.distance(at) < 4.5)) {
       const text = `Hier komme ich später wieder hin. Zuerst: ${this.quest.currentQuest.name}!`;
       this.bubble.say(text, 3800);
@@ -305,7 +297,8 @@ export class Game {
     audio.playMusic("music_title");
     audio.setAmbience(true);
     const save = SaveManager.getInstance();
-    this.title = new Title(this.ui.layer, save.hasSave());
+    const hasSave = save.hasSave();
+    this.title = new Title(this.ui.layer, hasSave);
     const choice = await this.title.choose();
     this.title = null;
     await this.engine.fade(1, 700);
@@ -323,9 +316,12 @@ export class Game {
       return;
     }
     save.fullReset();
-    this.coins.reset();
-    this.wardrobe.reset();
-    this.wardrobe.dress(0);
+    // Reason: only a running adventure is abandoned; after a save from an older version the coins and hats stay
+    if (hasSave) {
+      this.coins.reset();
+      this.wardrobe.reset();
+    }
+    this.wardrobe.dress(this.coins.collected);
     this.tabletsRead.clear();
     this.ui.hud.refresh();
     await this.intro();
@@ -353,6 +349,7 @@ export class Game {
     await this.talk("intro");
     await this.talk(CHULETA_INTRO);
     this.ui.hud.setVisible(true);
+    await this.advance();
     this.busy = false;
   }
 
@@ -363,12 +360,12 @@ export class Game {
 
     const reward = QUESTS[milestone - 1].reward as ItemKey | null;
     if (reward) InventoryManager.getInstance().addItem(reward);
-    if (milestone === 10) return this.ending();
-    if (milestone === 9) {
+    if (milestone === 11) return this.ending();
+    if (milestone === 10) {
       // Reason: the boat trip ends on the treasure island, so the finale follows straight away
       this.quest.completeMilestone();
       this.saveAt(LANDMARKS.northDockEnd);
-      return this.playChallenge(10);
+      return this.playChallenge(11);
     }
 
     const back = gate.back ?? gate.at;

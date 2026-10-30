@@ -16,8 +16,8 @@ import { NarrationManager } from "../systems/NarrationManager";
 import { audio } from "../audio/Audio";
 
 /** Milestone of the ogre quest and the sea crossing. */
-const OGRE_QUEST = 6;
-const SEA_QUEST = 9;
+const OGRE_QUEST = 8;
+const SEA_QUEST = 10;
 /** Middle of the bridge deck, where the ogre blocks the way. */
 const GUARD: P2 = LANDMARKS.bridge;
 /** Open grass east of the mountain path, just past the bridge (in view when Tadeo comes back). */

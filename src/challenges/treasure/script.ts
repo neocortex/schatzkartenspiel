@@ -38,7 +38,7 @@ export async function arrive(s: TreasureStage): Promise<void> {
   const t = s.tadeo;
   // Crane down over the lagoon to the beached boat
   await s.director.move(shot(-4.2, 3.3, 13.4, 2.6, 1.0, 4.4), 5.0);
-  void s.ui.hud.showBanner("Letzte Aufgabe", "Die Schatzinsel", 2800);
+  void s.ui.hud.showBanner("Kapitel 11", "Die Schatzinsel", 2800);
   t.avatar.pose = "cheer";
   t.actor.jump(5.5);
   await s.sleep(0.5);

@@ -1,7 +1,8 @@
 /**
  * Hero — Tadeo's controller on the lava field: camera-relative walking for
  * any camera yaw, jumping, sliding along blocked ground and props, a smooth
- * step onto bridge decks, and the "Autsch!" knock-back hop after a hit.
+ * step onto bridge decks, the "Autsch!" knock-back hop after a hit, and a
+ * scripted walk for cutscenes.
  */
 
 import * as THREE from "three";
@@ -13,6 +14,8 @@ import { Colliders } from "../../world/Colliders";
 export interface HeroWorld {
   ground(x: number, z: number): number;
   canStand(x: number, z: number): boolean;
+  /** May an airborne Tadeo fly over (x, z)? Checked only while he is off the ground. */
+  canLeap(x: number, z: number): boolean;
   colliders: Colliders;
 }
 
@@ -20,6 +23,7 @@ const WALK_SPEED = 6.2;
 const JUMP_SPEED = 7.8;
 const GRAVITY = 24;
 const RADIUS = 0.35;
+const AIR_CONTROL = 6;
 
 export class Hero {
   readonly avatar: Humanoid = createTadeo();
@@ -34,6 +38,7 @@ export class Hero {
   private vy = 0;
   private dir = new THREE.Vector3();
   private prev = new THREE.Vector3();
+  private scripted: { x: number; z: number; resolve: () => void } | null = null;
 
   constructor(private world: HeroWorld) {}
 
@@ -55,6 +60,11 @@ export class Hero {
     if (!this.grounded || !this.controls) return;
     this.vy = JUMP_SPEED;
     this.grounded = false;
+  }
+
+  /** Runs to (x, z) on his own (controls off); resolves on arrival. */
+  walkTo(x: number, z: number): Promise<void> {
+    return new Promise((resolve) => (this.scripted = { x, z, resolve }));
   }
 
   /** Hop backwards away from `from` with a little spin (the "Autsch!" bounce). */
@@ -79,17 +89,20 @@ export class Hero {
     // Reason: screen-right = (cos, sin), screen-up (axis.y = −1) = (sin, −cos) in world xz
     this.dir.set(axis.x * c - axis.y * s, 0, axis.x * s + axis.y * c);
     if (this.dir.lengthSq() > 1) this.dir.normalize();
-    const steer = this.controls ? 1 : 0;
-    const accel = 1 - Math.exp(-dt * (this.grounded ? 12 : 3));
-    this.velocity.x += (this.dir.x * WALK_SPEED * steer - this.velocity.x) * (this.controls || this.grounded ? accel : 0);
-    this.velocity.z += (this.dir.z * WALK_SPEED * steer - this.velocity.z) * (this.controls || this.grounded ? accel : 0);
+    this.followScript();
+    const walking = this.controls || this.scripted !== null;
+    const steer = walking ? 1 : 0;
+    // Reason: a firm hand in the air lets a child still steer onto a rock or brake before it
+    const accel = 1 - Math.exp(-dt * (this.grounded ? 12 : AIR_CONTROL));
+    this.velocity.x += (this.dir.x * WALK_SPEED * steer - this.velocity.x) * (walking || this.grounded ? accel : 0);
+    this.velocity.z += (this.dir.z * WALK_SPEED * steer - this.velocity.z) * (walking || this.grounded ? accel : 0);
     this.move(dt);
 
     const horizontal = Math.hypot(this.velocity.x, this.velocity.z);
     if (this.tumble > 0) {
       this.facing += this.tumble * dt;
       this.tumble = Math.max(0, this.tumble - dt * 18);
-    } else if (horizontal > 0.3 && this.controls) {
+    } else if (horizontal > 0.3 && walking) {
       const target = Math.atan2(this.velocity.x, this.velocity.z);
       const delta = Math.atan2(Math.sin(target - this.facing), Math.cos(target - this.facing));
       this.facing += delta * Math.min(dt * 12, 1);
@@ -108,8 +121,28 @@ export class Hero {
         this.grounded = true;
       }
     }
-    this.avatar.update(dt, { speed: this.controls ? horizontal : 0, grounded: this.grounded, vy: this.vy });
+    this.avatar.update(dt, { speed: walking ? horizontal : 0, grounded: this.grounded, vy: this.vy });
     this.sync();
+  }
+
+  /** Points `dir` at the scripted goal, and ends the walk on arrival. */
+  private followScript(): void {
+    if (!this.scripted) return;
+    const dx = this.scripted.x - this.position.x;
+    const dz = this.scripted.z - this.position.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 0.25) {
+      const done = this.scripted.resolve;
+      this.scripted = null;
+      done();
+      return;
+    }
+    this.dir.set(dx / d, 0, dz / d);
+  }
+
+  /** On the ground the bank and a rock's edge stop him, so only a jump can carry him over the lava. */
+  private free(x: number, z: number): boolean {
+    return this.world.canStand(x, z) || (!this.grounded && this.world.canLeap(x, z));
   }
 
   private move(dt: number): void {
@@ -117,13 +150,13 @@ export class Hero {
     this.prev.copy(this.position);
     const nx = this.position.x + this.velocity.x * dt;
     const nz = this.position.z + this.velocity.z * dt;
-    if (w.canStand(nx, nz)) {
+    if (this.free(nx, nz)) {
       this.position.x = nx;
       this.position.z = nz;
-    } else if (w.canStand(nx, this.position.z)) {
+    } else if (this.free(nx, this.position.z)) {
       this.position.x = nx;
       this.velocity.z *= 0.5;
-    } else if (w.canStand(this.position.x, nz)) {
+    } else if (this.free(this.position.x, nz)) {
       this.position.z = nz;
       this.velocity.x *= 0.5;
     } else {
@@ -131,7 +164,7 @@ export class Hero {
       this.velocity.z = 0;
     }
     w.colliders.resolve(this.position, RADIUS);
-    if (!w.canStand(this.position.x, this.position.z)) {
+    if (!this.free(this.position.x, this.position.z)) {
       this.position.x = this.prev.x;
       this.position.z = this.prev.z;
     }

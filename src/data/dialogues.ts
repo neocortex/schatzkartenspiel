@@ -69,16 +69,39 @@ export const DIALOGUES: Record<string, DialogueScript> = {
       text: "Der Vulkan spuckt Feuer! Ich muss irgendwie an den Lavabrocken vorbei!",
     },
   ],
-  volcano_complete: [
+  // Paco under the rock is free. The empty hollow behind him is the game's mystery, so he brushes it aside.
+  volcano_paco_thanks: [
     {
-      speaker: "Tadeo",
-      portrait: "portrait_tadeo",
-      text: "Geschafft! Der Weg nach Norden ist frei.",
+      speaker: "Käpt'n Paco",
+      portrait: "",
+      text: "Danke, Junge! Ich bin Käpt'n Paco.",
     },
     {
       speaker: "Tadeo",
       portrait: "portrait_tadeo",
-      text: "Ich sehe einen See im Osten. Vielleicht finde ich dort Hinweise über den Schatz!",
+      text: "Was ist das für ein Stein?",
+    },
+    {
+      speaker: "Käpt'n Paco",
+      portrait: "",
+      text: "Ach, alter Kram.",
+    },
+  ],
+  volcano_paco_boat: [
+    {
+      speaker: "Tadeo",
+      portrait: "portrait_tadeo",
+      text: "Mein Boot ist kaputt.",
+    },
+    {
+      speaker: "Käpt'n Paco",
+      portrait: "",
+      text: "Das flicke ich dir. Komm ins Dorf!",
+    },
+    {
+      speaker: "Käpt'n Paco",
+      portrait: "",
+      text: "Nimm die Trittsteine. Auf der Brücke sitzt ein Oger.",
     },
   ],
 

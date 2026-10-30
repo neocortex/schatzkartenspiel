@@ -1,16 +1,17 @@
 /**
- * VolcanoChallenge (quest 2) — Tadeo crosses the lava field at the foot of
- * the erupting volcano. Glowing lava bombs arc down from the crater; a ring
- * on the ground shows where each will land. Reach the "Ziel" arch at the
- * green meadow. No game over: a hit means "Autsch!", a hop and a fresh start
- * at the last checkpoint flag.
+ * VolcanoChallenge — Tadeo crosses the lava field at the foot of the erupting
+ * volcano. Glowing lava bombs arc down from the crater; a ring on the ground
+ * shows where each will land. Where the eruptions broke the bridges he jumps over
+ * the lava from rock to rock. The run's `VolcanoMode` decides what happens at the
+ * old stone at the goal. No game over: a hit or a missed jump means "Autsch!", a
+ * hop and a fresh start at the last checkpoint flag.
  */
 
 import * as THREE from "three";
 import { Engine, PostSettings } from "../../core/Engine";
 import { CameraRig, Shot } from "../../core/CameraRig";
 import { Colliders } from "../../world/Colliders";
-import { SkyPalette } from "../../world/Sky";
+import { createFeuerherz } from "../../world/models/items";
 import { glowTexture, puffTexture } from "../../world/ambient/textures";
 import { audio } from "../../audio/Audio";
 import { DialogueScript } from "../../data/dialogues";
@@ -19,7 +20,7 @@ import { Stage } from "./kit/stage";
 import { ScreenFx } from "./kit/fx";
 import { Bursts } from "./kit/bursts";
 import { Disposer } from "./kit/models";
-import { Course } from "./course";
+import { Course, HopRock } from "./course";
 import { createTerrain } from "./terrain";
 import { createLava } from "./lava";
 import { VolcanoSet } from "./set";
@@ -29,12 +30,8 @@ import { Markers } from "./markers";
 import { Bombs, RING_RADIUS } from "./bombs";
 import { BombDirector } from "./director";
 import { Hero } from "./hero";
-
-const SKY: SkyPalette = {
-  zenith: new THREE.Color("#3a78dc"),
-  horizon: new THREE.Color("#ffc79a"),
-  sunGlow: new THREE.Color("#ffb877"),
-};
+import type { VolcanoMode } from "./modes";
+import { LIFTS_NEEDED } from "./rescue";
 
 const TIPS: DialogueScript = [
   {
@@ -42,6 +39,7 @@ const TIPS: DialogueScript = [
     portrait: "portrait_tadeo",
     text: "Wo ein Kreis auf dem Boden leuchtet, landet gleich ein Lavabrocken. Da gehe ich schnell weg!",
   },
+  { speaker: "Tadeo", portrait: "portrait_tadeo", text: "Die Brücke ist kaputt! Mit der Leertaste springe ich über die Steine." },
   { speaker: "Tadeo", portrait: "portrait_tadeo", text: "Ich laufe zum goldenen Licht. Los geht's!" },
 ];
 
@@ -80,15 +78,17 @@ export class VolcanoChallenge implements Challenge {
   course!: Course;
   hero!: Hero;
   bombs!: Bombs;
+  set!: VolcanoSet;
+  rig!: CameraRig;
+  director!: BombDirector;
+  readonly bursts = new Bursts();
+  /** Shown above the world while no line is on screen: what Space would do, and where. */
+  prompt: { at: THREE.Vector3; verb: string } | null = null;
   private resolve!: () => void;
   private engine!: Engine;
   private stage!: Stage;
-  private set!: VolcanoSet;
   private peak!: Peak;
   private markers!: Markers;
-  private director!: BombDirector;
-  private rig!: CameraRig;
-  private bursts = new Bursts();
   private fx: ScreenFx;
   private disposer = new Disposer();
   private yaw = 0;
@@ -97,10 +97,26 @@ export class VolcanoChallenge implements Challenge {
   private cinematicTime = 0;
   private statusKey = "";
   private ownedGroups: THREE.Object3D[] = [];
+  private wasGrounded = true;
+  private spaceWaiter: (() => void) | null = null;
+  private tmp = new THREE.Vector3();
 
-  constructor(private ctx: ChallengeContext) {
+  constructor(readonly ctx: ChallengeContext, readonly mode: VolcanoMode) {
     this.finished = new Promise((r) => (this.resolve = r));
     this.fx = new ScreenFx(ctx.ui.layer);
+  }
+
+  /** What the E2E proof reads: see `scripts/e2e/volcano.mjs`. */
+  get e2e(): { paco: "stuck" | "free" | "none"; lifts: number; liftsNeeded: number; rocks: HopRock[]; lastCheckpoint: number; bombsNearRocks: number } {
+    const rescue = this.set.rescue;
+    return {
+      paco: !rescue ? "none" : rescue.free ? "free" : "stuck",
+      lifts: rescue?.lifts ?? 0,
+      liftsNeeded: LIFTS_NEEDED,
+      rocks: this.course.rocks,
+      lastCheckpoint: this.checkpoint,
+      bombsNearRocks: this.director.bombsNearRocks,
+    };
   }
 
   enter(engine: Engine): void {
@@ -111,16 +127,17 @@ export class VolcanoChallenge implements Challenge {
 
   private build(): void {
     const course = (this.course = new Course());
+    const sky = this.mode.sky;
     this.stage = new Stage({
       scene: this.scene,
-      sky: SKY,
+      sky,
       sunDir: new THREE.Vector3(-0.45, 0.72, 0.52),
       sunColor: "#fff0d6",
       sunIntensity: 2.7,
       hemiSky: "#ffe7cf",
       hemiGround: "#7a4434",
       hemiIntensity: 1.05,
-      fog: { color: SKY.horizon.clone().lerp(new THREE.Color("#e7a98c"), 0.3), near: 150, far: 640 },
+      fog: { color: sky.horizon.clone().lerp(new THREE.Color("#e7a98c"), 0.3), near: 150, far: 640 },
       shadowExtent: 34,
       height: (x, z) => course.terrain(x, z),
     });
@@ -132,9 +149,11 @@ export class VolcanoChallenge implements Challenge {
     this.scene.add(lava.group);
 
     const colliders = new Colliders();
-    this.set = new VolcanoSet(course, world, SKY.horizon, colliders);
+    // Reason: Tadeo only carries the heart long after Paco went home
+    this.set = new VolcanoSet(course, world, sky.horizon, colliders, !this.mode.carriesHeart);
     this.disposer.ownAll(Object.values(this.set.materials));
     this.scene.add(this.set.group);
+    if (this.set.rescue) this.scene.add(this.set.rescue.group);
     this.set.smoke.add(lava.mouths.flatMap((m) => [m, m.clone().add(new THREE.Vector3(1.5, 0, 1))]), "seaSteam");
 
     this.peak = new Peak(this.set.smoke, this.bursts);
@@ -144,11 +163,23 @@ export class VolcanoChallenge implements Challenge {
     this.ownedGroups.push(lava.group, this.set.group, this.peak.group, this.markers.group);
     this.bombs = new Bombs((x, z) => course.ground(x, z), this.markers, this.bursts, this.peak.vent);
     this.disposer.ownAll(this.bombs.materials);
-    this.director = new BombDirector(course, this.bombs, this.peak);
+    this.director = new BombDirector(course, this.bombs, this.peak, this.mode.bombInterval);
     this.scene.add(this.markers.group, this.bombs.group, this.bursts.group);
 
-    this.hero = new Hero({ ground: (x, z) => course.ground(x, z), canStand: (x, z) => course.canStand(x, z), colliders });
+    this.hero = new Hero({
+      ground: (x, z) => course.ground(x, z),
+      canStand: (x, z) => course.canStand(x, z),
+      canLeap: (x, z) => course.canLeap(x, z),
+      colliders,
+    });
     this.hero.addTo(this.scene);
+    if (this.mode.carriesHeart) {
+      const heart = createFeuerherz();
+      heart.scale.setScalar(0.58);
+      heart.position.set(0, 0.16, -0.3);
+      this.hero.avatar.back.add(heart);
+      this.disposer.ownMaterials(heart);
+    }
     const cp = course.checkpoints[0];
     this.hero.teleport(cp.pos.x, cp.pos.y, cp.facing);
     activateFlag(this.set.flags[0]);
@@ -192,31 +223,29 @@ export class VolcanoChallenge implements Challenge {
     this.director.grace = 1.2;
   }
 
+  /** Tadeo reached the goal: the danger stops, and the run's ending plays out at the old stone. */
   private async win(): Promise<void> {
     this.state = "won";
     this.director.dangerous = false;
     this.hero.controls = false;
-    this.hero.avatar.pose = "cheer";
+    this.set.beacon.set(null);
+    await this.mode.ending(this);
+    this.resolve();
+  }
+
+  /** The big moment: flash, fanfare and victory music, sparkles and a word above Tadeo's head. */
+  celebrate(word: string): void {
     audio.playSfx("sfx_victory_fanfare");
     audio.playMusic("music_victory");
     this.fx.flash("#fff4c8", 0.35, 500);
     const head = this.hero.position.clone().add(new THREE.Vector3(0, 2.2, 0));
     this.bursts.twinkle(head, 40, 2.2, new THREE.Color(3, 2.4, 0.8), 0.4);
-    this.fx.pop("Geschafft!", head, this.camera, "#ffe14a", 56);
-    this.set.beacon.set(null);
-    const p = this.hero.position;
-    const t = this.course.tangentAt(this.playerS, 4);
-    // Reason: swing wide round the side into a shot in front of Tadeo — a straight blend
-    // would pass over his head and through the arch right behind him
-    const shot = new THREE.Vector3(p.x + t.x * 3.2 - t.y * 7.5, p.y + 3, p.z + t.y * 3.2 + t.x * 7.5);
-    this.rig.setShot({ pos: shot, look: p.clone().add(new THREE.Vector3(0, 1.1, 0)) }, 2.2);
-    this.hero.facing = Math.atan2(shot.x - p.x, shot.z - p.z);
-    this.ctx.ui.status(`<span>🌋</span><span>Geschafft!</span>`);
-    await this.ctx.ui.hud.showBanner("Super, Tadeo!", "Geschafft!", 2200);
-    this.hero.avatar.pose = "talk";
-    await this.ctx.ui.say("volcano_complete");
-    this.hero.avatar.pose = "cheer";
-    this.resolve();
+    this.fx.pop(word, head, this.camera, "#ffe14a", 56);
+  }
+
+  /** Resolves on the next press of Space that no dialogue took. */
+  nextSpace(): Promise<void> {
+    return new Promise((resolve) => (this.spaceWaiter = resolve));
   }
 
   private hit(from: THREE.Vector3): void {
@@ -258,9 +287,15 @@ export class VolcanoChallenge implements Challenge {
       this.hero.controls = !paused;
       if (!paused && input?.consume("Space")) this.hero.jump();
     }
+    if (this.spaceWaiter && !ui.dialogue.isOpen && input?.consume("Space")) {
+      const resume = this.spaceWaiter;
+      this.spaceWaiter = null;
+      resume();
+    }
     this.hero.update(dt, input, this.yaw);
     const hp = this.hero.position;
     this.playerS = Math.max(this.course.trailS(hp.x, hp.z), 0);
+    this.hopping(hp);
 
     if (!paused) {
       this.director.update(dt, hp, this.playerS, this.hero.velocity);
@@ -271,6 +306,7 @@ export class VolcanoChallenge implements Challenge {
     this.bursts.update(dt);
     this.peak.update(dt, time);
     this.set.update(dt, time, hp, this.camera);
+    this.set.rescue?.update(dt);
 
     if (this.invulnerable > 0) {
       this.invulnerable -= dt;
@@ -282,6 +318,37 @@ export class VolcanoChallenge implements Challenge {
       this.status();
     }
     this.updateCamera(dt);
+    this.showPrompt(paused);
+  }
+
+  /** Comes down in the lava: "Autsch!". Comes down on a rock: a puff of dust and a little cheer. */
+  private hopping(hp: THREE.Vector3): void {
+    const landed = this.hero.grounded && !this.wasGrounded;
+    this.wasGrounded = this.hero.grounded;
+    if (this.state !== "play" || !this.hero.grounded) return;
+    if (this.course.lavaAt(hp.x, hp.z)) {
+      this.bursts.sparks(hp.clone().setY(hp.y + 0.2), 44, 7.5, new THREE.Color(3.6, 1.5, 0.25), 0.3);
+      audio.playSfx("sfx_lava_fall", 0.8, 0.8);
+      this.hit(hp);
+      return;
+    }
+    if (!landed || !this.course.rockAt(hp.x, hp.z)) return;
+    this.bursts.puffs(hp.clone(), 7, "#d8c6a8", [0.3, 1.1], 1, 0.5, 0.6, 0.7);
+    audio.playSfx("sfx_menu_confirm", 0.55, 1.15);
+    this.fx.pop("Hopp!", hp.clone().setY(hp.y + 2.1), this.camera, "#8dff6a", 38);
+  }
+
+  /** The prompt the flow asked for; otherwise, the first thing a child should learn at a broken crossing. */
+  private showPrompt(paused: boolean): void {
+    const hp = this.hero.position;
+    const canHop = this.state === "play" && !paused && this.hero.grounded && this.course.canLeap(hp.x, hp.z);
+    const prompt = this.prompt ?? (canHop ? { at: this.tmp.set(hp.x, hp.y + 2.2, hp.z), verb: "Springen" } : null);
+    if (!prompt || this.ctx.ui.dialogue.isOpen) {
+      this.ctx.ui.prompt.show(null);
+      return;
+    }
+    const v = this.tmp.copy(prompt.at).project(this.camera);
+    this.ctx.ui.prompt.show({ x: (v.x * 0.5 + 0.5) * window.innerWidth, y: (-v.y * 0.5 + 0.5) * window.innerHeight }, prompt.verb);
   }
 
   private updateCamera(dt: number): void {
@@ -349,15 +416,21 @@ export class VolcanoChallenge implements Challenge {
     const key = `${left}|${pct}`;
     if (key === this.statusKey) return;
     this.statusKey = key;
+    this.statusBar("🌋", pct, `noch ${left} m`);
+  }
+
+  /** The status pill with its orange progress bar. */
+  statusBar(icon: string, pct: number, label: string): void {
     this.ctx.ui.status(
-      `<span>🌋</span>` +
+      `<span>${icon}</span>` +
         `<span style="display:inline-block;width:190px;height:18px;border-radius:9px;background:#6b4a2f;overflow:hidden;box-shadow:inset 0 3px 0 rgba(0,0,0,.3)">` +
         `<span style="display:block;height:100%;width:${pct}%;border-radius:9px;background:linear-gradient(90deg,#ff6a1a,#ffd23f)"></span></span>` +
-        `<span>noch ${left} m</span>`,
+        `<span>${label}</span>`,
     );
   }
 
   exit(): void {
+    this.ctx.ui.prompt.show(null);
     for (const g of this.ownedGroups) this.disposer.ownMaterials(g);
     this.fx.dispose();
     this.bursts.dispose();

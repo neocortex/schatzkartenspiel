@@ -1,8 +1,8 @@
 /**
- * VolcanoSet — everything that dresses the course: bridges, checkpoint
- * cairns and flags, the goal arch with its golden beacon, obsidian and fire
- * crystals, ember vents, smoke, steam and floating embers,
- * plus the instanced scatter and the sea.
+ * VolcanoSet — everything that dresses the course: bridges and hop rocks,
+ * checkpoint cairns and flags, the old stone at the goal with Paco beside it and
+ * the golden beacon, obsidian and fire crystals, ember vents, smoke, steam and
+ * floating embers, plus the instanced scatter and the sea.
  */
 
 import * as THREE from "three";
@@ -17,9 +17,14 @@ import { Colliders } from "../../world/Colliders";
 import { Beacon } from "../../game/Beacon";
 import { WorldUniforms } from "../../world/Terrain";
 import { meshesFromModel } from "./kit/models";
+import { Altar } from "./altar";
 import { Course, RIVER_HALF } from "./course";
-import { bridgeModel, cairnModel, createFlag, goalArch, CheckpointFlag } from "./props";
+import { bridgeModel, cairnModel, createFlag, hopRockModel, CheckpointFlag } from "./props";
+import { PacoRescue } from "./rescue";
 import { Scatter } from "./scatter";
+
+/** The old stone stands this far past the start of the goal, beyond the line that ends the run. */
+const ALTAR_S = 10;
 
 export class VolcanoSet {
   readonly group = new THREE.Group();
@@ -27,16 +32,30 @@ export class VolcanoSet {
   readonly beacon = new Beacon();
   readonly smoke: SmokeSystem;
   readonly materials: LandmarkMaterials;
-  /** Glowing lantern points on the goal arch. */
+  readonly altar: Altar;
+  /** Paco under his rock, on the run where he is here. Its group goes straight into the scene: it holds shared character materials. */
+  readonly rescue: PacoRescue | null;
+  /** Where the beacon stands. */
   readonly goalAt: THREE.Vector3;
   private rand = mulberry32(99);
 
-  constructor(private course: Course, world: WorldUniforms, horizon: THREE.Color, readonly colliders: Colliders) {
+  constructor(private course: Course, world: WorldUniforms, horizon: THREE.Color, readonly colliders: Colliders, withPaco: boolean) {
     this.materials = createMaterials(world);
     this.smoke = new SmokeSystem(world);
     const model = emptyModel();
 
     course.bridges.forEach((b, i) => addModel(model, bridgeModel(b, 40 + i * 13)));
+    course.rocks.forEach((r, i) => addModel(model, hopRockModel(r, course.lavaHeight(r.x, r.z), 70 + i * 11)));
+    // Reason: a burnt bridge still smoulders, which tells the story; off to one side, so the way across stays in plain sight
+    const snapped = course.bridges.flatMap((b) =>
+      (b.gap ?? []).map((m, i) => {
+        const side = (i === 0 ? 1 : -1) * (b.halfW - 0.25);
+        const x = b.center.x + b.dir.x * m - b.dir.y * side;
+        const z = b.center.y + b.dir.y * m + b.dir.x * side;
+        return new THREE.Vector3(x, course.ground(x, z) - 0.2, z);
+      }),
+    );
+    this.smoke.add(snapped, "smoulder");
 
     course.checkpoints.forEach((cp, i) => {
       // Reason: the cairn stands at the trail edge, not in the middle where Tadeo respawns
@@ -52,12 +71,16 @@ export class VolcanoSet {
       this.colliders.add(x, z - 0.1, 0.6);
     });
 
-    const arch = goalArch(course, course.goalS + 2, 5);
-    addModel(model, arch.model);
-    const archT = course.tangentAt(course.goalS + 2, 5);
-    const archP = course.pointAt(course.goalS + 2);
-    for (const side of [-1, 1]) this.colliders.add(archP.x - archT.y * side * 4.2, archP.y + archT.x * side * 4.2, 0.7);
-    this.goalAt = new THREE.Vector3(archP.x, course.trailHeight(course.goalS + 2), archP.y);
+    // The old stone closes the trail, its face turned to whoever comes up the path
+    const stoneS = course.goalS + ALTAR_S;
+    const stoneAt = course.pointAt(stoneS);
+    const stoneDir = course.tangentAt(stoneS, 5);
+    this.altar = new Altar(stoneAt.x, course.trailHeight(stoneS), stoneAt.y, Math.atan2(-stoneDir.x, -stoneDir.y), this.materials);
+    this.group.add(this.altar.group);
+    this.rescue = withPaco ? new PacoRescue(course, this.altar, this.materials) : null;
+    // With nobody to save, the star marks the stone itself
+    const front = stoneAt.clone().addScaledVector(stoneDir, -5);
+    this.goalAt = this.rescue ? this.rescue.beaconAt : new THREE.Vector3(front.x, course.terrain(front.x, front.y), front.y);
     this.beacon.set(this.goalAt);
 
     this.decorations(model);

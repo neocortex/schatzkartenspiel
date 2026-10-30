@@ -1,11 +1,14 @@
 /**
- * The four quest items (magic sword, magic berries, golden key, golden hammer)
- * and the treasure chest, as small outlined 3D models.
+ * The four quest items (magic sword, magic berries, golden key, golden hammer),
+ * the treasure chest and the Feuerherz, as small 3D models.
  */
 
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
+import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { mat, toonMesh } from "../../characters/parts";
+import { NOISE_GLSL } from "../../core/glsl";
+import { glowTexture } from "../ambient/textures";
 
 export type ItemKey = "sword" | "berry" | "key" | "hammer";
 
@@ -124,4 +127,122 @@ export function createChest(): { group: THREE.Group; lid: THREE.Group } {
   lid.add(lock);
   group.add(lid);
   return { group, lid };
+}
+
+/** Heart outline, `width` wide, centred on the origin with its tip pointing down. */
+export function heartShape(width = 1): THREE.Shape {
+  const k = width / 2;
+  const s = new THREE.Shape();
+  s.moveTo(0, -k);
+  s.bezierCurveTo(-0.25 * k, -0.7 * k, -1.05 * k, -0.25 * k, -k, 0.32 * k);
+  s.bezierCurveTo(-0.96 * k, 0.72 * k, -0.62 * k, 0.92 * k, -0.38 * k, 0.88 * k);
+  s.bezierCurveTo(-0.2 * k, 0.85 * k, -0.06 * k, 0.72 * k, 0, 0.5 * k);
+  s.bezierCurveTo(0.06 * k, 0.72 * k, 0.2 * k, 0.85 * k, 0.38 * k, 0.88 * k);
+  s.bezierCurveTo(0.62 * k, 0.92 * k, 0.96 * k, 0.72 * k, k, 0.32 * k);
+  s.bezierCurveTo(1.05 * k, -0.25 * k, 0.25 * k, -0.7 * k, 0, -k);
+  return s;
+}
+
+const HEART_VERT = /* glsl */ `
+varying vec3 vNormalV;
+varying vec3 vViewV;
+varying vec3 vLocal;
+void main() {
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vNormalV = normalize(normalMatrix * normal);
+  vViewV = normalize(-mv.xyz);
+  vLocal = position;
+  gl_Position = projectionMatrix * mv;
+}
+`;
+
+const HEART_FRAG = /* glsl */ `
+uniform float uTime;
+uniform float uBeat;
+varying vec3 vNormalV;
+varying vec3 vViewV;
+varying vec3 vLocal;
+${NOISE_GLSL}
+void main() {
+  // Deep red where it curves away, burning orange towards the middle
+  float facing = clamp(dot(normalize(vNormalV), normalize(vViewV)), 0.0, 1.0);
+  // Reason: the heart's front is nearly flat, so the glow has to grow from its middle; by facing alone the whole front burns one colour
+  float inner = smoothstep(0.5, 0.04, length(vLocal.xy));
+  vec3 col = mix(vec3(0.6, 0.02, 0.02), vec3(1.5, 0.2, 0.03), facing * facing * (0.4 + 0.6 * inner));
+  // A gold core that swells with each beat
+  col = mix(col, vec3(2.5, 1.05, 0.2), inner * inner * (0.3 + 0.7 * uBeat));
+  // Veins of molten gold creeping over the surface
+  float n = fbm3(vLocal.xy * 3.4 + vLocal.z * 1.8 + vec2(0.0, -uTime * 0.32));
+  float vein = smoothstep(0.075, 0.0, abs(n - 0.5));
+  col += vec3(2.0, 0.8, 0.1) * vein * (0.4 + 0.6 * uBeat);
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+/** Additive, camera-facing glow. */
+function glowSprite(color: THREE.Color, size: number, opacity: number): THREE.Sprite {
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: glowTexture(), color, opacity, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
+  );
+  sprite.scale.setScalar(size);
+  return sprite;
+}
+
+/** A soft double thump every 1.4 s, 0 between beats and about 1 at the first thump. */
+function heartbeat(t: number): number {
+  const x = t % 1.4;
+  return Math.exp(-(((x - 0.1) / 0.09) ** 2)) + 0.7 * Math.exp(-(((x - 0.38) / 0.1) ** 2));
+}
+
+const MOTES = 6;
+
+/**
+ * The Feuerherz, the volcano's glowing heart: about 1 unit wide, centred on the origin, tip down. It is not an
+ * item Tadeo collects, so it is no `ItemKey`.
+ */
+export function createFeuerherz(): THREE.Group {
+  const g = new THREE.Group();
+  g.name = "feuerherz";
+
+  const extruded = new THREE.ExtrudeGeometry(heartShape(0.78), {
+    depth: 0.14,
+    curveSegments: 18,
+    bevelEnabled: true,
+    bevelThickness: 0.15,
+    bevelSize: 0.11,
+    bevelSegments: 5,
+  });
+  extruded.deleteAttribute("uv");
+  extruded.deleteAttribute("normal");
+  // Reason: without welding, every bevel step shades as a hard band; a heart should look round and full
+  const shell = mergeVertices(extruded, 1e-4);
+  shell.computeVertexNormals();
+  shell.center();
+
+  const uniforms = { uTime: { value: 0 }, uBeat: { value: 0 } };
+  const body = new THREE.Mesh(shell, new THREE.ShaderMaterial({ uniforms, vertexShader: HEART_VERT, fragmentShader: HEART_FRAG }));
+  const aura = glowSprite(new THREE.Color(1.5, 0.4, 0.06), 2.4, 0.3);
+  const corona = glowSprite(new THREE.Color(1.8, 0.8, 0.2), 1.45, 0.3);
+  const motes = Array.from({ length: MOTES }, () => glowSprite(new THREE.Color(3.4, 1.9, 0.6), 0.11, 0));
+  g.add(aura, body, corona, ...motes);
+
+  // Reason: the heart shows up in three different scenes, so it runs itself instead of asking each one to update it
+  body.onBeforeRender = () => {
+    const t = performance.now() / 1000;
+    const beat = heartbeat(t);
+    uniforms.uTime.value = t;
+    uniforms.uBeat.value = beat;
+    body.scale.setScalar(1 + 0.045 * beat);
+    aura.scale.setScalar(2.4 + 0.4 * beat);
+    aura.material.opacity = 0.28 + 0.2 * beat;
+    corona.material.opacity = 0.26 + 0.28 * beat;
+    motes.forEach((m, i) => {
+      const life = (t * 0.32 + i / MOTES) % 1;
+      const a = (i / MOTES) * Math.PI * 2 + t * 0.7;
+      const spread = 0.34 + life * 0.3;
+      m.position.set(Math.cos(a) * spread, life * 1.15 - 0.3, Math.sin(a) * spread * 0.6);
+      m.material.opacity = Math.sin(life * Math.PI);
+    });
+  };
+  return g;
 }

@@ -13,15 +13,30 @@ import { Peak } from "./peak";
 
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
+/** No bomb lands closer than this to a hop rock. */
+const ROCK_CLEARANCE = 3;
+
 export class BombDirector {
   /** False = only harmless show bombs (intro, after winning). */
   dangerous = false;
   /** Seconds without dangerous bombs (after a respawn). */
   grace = 0;
+  /** Bombs ever launched at a spot near a hop rock; the rules below keep it at zero. */
+  bombsNearRocks = 0;
   private timer = 1.4;
   private showTimer = 0.4;
 
-  constructor(private course: Course, private bombs: Bombs, private peak: Peak) {}
+  constructor(
+    private course: Course,
+    private bombs: Bombs,
+    private peak: Peak,
+    private interval: [start: number, end: number],
+  ) {}
+
+  /** Seconds between dangerous bombs at course progress `p` (0 at the start, 1 at the goal). */
+  intervalAt(p: number): number {
+    return THREE.MathUtils.lerp(this.interval[0], this.interval[1], p);
+  }
 
   update(dt: number, player: THREE.Vector3, playerS: number, velocity: THREE.Vector3): void {
     const c = this.course;
@@ -35,10 +50,19 @@ export class BombDirector {
     this.timer -= dt;
     if (this.timer > 0) return;
     const p = c.progress(playerS);
-    this.timer = THREE.MathUtils.lerp(1.15, 0.6, p) * rnd(0.85, 1.15);
+    this.timer = this.intervalAt(p) * rnd(0.85, 1.15);
     const dur = rnd(2.45, 2.85);
     const target = this.pickTarget(player, playerS, velocity, dur);
-    if (target && this.bombs.launch(target, true, dur)) this.peak.erupt(0.8);
+    if (target && this.launch(target, true, dur)) this.peak.erupt(0.8);
+  }
+
+  private nearRock(x: number, z: number): boolean {
+    return this.course.rocks.some((r) => Math.hypot(x - r.x, z - r.z) < ROCK_CLEARANCE);
+  }
+
+  private launch(target: THREE.Vector3, dangerous: boolean, dur: number, sea = false): boolean {
+    if (this.nearRock(target.x, target.z)) this.bombsNearRocks++;
+    return this.bombs.launch(target, dangerous, dur, sea);
   }
 
   /** A walkable landing spot ahead of / around Tadeo that keeps every ring readable. */
@@ -66,6 +90,8 @@ export class BombDirector {
         z = pt.y + t.x * off;
       }
       if (!c.canStand(x, z)) continue;
+      // Reason: a ring on the stub while he lines up a jump would be unfair, so the whole crossing stays clear
+      if (c.canLeap(x, z) || this.nearRock(x, z)) continue;
       if (c.trailS(x, z) > c.goalS - 3 || c.trailS(x, z) < 6) continue;
       const pos = new THREE.Vector3(x, c.ground(x, z), z);
       const crowded = this.bombs.flying.some((b) => b.dangerous && b.to.distanceTo(pos) < 2.6);
@@ -85,9 +111,9 @@ export class BombDirector {
     const off = c.halfWidth(s) + rnd(9, 32);
     const x = pt.x - t.y * off * side;
     const z = pt.y + t.x * off * side;
-    if (c.riverDist(x, z) < RIVER_HALF + 1) return;
+    if (c.riverDist(x, z) < RIVER_HALF + 1 || this.nearRock(x, z)) return;
     const sea = c.natural(x, z) < -0.2;
     const y = sea ? 0 : c.terrain(x, z);
-    if (this.bombs.launch(new THREE.Vector3(x, y, z), false, rnd(2.4, 3.2), sea)) this.peak.erupt(0.6);
+    if (this.launch(new THREE.Vector3(x, y, z), false, rnd(2.4, 3.2), sea)) this.peak.erupt(0.6);
   }
 }

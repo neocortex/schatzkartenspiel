@@ -1,7 +1,9 @@
 /**
  * Volcano course layout: a winding ash trail along the coast at the foot of
- * the volcano, crossed by three lava rivers (each with a stone bridge), with
- * checkpoints and a green goal meadow at the north end.
+ * the volcano, crossed by three lava rivers, with checkpoints and a green goal
+ * meadow at the north end. The first river keeps its stone bridge; the eruptions
+ * broke the other two, which leaves short stubs on each bank and a hop rock
+ * standing in the lava between them.
  *
  * World units: x = east, z = south, y = up, sea level y = 0. Distances to the
  * trail and the rivers are stamped once into a grid so height and
@@ -29,6 +31,21 @@ export const RIVER_HALF = 2.1;
 /** Arc length along the trail where the goal begins. */
 export const GOAL_DIST = 8;
 const BRIDGE_HALF_W = 1.55;
+/** Rivers whose bridge the eruptions broke: the first river keeps its own to teach the course. */
+const BROKEN_RIVERS = [1, 2];
+/** Closer to a river's centre line than this, the ground is too hot to walk on. */
+const BANK_DIST = RIVER_HALF + 0.9;
+/**
+ * Hop sizes for a seven-year-old. A running jump flies 0.65 s x 6.2 = 4.0 units and a jump from a standstill
+ * about 3, so each gap is an easy jump from a stop, and each rock ends past 4.0 units so a running jump can't overshoot it.
+ */
+const HOP_GAP = 1.9;
+const ROCK_R_MIN = 1.35;
+const ROCK_R_MAX = 1.6;
+/** A rock's top sits this far below the stubs' ends, so every hop lands a little downhill or barely up. */
+const ROCK_BELOW_DECK = 0.3;
+/** Half-width of the corridor an airborne Tadeo may fly through at a broken crossing. */
+const LEAP_HALF_W = BRIDGE_HALF_W + 1.75;
 
 export interface Polyline {
   pts: THREE.Vector2[];
@@ -45,6 +62,18 @@ export interface Bridge {
   /** Deck height at the ends. */
   y: number;
   river: number;
+  /** The stretch of deck the eruptions took, in metres from `center` along `dir` (null on a whole bridge). */
+  gap: [from: number, to: number] | null;
+}
+
+/** A rock to jump onto at a broken crossing. */
+export interface HopRock {
+  x: number;
+  z: number;
+  /** Radius of the part Tadeo can stand on. */
+  r: number;
+  /** Height of its flat top. */
+  y: number;
 }
 
 export interface Checkpoint {
@@ -124,6 +153,7 @@ export class Course {
   readonly trail = polyline(TRAIL, 0.35);
   readonly rivers = RIVERS.map((r) => polyline(r, 0.35));
   readonly bridges: Bridge[] = [];
+  readonly rocks: HopRock[] = [];
   readonly checkpoints: Checkpoint[] = [];
   /** Arc length at which the goal meadow starts. */
   readonly goalS: number;
@@ -148,6 +178,7 @@ export class Course {
     });
 
     this.rivers.forEach((r, i) => this.addBridge(r, i));
+    for (const b of this.bridges) if (BROKEN_RIVERS.includes(b.river)) this.breakBridge(b);
     this.bridges.sort((a, b) => this.trailS(a.center.x, a.center.y) - this.trailS(b.center.x, b.center.y));
     // Checkpoints: the start, just past every bridge (bridges are listed south → north)
     const starts = [4, ...this.bridges.map((b) => this.trailS(b.center.x, b.center.y) + b.halfLen + 4)];
@@ -175,7 +206,24 @@ export class Course {
     const rdir = river.pts[k].clone().sub(river.pts[Math.max(best.k - 3, 0)]).normalize();
     const sin = Math.abs(dir.x * rdir.y - dir.y * rdir.x);
     const halfLen = clamp((RIVER_HALF + 1.7) / Math.max(sin, 0.3) + 0.6, 4.6, 8);
-    this.bridges.push({ center, dir, halfLen, halfW: BRIDGE_HALF_W, y: Math.max(this.trailHeight(s), ry + 0.9), river: i });
+    this.bridges.push({ center, dir, halfLen, halfW: BRIDGE_HALF_W, y: Math.max(this.trailHeight(s), ry + 0.9), river: i, gap: null });
+  }
+
+  /** Takes the middle out of a bridge's deck and stands a hop rock where it was. */
+  private breakBridge(b: Bridge): void {
+    const point = (m: number) => new THREE.Vector2(b.center.x + b.dir.x * m, b.center.y + b.dir.y * m);
+    // Walk in along the deck from either end until the bank stops
+    let near = -b.halfLen;
+    while (near < 0 && this.riverDist(point(near).x, point(near).y) > BANK_DIST) near += 0.05;
+    let far = b.halfLen;
+    while (far > 0 && this.riverDist(point(far).x, point(far).y) > BANK_DIST) far -= 0.05;
+    const mid = (near + far) / 2;
+    const r = clamp((far - near) / 2 - HOP_GAP, ROCK_R_MIN, ROCK_R_MAX);
+    // Reason: a slanted crossing is too wide for one hop from the bank, so its stubs reach further out over the lava
+    b.gap = [Math.max(near, mid - r - HOP_GAP), Math.min(far, mid + r + HOP_GAP)];
+    const top = Math.min(deckHeight(b, b.gap[0] / b.halfLen), deckHeight(b, b.gap[1] / b.halfLen)) - ROCK_BELOW_DECK;
+    const at = point(mid);
+    this.rocks.push({ x: at.x, z: at.y, r, y: top });
   }
 
   // ── Trail queries ──────────────────────────────────────────
@@ -280,27 +328,57 @@ export class Course {
       const dz = z - b.center.y;
       const along = dx * b.dir.x + dz * b.dir.y;
       const across = -dx * b.dir.y + dz * b.dir.x;
-      if (Math.abs(along) <= b.halfLen && Math.abs(across) <= b.halfW) return b;
+      if (Math.abs(along) > b.halfLen || Math.abs(across) > b.halfW) continue;
+      if (b.gap && along > b.gap[0] && along < b.gap[1]) continue;
+      return b;
     }
     return null;
   }
 
-  /** Walk surface height (bridge deck or terrain). */
+  /** The hop rock whose top covers (x, z), if any. */
+  rockAt(x: number, z: number): HopRock | null {
+    for (const r of this.rocks) if (Math.hypot(x - r.x, z - r.z) <= r.r) return r;
+    return null;
+  }
+
+  /** Walk surface height (hop rock, bridge deck or terrain; the lava's surface where he came down in it). */
   ground(x: number, z: number): number {
+    const rock = this.rockAt(x, z);
+    if (rock) return rock.y;
     const b = this.bridgeAt(x, z);
     if (b) {
       const u = ((x - b.center.x) * b.dir.x + (z - b.center.y) * b.dir.y) / b.halfLen;
       return deckHeight(b, u);
     }
-    return this.terrain(x, z);
+    const h = this.terrain(x, z);
+    return this.lavaAt(x, z) ? Math.max(h, this.lavaHeight(x, z)) : h;
   }
 
-  /** Inside the trail, out of the lava (bridges excepted). */
+  /** Inside the trail, out of the lava (bridges and hop rocks excepted). */
   canStand(x: number, z: number): boolean {
+    if (this.rockAt(x, z)) return true;
     const d = this.trailField.distAt(x, z);
     if (d > this.halfWidth(this.trailS(x, z))) return false;
     if (this.bridgeAt(x, z)) return true;
-    return this.riverField.distAt(x, z) > RIVER_HALF + 0.9;
+    return this.riverField.distAt(x, z) > BANK_DIST;
+  }
+
+  /** True inside the corridor of a broken crossing, where an airborne Tadeo may fly over lava. */
+  canLeap(x: number, z: number): boolean {
+    for (const b of this.bridges) {
+      if (!b.gap) continue;
+      const dx = x - b.center.x;
+      const dz = z - b.center.y;
+      if (Math.abs(dx * b.dir.x + dz * b.dir.y) > b.halfLen || Math.abs(-dx * b.dir.y + dz * b.dir.x) > LEAP_HALF_W) continue;
+      // Reason: staying on the trail means everything in the corridor is ground to stand on or lava, never a dead end
+      return this.trailField.distAt(x, z) <= this.halfWidth(this.trailS(x, z));
+    }
+    return false;
+  }
+
+  /** True on lava inside a broken crossing, off the rocks and bridge stubs. */
+  lavaAt(x: number, z: number): boolean {
+    return this.canLeap(x, z) && !this.canStand(x, z);
   }
 
   /** 0 at the start, 1 at the goal. */

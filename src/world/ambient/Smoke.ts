@@ -14,7 +14,7 @@ import { glowTexture, puffTexture } from "./textures";
 /** Direction the wind blows smoke (matches the grass sway and drifting clouds). */
 export const WIND = new THREE.Vector3(0.9, 0, 0.4).normalize();
 
-export type SmokeStyle = "chimney" | "steam" | "campfire" | "volcano" | "volcanoBurst" | "seaSteam" | "mist";
+export type SmokeStyle = "chimney" | "steam" | "campfire" | "smoulder" | "volcano" | "volcanoBurst" | "seaSteam" | "mist";
 
 interface SmokeParams {
   /** Puffs alive per source. */
@@ -44,6 +44,8 @@ const STYLES: Record<SmokeStyle, SmokeParams> = {
   chimney: { puffs: 16, life: 7, rise: 5.5, spread: 0.7, size: [0.45, 2.6], wind: 4, turb: 0.35, colorA: "#c4c4c4", colorB: "#ececec", opacity: 0.6 },
   steam: { puffs: 12, life: 3.5, rise: 3.2, spread: 0.5, size: [0.5, 2.4], wind: 1.6, turb: 0.25, colorA: "#ffffff", colorB: "#f2f6fa", opacity: 0.45 },
   campfire: { puffs: 14, life: 5, rise: 4.5, spread: 0.45, size: [0.35, 2.2], wind: 2.5, turb: 0.3, colorA: "#5f5a55", colorB: "#c8c4bf", opacity: 0.55 },
+  // A burnt beam's last wisp: thin enough to see through, for smoke standing right where Tadeo has to look
+  smoulder: { puffs: 6, life: 3.4, rise: 3, spread: 0.2, size: [0.16, 0.85], wind: 1.6, turb: 0.16, colorA: "#54504c", colorB: "#b5b0aa", opacity: 0.34 },
   volcano: {
     puffs: 64, life: 20, rise: 36, spread: 7, size: [5, 22], wind: 34, turb: 3.2,
     colorA: "#2e2a29", colorB: "#d8d3cf", opacity: 0.9, glow: "#ff5a14",

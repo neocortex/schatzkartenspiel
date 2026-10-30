@@ -113,6 +113,7 @@ node scripts/e2e/island.mjs   # likewise: title, intro, quests 1–3, coins, vil
 node scripts/e2e/volcano.mjs  # likewise: cave, forest, ogre, village, mountain, sea,
                               # treasure, fishing, hens
 node scripts/e2e/voices.mjs   # recordings play, changing lines, browser speech fallback
+node scripts/e2e/fps.mjs      # 60 fps cap on fast screens, no dropped frames at 60 Hz
 ```
 
 ## Classic 2D version

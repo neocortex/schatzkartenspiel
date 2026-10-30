@@ -54,6 +54,11 @@ const TONE_MAPPING =
     neutral: ToneMappingMode.NEUTRAL,
   }[new URLSearchParams(location.search).get("tm") ?? ""] ?? ToneMappingMode.ACES_FILMIC;
 
+/** Shortest time between drawn frames: faster screens (120 Hz) would otherwise keep the GPU flat out. */
+const FRAME_MS = 1000 / 60;
+/** A frame may arrive this much early, so timer jitter on a 60 Hz screen doesn't skip it. */
+const FRAME_SLACK_MS = 2;
+
 export interface GameScene {
   readonly scene: THREE.Scene;
   readonly camera: THREE.PerspectiveCamera;
@@ -83,6 +88,7 @@ export class Engine {
   private elapsed = 0;
   private fadeEl: HTMLElement;
   private switching = false;
+  private lastDraw = 0;
   /** Runs every frame before the active scene updates (game flow, UI). */
   onFrame: ((dt: number, time: number) => void) | null = null;
 
@@ -201,6 +207,10 @@ export class Engine {
   }
 
   private frame(timestamp: number): void {
+    const sinceDraw = timestamp - this.lastDraw;
+    if (sinceDraw < FRAME_MS - FRAME_SLACK_MS) return;
+    // Reason: stepping by a fixed interval averages 60 fps on any screen; after a long gap start afresh
+    this.lastDraw = sinceDraw < 2 * FRAME_MS ? this.lastDraw + FRAME_MS : timestamp;
     this.timer.update(timestamp);
     this.input.beginFrame();
     // Reason: clamp dt so a background tab or a hitch doesn't teleport the player

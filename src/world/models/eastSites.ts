@@ -1,17 +1,17 @@
 /**
  * Eastern set pieces: the arched wooden bridge over the river, the mountain
- * trailhead (stone steps, rope fence, signpost) with the golden shrine on the
- * summit, the waterfall at the river spring, and signposts at path junctions.
+ * trailhead (stone steps, rope fence) with the golden shrine on the summit,
+ * and the waterfall at the river spring.
  */
 
 import * as THREE from "three";
-import { LANDMARKS, RIVER, P2 } from "../layout";
+import { LANDMARKS, RIVER } from "../layout";
 import { merge } from "../../core/geo";
 import { mulberry32 } from "../../core/noise";
 import { LandmarkContext } from "./site";
 import { V3, PAL, emptyModel, pointDir, rbox, ball, rockBlob, stoneFn, withSway } from "./shapes";
 import { bridge } from "./structures";
-import { ropeFence, signpost } from "./props";
+import { ropeFence } from "./props";
 import { shrine } from "./monuments";
 import { ribbon, waterfallMaterial, foamMaterial } from "./effects";
 
@@ -46,7 +46,7 @@ export function buildBridge(ctx: LandmarkContext): void {
   site.clearGrass(bx + half + 1, bz, 2.5);
 }
 
-/** Mountain trailhead: stone steps up the slope with a rope fence, a signpost and the summit shrine. */
+/** Mountain trailhead: stone steps up the slope with a rope fence and the summit shrine. */
 export function buildTrailhead(ctx: LandmarkContext): void {
   const hf = ctx.hf;
   const site = ctx.site("trailhead");
@@ -76,14 +76,6 @@ export function buildTrailhead(ctx: LandmarkContext): void {
   site.putAt(ropeFence(posts.l, 1), 0, 0, 0);
   site.putAt(ropeFence(posts.r, 2), 0, 0, 0);
   for (const p of [...posts.l, ...posts.r]) site.block(p[0], p[2], 0.2);
-  const s = a.clone().addScaledVector(dir, -1.4).addScaledVector(perp, -1.9);
-  const to = (q: P2): [number, number] => [q[0] - s.x, q[1] - s.y];
-  site.put(signpost(ctx.atlas, [
-    { label: "Zum Gipfel", dir: [dir.x, dir.y] },
-    { label: "Brücke", dir: to(LANDMARKS.bridge) },
-    { label: "Dorf", dir: to(LANDMARKS.villageGate) },
-  ], 8), s.x, s.y, 0, 1, 0.3);
-  site.block(s.x, s.y, 0.35);
   for (const [k, side] of [[0.2, 1], [0.6, -1], [-0.3, -1]] as const) {
     const q = a.clone().addScaledVector(dir, k * 6).addScaledVector(perp, side * 2.4);
     const m = emptyModel();
@@ -173,25 +165,4 @@ export function buildWaterfall(ctx: LandmarkContext): void {
     m.solid.push(rockBlob(Math.round(x * 3 + y), [s * 1.2, s, s], stoneFn("#8f877d", 0.7, rand)));
     site.putAt(m, x, y, z, rand() * 3, 1);
   }
-}
-
-/** Signposts at the main path junctions. */
-export function buildSignposts(ctx: LandmarkContext): void {
-  const site = ctx.site("signposts");
-  const posts: { at: P2; arrows: { label: string; to: P2 }[] }[] = [
-    {
-      at: [57.2, 4.4],
-      arrows: [{ label: "Dorf", to: [56, 14] }, { label: "Berg", to: [56, -10] }, { label: "See", to: [32, 1] }, { label: "Windmühle", to: [70, 7] }],
-    },
-    { at: [56.4, 50.4], arrows: [{ label: "Lagune", to: [59, 60] }, { label: "Trittsteine", to: [48, 48] }] },
-    { at: [27.6, 51.0], arrows: [{ label: "Dschungel", to: [24, 64] }, { label: "See", to: [22, 40] }, { label: "Dorf", to: [38, 50] }] },
-    { at: [-3.4, 98.6], arrows: [{ label: "Sumpf", to: [-20, 102] }, { label: "Trittsteine", to: [14, 90] }] },
-    { at: [-38.6, 93.0], arrows: [{ label: "Strand", to: [-50, 82] }, { label: "Dschungel", to: [-36, 98] }] },
-    { at: [-21.2, 5.0], arrows: [{ label: "Vulkan", to: [-30, 4] }, { label: "Wald", to: LANDMARKS.forestGate }] },
-    { at: [4.6, -19.4], arrows: [{ label: "Steg", to: [-6, -30] }, { label: "See", to: LANDMARKS.lake }] },
-  ];
-  posts.forEach(({ at, arrows }, i) => {
-    site.put(signpost(ctx.atlas, arrows.map((a) => ({ label: a.label, dir: [a.to[0] - at[0], a.to[1] - at[1]] as [number, number] })), 20 + i), at[0], at[1], 0, 1, 0.3);
-    site.block(at[0], at[1], 0.35);
-  });
 }

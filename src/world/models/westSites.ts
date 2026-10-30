@@ -1,18 +1,18 @@
 /**
  * Western set pieces: the volcano (lava lake in the crater, a lava stream down
- * the south-west flank, vents, lava bombs and a warning sign at its foot), the
- * three rune tablets around the lake, the old-mine cave entrance and the
- * enchanted forest gate.
+ * the south-west flank, vents and lava bombs at its foot), the three rune
+ * tablets around the lake, the natural cave mouth and the enchanted forest
+ * gate.
  */
 
 import * as THREE from "three";
-import { LANDMARKS, P2 } from "../layout";
+import { LANDMARKS } from "../layout";
 import { part, displace, facet } from "../../core/geo";
 import { mulberry32 } from "../../core/noise";
 import { LandmarkContext } from "./site";
-import { Model, PAL, emptyModel, faceDir, cyl, rockBlob, stoneFn } from "./shapes";
+import { Model, PAL, emptyModel, faceDir, rockBlob, stoneFn } from "./shapes";
 import { lavaMaterial, ribbon } from "./effects";
-import { boardSign, ventRing, crate, barrel, mineCart } from "./props";
+import { ventRing } from "./props";
 import { tablet, crystal, caveEntrance, forestArch } from "./monuments";
 
 /** Dark rock with glowing veins: a pulsing core pokes through the cracked crust. */
@@ -28,31 +28,7 @@ function lavaBomb(seed: number, s: number): Model {
   return m;
 }
 
-/** Triangular "!" warning sign on a post (faces +z). */
-function warningTriangle(ctx: LandmarkContext): Model {
-  const m = emptyModel();
-  m.solid.push(cyl(0.07, 0.09, 2.3, PAL.iron, { pos: [0, 1.15, -0.06] }, 6));
-  const tri = (r: number) => {
-    const s = new THREE.Shape();
-    for (let i = 0; i < 3; i++) {
-      const a = Math.PI / 2 + (i / 3) * Math.PI * 2;
-      if (i === 0) s.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-      else s.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-    }
-    s.closePath();
-    return s;
-  };
-  const outer = new THREE.ExtrudeGeometry(tri(0.62), { depth: 0.06, bevelEnabled: true, bevelSize: 0.04, bevelThickness: 0.02, bevelSegments: 1 });
-  m.solid.push(part(outer, "#d42a1f", { pos: [0, 2.25, -0.03] }));
-  m.solid.push(part(new THREE.ShapeGeometry(tri(0.46)), "#ffd23f", { pos: [0, 2.22, 0.075] }));
-  m.solid.push(part(new THREE.ShapeGeometry(tri(0.46)), "#ffd23f", { pos: [0, 2.22, -0.075], rot: [0, Math.PI, 0] }));
-  const mark = ctx.atlas.quad("!", 0.36, 0.36, "#2a1208");
-  mark.translate(0, 2.17, 0.08);
-  m.text.push(mark);
-  return m;
-}
-
-/** Lava lake, lava stream, vents, lava bombs and warnings at the volcano. */
+/** Lava lake, lava stream, vents and lava bombs at the volcano. */
 export function buildVolcano(ctx: LandmarkContext): void {
   const hf = ctx.hf;
   const site = ctx.site("volcano");
@@ -103,7 +79,7 @@ export function buildVolcano(ctx: LandmarkContext): void {
   // Glowing fissure where the stream wells up
   site.putAt(ventRing(5, 1.2), pts[0].x, hf.heightAt(pts[0].x, pts[0].y) - 0.1, pts[0].y, 0, 1);
 
-  // Volcano gate: vents, cooling lava bombs, warning signs
+  // Volcano gate: vents and cooling lava bombs
   const [gx, gz] = LANDMARKS.volcanoGate;
   for (const [x, z, r, seed] of [[gx - 4.6, gz - 1.8, 1.4, 1], [gx - 2.6, gz - 5.0, 0.9, 2]] as const) {
     const y = site.ground(x, z) + 0.05;
@@ -116,12 +92,6 @@ export function buildVolcano(ctx: LandmarkContext): void {
     site.put(lavaBomb(Math.round(x * 7), s), x, z, rand() * 3, 1, s, s * 0.35);
     site.block(x, z, s);
   }
-  const sx = gx + 2.4;
-  const sz = gz + 2.4;
-  site.put(boardSign(ctx.atlas, "Achtung Lava!", 2.7, "#f2c230", "#3a1a0a"), sx, sz, 0.25, 1, 0.8);
-  site.put(warningTriangle(ctx), sx - 2.0, sz + 0.3, 0.3, 1, 0.3);
-  site.block(sx, sz, 0.8);
-  site.block(sx - 2.0, sz + 0.3, 0.3);
 }
 
 /** Three rune tablets around the lake, facing the water; the third (ghost) tablet carries a floating crystal. */
@@ -159,7 +129,7 @@ export function buildTablets(ctx: LandmarkContext): void {
   });
 }
 
-/** Old-mine cave entrance at the foot of the mesa's south cliff. */
+/** Natural cave mouth at the foot of the mesa's south cliff. */
 export function buildCave(ctx: LandmarkContext): void {
   const hf = ctx.hf;
   const site = ctx.site("cave");
@@ -170,17 +140,10 @@ export function buildCave(ctx: LandmarkContext): void {
   const cz = z + 0.2;
   let y0 = -Infinity;
   for (let x = -1.7; x <= 1.7; x += 0.425) for (let dz = -0.6; dz <= 0.5; dz += 0.275) y0 = Math.max(y0, hf.heightAt(mx + x, cz + dz));
-  site.putAt(caveEntrance(ctx.atlas, 7, (lx, lz) => hf.heightAt(mx + lx, cz + lz) - y0), mx, y0, cz, 0, 1);
-  for (const [lx, lz, r] of [[-2.6, 0.1, 1.0], [2.6, 0.1, 1.0], [-4.2, -1.0, 1.8], [4.2, -1.0, 1.8]] as const) site.block(mx + lx, cz + lz, r);
-  // Mine cart on the rails, crates and a barrel by the entrance
-  const cart: P2 = [mx, cz + 3.4];
-  site.put(mineCart(5), cart[0], cart[1], 0.02, 1, 0.6, 0.2);
-  site.block(cart[0], cart[1], 0.85);
-  site.put(crate(41, 0.8), mx + 3.0, cz + 2.0, 0.4, 1, 0.45);
-  site.put(crate(42, 0.65), mx + 3.05, cz + 2.0, 0.9, 1, 0.45, 0.78);
-  site.put(barrel(43, 1.0), mx - 3.1, cz + 2.1, 0, 1, 0.45);
-  site.block(mx + 3.0, cz + 2.0, 0.55);
-  site.block(mx - 3.1, cz + 2.1, 0.5);
+  site.putAt(caveEntrance(7, (lx, lz) => hf.heightAt(mx + lx, cz + lz) - y0), mx, y0, cz, 0, 1);
+  for (const [lx, lz, r] of [[-2.6, 0.1, 1.0], [2.6, 0.1, 1.0], [-4.2, -1.0, 1.8], [4.2, -1.0, 1.8], [-3.0, 1.9, 1.0], [3.2, 1.7, 0.9], [-4.3, 0.2, 0.8], [4.4, 0.9, 0.85]] as const) {
+    site.block(mx + lx, cz + lz, r);
+  }
   site.clearGrass(mx, cz + 3, 4);
 }
 
@@ -190,7 +153,7 @@ export function buildForestGate(ctx: LandmarkContext): void {
   const [fx, fz] = LANDMARKS.forestGate;
   const [tx, tz] = LANDMARKS.forest;
   const rot = faceDir(tx - fx, tz - fz);
-  site.put(forestArch(ctx.atlas, 3), fx, fz, rot, 1, 2.8, -0.05);
+  site.put(forestArch(3), fx, fz, rot, 1, 2.8, -0.05);
   for (const sx of [-1, 1]) {
     const c = Math.cos(rot);
     const s = Math.sin(rot);

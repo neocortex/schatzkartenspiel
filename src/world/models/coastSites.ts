@@ -12,7 +12,7 @@ import { LandmarkContext, Site } from "./site";
 import { Model, PAL, emptyModel, addModel, placeAt, pointDir, faceDir, ball, box, pole, rope, rockBlob, stoneFn, flip } from "./shapes";
 import { pier, lighthouse } from "./structures";
 import { sailboat, shipwreck, BoatColors } from "./boats";
-import { crate, barrel, signpost, lanternPost, boardSign } from "./props";
+import { crate, barrel, lanternPost } from "./props";
 
 const PIER_WIDTH = 2.6;
 const HEAD_LENGTH = 5;
@@ -92,7 +92,7 @@ export function buildPier(
   return { start, dir, perp, length, deckY, rotY, at };
 }
 
-/** Spawn beach: long pier with Tadeo's boat, crates, barrels and a signpost. */
+/** Spawn beach: long pier with Tadeo's boat, crates and barrels. */
 export function buildSpawnBeach(ctx: LandmarkContext): void {
   const site = ctx.site("spawn");
   const boat: BoatColors = { hull: "#2f74c8", stripe: "#ffffff", sail: ["#e2432f", "#fff4e0"], pennant: "#ffd23f" };
@@ -107,15 +107,6 @@ export function buildSpawnBeach(ctx: LandmarkContext): void {
   }
   const [cx, cz] = info.at(-1.0, 3.7);
   site.put(crate(31, 0.6), cx, cz, 0.6, 1, 0.4, 0.75);
-  // Signpost pointing to the first quest destinations
-  const p: P2 = [-62.6, 43.6];
-  const to = (q: P2): [number, number] => [q[0] - p[0], q[1] - p[1]];
-  site.put(signpost(ctx.atlas, [
-    { label: "Vulkan", dir: to(LANDMARKS.volcanoGate) },
-    { label: "See", dir: to(LANDMARKS.lake) },
-    { label: "Dorf", dir: to(LANDMARKS.village) },
-  ], 3), p[0], p[1], 0, 1, 0.3);
-  site.block(p[0], p[1], 0.35);
 }
 
 /** Where the path that ends at `target` first drops below height `h` (its shoreline). */
@@ -133,14 +124,11 @@ function shoreAlongPath(ctx: LandmarkContext, target: P2, h: number): P2 {
   return target;
 }
 
-/** North dock: pier with the boat for the crossing to the treasure island, and a sign. */
+/** North dock: pier with the boat for the crossing to the treasure island. */
 export function buildNorthDock(ctx: LandmarkContext): void {
   const site = ctx.site("northDock");
   const boat: BoatColors = { hull: "#d24a35", stripe: "#fff4e0", sail: ["#2f9a8f", "#fff4e0"], pennant: "#3f7fbf" };
   const info = buildPier(ctx, site, shoreAlongPath(ctx, LANDMARKS.northDock, 0.6), LANDMARKS.northDockEnd, 0.9, { id: "north", colors: boat, name: null }, -1, 23);
-  const [sx, sz] = info.at(-1.2, 2.9);
-  site.put(boardSign(ctx.atlas, "Zur Schatzinsel", 2.6), sx, sz, faceDir(-info.dir.x, -info.dir.y) + 0.35, 1, 0.5);
-  site.block(sx, sz, 0.6);
   const rand = mulberry32(8);
   for (const [s, z, k] of [[-1.0, -3.0, 0], [-1.8, -3.6, 1], [-0.4, -3.9, 0]] as const) {
     const [x, zz] = info.at(s, z);

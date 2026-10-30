@@ -15,7 +15,7 @@ import { Model, PAL, emptyModel, addModel, placeAt, pointDir, ball, box, cyl, rb
 import { pier } from "./structures";
 import { BoatColors } from "./boats";
 import { buildPier } from "./coastSites";
-import { crate, barrel, haystack, fence, boardSign } from "./props";
+import { crate, barrel, haystack, fence } from "./props";
 
 /** Ruin turned so the stone head looks north-east at the path junction. */
 const RUIN_ROT = 2.8;
@@ -160,7 +160,7 @@ export function stoneHead(stone: ColorFn, mouth: THREE.ColorRepresentation = PAL
   return m;
 }
 
-/** The frog king's islet: a big red toadstool throne, two little ones and a sign. */
+/** The frog king's islet: a big red toadstool throne and two little ones. */
 function buildFrogIslet(ctx: LandmarkContext): void {
   const site = ctx.site("frogIslet");
   const [x, z] = SPOTS.frogIslet;
@@ -168,7 +168,6 @@ function buildFrogIslet(ctx: LandmarkContext): void {
   site.block(x, z, 0.8);
   site.put(toadstool(0.7, 0.5, 2), x + 1.6, z + 0.9, 0.5, 1, 0.4);
   site.put(toadstool(0.55, 0.4, 3), x - 1.4, z + 1.2, 1.1, 1, 0.4);
-  site.put(boardSign(ctx.atlas, "Froschkönig", 2.0, "#9fd36a"), x - 0.4, z + 2.3, 0.2, 0.8, 0.4);
 }
 
 /** Red toadstool with white dots; `h` = stem height, `r` = cap radius. */

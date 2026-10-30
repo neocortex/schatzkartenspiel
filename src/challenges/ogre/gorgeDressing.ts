@@ -2,7 +2,7 @@
  * Set dressing for the gorge: boulders in and along the river, mossy rock
  * ledges stacked on the waterfall cliff, trees framing the view, ferns,
  * reeds, grass tufts and flowers, vines dangling from the bridge and the
- * cliff, the ogre's signs and his little camp with a crackling campfire.
+ * cliff, and the ogre's little camp with a crackling campfire.
  */
 
 import * as THREE from "three";
@@ -10,7 +10,7 @@ import { merge } from "../../core/geo";
 import { mulberry32 } from "../../core/noise";
 import { roundTree, pineTree, bush } from "../../world/models/flora";
 import { rockBlob, stoneFn, emptyModel, addModel, placeAt, cyl, PAL } from "../../world/models/shapes";
-import { boardSign, haystack, barrel, bucket } from "../../world/models/props";
+import { haystack, barrel, bucket } from "../../world/models/props";
 import { SignAtlas } from "../../world/models/signs";
 import { Bin, ModelMaterials, modelGroup } from "./kit";
 import { Fx, SHAPE } from "./fx";
@@ -177,11 +177,9 @@ export function dressGorge(scene: THREE.Scene, mats: ModelMaterials, atlas: Sign
   vineMesh.castShadow = true;
   scene.add(vineMesh);
 
-  // ── Signs and the ogre's camp ──────────────────────────
+  // ── The ogre's camp ────────────────────────────────────
   const props = emptyModel();
   const put = (m: ReturnType<typeof emptyModel>, x: number, z: number, rot: number, s = 1, lift = 0) => addModel(props, m, placeAt(x, heightAt(x, z) + lift, z, rot, s));
-  put(boardSign(atlas, "Oger-Brücke", 2.6, "#e3ad66"), 11.6, 3.0, -0.35);
-  put(boardSign(atlas, "Zoll: 1 Kuchen!", 2.2, "#f2d38a", "#a12a1e"), 11.2, -3.0, -0.75, 0.9);
   put(haystack(3), CAMP.x, CAMP.z, 0.4, 1.3);
   put(barrel(5, 1.1), CAMP.x - 2.4, CAMP.z - 1.2, 0);
   put(barrel(6, 0.9), CAMP.x - 1.6, CAMP.z - 2.0, 0.4);

@@ -20,7 +20,7 @@ import { Site, Deck, LandmarkContext } from "./models/site";
 import { buildVillage } from "./models/village";
 import { buildSpawnBeach, buildNorthDock, buildTreasureIsland, buildLighthouse } from "./models/coastSites";
 import { buildVolcano, buildTablets, buildCave, buildForestGate } from "./models/westSites";
-import { buildBridge, buildTrailhead, buildWaterfall, buildSignposts } from "./models/eastSites";
+import { buildBridge, buildTrailhead, buildWaterfall } from "./models/eastSites";
 import { buildRegionSites } from "./models/regionSites";
 
 interface Boat {
@@ -65,7 +65,6 @@ export class Landmarks implements LandmarkContext {
     buildTreasureIsland(this);
     buildLighthouse(this);
     buildRegionSites(this);
-    buildSignposts(this);
     for (const site of this.sites) this.flush(site);
     this.atlas.draw();
     this.buildFlames();

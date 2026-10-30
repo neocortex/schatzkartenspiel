@@ -12,7 +12,6 @@ import { part } from "../../core/geo";
 import { emptyModel, rbox, cyl, box, rockBlob, stoneFn, PAL, Model, addModel, placeAt } from "../../world/models/shapes";
 import { palmTree, roundTree, bush, FloraModel } from "../../world/models/flora";
 import { shipwreck } from "../../world/models/boats";
-import { boardSign } from "../../world/models/props";
 import { SignAtlas } from "../../world/models/signs";
 import { mat } from "../../characters/parts";
 import { Bin, ModelMaterials, modelGroup } from "../ogre/kit";
@@ -110,7 +109,7 @@ function skullRock(seed: number): Model {
 }
 
 /** Wooden pier on posts, from the beach out to the boat. */
-function pier(atlas: SignAtlas, x: number, z0: number, z1: number, deckY: number): Model {
+function pier(x: number, z0: number, z1: number, deckY: number): Model {
   const m = emptyModel();
   const rand = mulberry32(5);
   for (let z = z0; z > z1; z -= 0.55) m.solid.push(rbox(2.3, 0.12, 0.5, new THREE.Color(PAL.plank).multiplyScalar(0.88 + rand() * 0.24), { pos: [x, deckY, z] }, 0.03));
@@ -121,7 +120,6 @@ function pier(atlas: SignAtlas, x: number, z0: number, z1: number, deckY: number
   // Mooring bollards and a coiled rope at the end
   for (const sx of [-1, 1]) m.solid.push(cyl(0.14, 0.17, 0.4, PAL.woodDark, { pos: [x + sx * 0.8, deckY + 0.25, z1 + 0.6] }, 8));
   m.solid.push(part(new THREE.TorusGeometry(0.22, 0.07, 5, 12), PAL.rope, { pos: [x + 0.2, deckY + 0.1, z1 + 1.6], rot: [Math.PI / 2, 0, 0] }));
-  addModel(m, boardSign(atlas, "Zur Schatzinsel", 2.6), placeAt(x - 0.4, deckY + 0.05, z1 + 3.2, Math.PI * 0.85));
   return m;
 }
 
@@ -183,7 +181,7 @@ export class Scenery {
       if (i % 3) plant(`tree${i % 2}`, () => roundTree(i % 2), placement(x, y - 0.2, z, 1.6 + rand()));
       else plant("bush", () => bush(4, "#ff6f91"), placement(x, y - 0.1, z, 1.4 + rand()));
     }
-    this.group.add(modelGroup(pier(atlas, 2.6, 30, -1.5, 1.05), mats, true, atlas.material));
+    this.group.add(modelGroup(pier(2.6, 30, -1.5, 1.05), mats, true, atlas.material));
 
     // Treasure island
     const isle: IslandSpec = { cx: TREASURE.x, cz: TREASURE.z, rx: TREASURE.r, rz: TREASURE.r * 0.9, hill: 3.5, beach: 0.32, seed: 7 };

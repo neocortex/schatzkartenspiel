@@ -6,14 +6,15 @@
  *  1. Terrain: old spots unchanged, piers over water, regions, lagoon, ford, size
  *  2. Landmarks and walking routes between the regions
  *  3. Screenshots: map from above, every region from the ground, landmark close-ups
- *  4. Smoothness and console errors
+ *  4. No lettered signs in the wild, and the cave mouth from the ground
+ *  5. Smoothness and console errors
  *
  * Run (dev server on :5199 must be running):  node scripts/e2e/world.mjs
  * Proof: scripts/e2e/out/world/summary.json + screenshots
  */
 
 import { chromium } from "playwright";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const BASE = process.env.GAME_URL ?? "http://localhost:5199/";
 const OUT = new URL("./out/world/", import.meta.url).pathname;
@@ -340,7 +341,40 @@ for (const [i, [name, [x, z, dx, dy, dz, look]]] of Object.entries(CLOSEUPS).ent
   check(`${name.slice(3)} close-up renders (not black)`, (await brightness()) > 40);
 }
 
-// ── 5. Errors ───────────────────────────────────────────────
+// ── 5. Lettered signs ───────────────────────────────────────
+// Outside the village the island speaks through the golden star, the compass and Chuleta, not through writing.
+// Reason: the sign helpers live in props.ts, so the scan looks for their calls and for the old board texts
+// (quoted, or as a label passed on to a helper) in every file that used to put lettering into the wild.
+const WILD_FILES = [
+  "src/world/models/coastSites.ts",
+  "src/world/models/eastSites.ts",
+  "src/world/models/regionSites.ts",
+  "src/world/models/monuments.ts",
+  "src/world/models/westSites.ts",
+  "src/challenges/volcano/set.ts",
+  "src/challenges/ogre/gorgeDressing.ts",
+  "src/challenges/sea/scenery.ts",
+];
+const BANNED = /boardSign\(|signpost\(|warningTriangle\(|\.quad\(|"(Höhle|Zauberwald|Achtung Lava!|Achtung, Lava!|Brücke|ZIEL|Zur Schatzinsel|Froschkönig|Oger-Brücke|Zoll: 1 Kuchen!)"/;
+const offenders = WILD_FILES.filter((f) => BANNED.test(readFileSync(new URL(`../../${f}`, import.meta.url), "utf8")));
+check("no lettered signs outside the village", offenders.length === 0, offenders.join(", "));
+
+// The cave mouth as a child sees it on the way in: from the ground, a few steps in front of the rock
+await page.goto(`${BASE}?notitle`);
+await page.waitForFunction(() => window.game?.island?.island?.hf, null, { timeout: 30000 });
+const caveView = await page.evaluate(async () => {
+  const { LANDMARKS } = await import("/src/world/layout.ts");
+  const hf = window.game.island.island.hf;
+  const [x, z] = LANDMARKS.caveMouth;
+  // Reason: the mouth point lies in the cliff; the arch stands about 3 units south of it
+  return { x, z: z + 3, eye: hf.heightAt(x + 3.5, z + 12) + 1.7, mouth: hf.heightAt(x, z + 3) + 2.2 };
+});
+await page.goto(`${BASE}?cam=${caveView.x + 3.5},${caveView.eye},${caveView.z + 9},${caveView.x},${caveView.mouth},${caveView.z}`);
+await wait(6000);
+await shot("40_cave_mouth");
+check("cave mouth view renders (not black)", (await brightness()) > 40);
+
+// ── 6. Errors ───────────────────────────────────────────────
 check("no page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
 
 await browser.close();

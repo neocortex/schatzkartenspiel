@@ -1,16 +1,15 @@
 /**
  * Mystical and natural set pieces: the ancient rune tablets by the lake (and
- * the special ghost tablet), the rocky mine entrance of the cave, the twisted
- * tree archway of the enchanted forest, and the golden summit shrine.
+ * the special ghost tablet), the rocky mouth of the cave, the twisted tree
+ * archway of the enchanted forest, and the golden summit shrine.
  * Models face +z with the origin on the ground.
  */
 
 import * as THREE from "three";
 import { part, merge, displace, softNormals, gradient } from "../../core/geo";
 import { mulberry32 } from "../../core/noise";
-import { Model, PAL, V3, emptyModel, addModel, placeAt, tint, rbox, box, cyl, ball, beam, rope, rockBlob, stoneFn, flip } from "./shapes";
-import { torch, hangingLantern } from "./props";
-import { SignAtlas } from "./signs";
+import { Model, PAL, V3, emptyModel, addModel, placeAt, rbox, box, cyl, ball, beam, rope, rockBlob, stoneFn, flip } from "./shapes";
+import { hangingLantern } from "./props";
 
 /** Arch outline (flat bottom, round top) as a THREE.Shape. */
 function archShape(w: number, h: number): THREE.Shape {
@@ -130,50 +129,76 @@ export function crystal(): THREE.BufferGeometry {
   return merge([gem, halo]);
 }
 
+/** Rough arch outline of the cave mouth, counter-clockwise from the right foot over a lopsided crown to the left foot. */
+function mouthOutline(rand: () => number): THREE.Vector2[] {
+  const rx = 1.75;
+  const spring = 1.5;
+  const ry = 2.2;
+  const pts: THREE.Vector2[] = [];
+  // Reason: the feet flare out and every point is jittered, so the opening reads as worn rock, not a masonry arch
+  for (const y of [0, 0.5, 1.0]) pts.push(new THREE.Vector2(rx + 0.25 * (1 - y) + (rand() - 0.5) * 0.3, y));
+  const n = 12;
+  for (let i = 0; i <= n; i++) {
+    const a = (i / n) * Math.PI;
+    const k = 1 + 0.12 * Math.sin(a * 3 + 1.3) + (rand() - 0.5) * 0.12;
+    pts.push(new THREE.Vector2(Math.cos(a) * rx * k + 0.15, spring + Math.sin(a) * ry * k));
+  }
+  for (const y of [1.0, 0.5, 0]) pts.push(new THREE.Vector2(-rx - 0.25 * (1 - y) + (rand() - 0.5) * 0.3, y));
+  return pts;
+}
+
 /**
- * Old-mine cave entrance: a boulder arch with a dark tunnel mouth, timber
- * frame, sign, torches and rails. `ground(x, z)` gives local ground height.
+ * Natural cave mouth at a cliff foot: a rough rock arch around a dark hollow with boulders tumbled
+ * beside it and a few crystals glimmering inside. `ground(x, z)` gives local ground height.
  */
-export function caveEntrance(atlas: SignAtlas, seed: number, ground: (x: number, z: number) => number): Model {
+export function caveEntrance(seed: number, ground: (x: number, z: number) => number): Model {
   const rand = mulberry32(seed + 79);
   const m = emptyModel();
-  const W = 3.4;
-  const H = 3.9;
+  const W = 3.5;
+  const H = 3.8;
   const back = -0.6;
   const front = 0.5;
   const rock = stoneFn("#8f857b", 0.45, rand);
-  // Dark mouth: portal plane plus inward-facing tunnel walls, darker with depth
-  const portal = new THREE.ShapeGeometry(archShape(W, H), 12);
-  m.dark.push(part(portal, (p) => new THREE.Color("#2a1c14").lerp(new THREE.Color("#040302"), THREE.MathUtils.clamp(1 - Math.hypot(p.x / W, (p.y - H * 0.35) / H) * 1.6, 0, 1)), { pos: [0, 0, back] }));
-  const outline = archShape(W, H).getPoints(14);
+  const darkRock = stoneFn("#7d7470", 0.3, rand);
+  const lightRock = stoneFn("#a39b90", 0.55, rand);
+  const stones = [rock, darkRock, lightRock];
+  const pick = () => stones[Math.floor(rand() * stones.length)];
+  // Dark hollow: portal plane plus inward-facing walls, darker with depth
+  const outline = mouthOutline(rand);
+  const portal = new THREE.ShapeGeometry(new THREE.Shape(outline), 12);
+  m.dark.push(part(portal, (p) => new THREE.Color("#2b2522").lerp(new THREE.Color("#030303"), THREE.MathUtils.clamp(1 - Math.hypot(p.x / W, (p.y - H * 0.35) / H) * 1.6, 0, 1)), { pos: [0, 0, back] }));
   const wall: number[] = [];
   for (let i = 0; i < outline.length - 1; i++) {
     const a = outline[i];
     const b = outline[i + 1];
-    if (a.y < 0.01 && b.y < 0.01) continue;
     wall.push(a.x, a.y, back, b.x, b.y, back, a.x, a.y, front, a.x, a.y, front, b.x, b.y, back, b.x, b.y, front);
   }
   const wg = new THREE.BufferGeometry();
   wg.setAttribute("position", new THREE.Float32BufferAttribute(wall, 3));
   wg.computeVertexNormals();
-  m.dark.push(flip(part(wg, (p) => new THREE.Color("#3a2a1e").lerp(new THREE.Color("#0a0705"), THREE.MathUtils.clamp((front - p.z) / (front - back), 0, 1)))));
-  m.dark.push(box(W, 0.06, front - back, "#1c140e", { pos: [0, 0.03, (front + back) / 2] }));
-  // Boulders framing the arch
-  const n = 13;
-  for (let i = 0; i < n; i++) {
-    const a = (i / (n - 1)) * Math.PI;
-    const r = W / 2 + 0.75;
-    const x = -Math.cos(a) * r * 1.05;
-    const y = H - W / 2 + Math.sin(a) * (r + 0.1);
-    const s = 0.8 + rand() * 0.45;
-    const g = rockBlob(seed * 3 + i, [s, s, s * 1.2], rock);
-    g.translate(x, y, 0.05);
-    m.solid.push(g);
+  m.dark.push(flip(part(wg, (p) => new THREE.Color("#4a423c").lerp(new THREE.Color("#060505"), THREE.MathUtils.clamp((front - p.z) / (front - back), 0, 1)))));
+  m.dark.push(box(W - 0.6, 0.06, 0 - back, "#14110f", { pos: [0, 0.03, back / 2] }));
+  // A few crystals glimmer at the back of the hollow, an invitation to look inside
+  const glimmer = [new THREE.Color(0.4, 1.6, 2.2), new THREE.Color(1.3, 0.55, 2.4), new THREE.Color(0.4, 1.6, 2.2)];
+  for (const [x, h, i] of [[-0.8, 0.5, 0], [0.45, 0.65, 1], [-0.15, 0.35, 2]] as const) {
+    const cg = new THREE.OctahedronGeometry(0.15, 0);
+    cg.scale(1, h / 0.15, 1);
+    m.pulse.push(part(cg, glimmer[i], { pos: [x, h * 0.4, back + 0.2], rot: [(rand() - 0.5) * 0.4, 0, (rand() - 0.5) * 0.5] }));
   }
+  // Rim: lumpy stones hugging the opening so its edge reads as broken rock
+  outline.forEach((p, i) => {
+    const out = new THREE.Vector2(p.x, p.y - 1.6).normalize();
+    const s = 0.4 + rand() * 0.55;
+    const g = rockBlob(seed * 3 + i, [s * 1.2, s, s * 1.5], pick());
+    g.rotateZ((rand() - 0.5) * 1.4);
+    g.translate(p.x + out.x * s * 0.85, p.y + out.y * s * 0.85, 0.05);
+    m.solid.push(g);
+  });
+  // Rock piled either side, from the foot of the arch up to the shoulders
   for (const sx of [-1, 1]) {
     for (let j = 0; j < 3; j++) {
       const s = 1.0 + rand() * 0.4;
-      const g = rockBlob(seed * 5 + j + (sx > 0 ? 7 : 0), [s, s * 1.1, s * 1.3], rock);
+      const g = rockBlob(seed * 5 + j + (sx > 0 ? 7 : 0), [s, s * 1.1, s * 1.3], pick());
       g.translate(sx * (W / 2 + 0.85 + j * 0.25), 0.5 + j * 0.95, 0.1 - j * 0.15);
       m.solid.push(g);
     }
@@ -181,38 +206,36 @@ export function caveEntrance(atlas: SignAtlas, seed: number, ground: (x: number,
     big.translate(sx * (W / 2 + 2.4), 1.6, -1.0);
     m.solid.push(big);
   }
+  // Heavy rock over the opening, with a mossy cap
+  const lintel = rockBlob(seed + 43, [1.9, 0.8, 1.3], lightRock);
+  lintel.translate(0.2, H + 0.45, -0.1);
+  m.solid.push(lintel);
   const hood = rockBlob(seed + 41, [3.6, 1.6, 2.6], rock);
   hood.translate(0, H + 1.4, -1.1);
   m.solid.push(hood);
-  // Mine timbers: two posts, lintel and corner braces
-  const tz = front - 0.05;
-  const old = "#6d4f36";
-  for (const sx of [-1, 1]) {
-    m.solid.push(rbox(0.3, 2.75, 0.3, tint(old, rand), { pos: [sx * (W / 2 - 0.3), 1.37, tz] }, 0.04));
-    m.solid.push(beam([sx * (W / 2 - 0.3), 2.1, tz + 0.05], [sx * (W / 2 - 0.95), 2.7, tz + 0.05], 0.18, old));
+  // Tumbled boulders to either side of the way in, sunk into the grass
+  for (const [x, z, s] of [[-3.0, 1.9, 1.15], [3.2, 1.7, 1.0], [-4.3, 0.2, 0.8], [4.4, 0.9, 0.85]] as const) {
+    const g = rockBlob(seed * 11 + Math.round(x * 3), [s * 1.2, s, s * 1.05], pick());
+    g.translate(x, ground(x, z) + s * 0.45, z);
+    m.solid.push(g);
   }
-  m.solid.push(rbox(W + 0.1, 0.34, 0.36, tint(old, rand), { pos: [0, 2.85, tz] }, 0.05));
-  const sign = atlas.quad("Höhle", 1.3, 0.4);
-  sign.translate(0, 3.32, tz + 0.06);
-  m.solid.push(rbox(1.5, 0.5, 0.08, "#d9a25e", { pos: [0, 3.32, tz], rot: [0, 0, 0.04] }, 0.03));
-  m.text.push(sign);
-  // Torches on iron brackets either side of the mouth
-  for (const sx of [-1, 1]) {
-    const x = sx * (W / 2 + 0.55);
-    addModel(m, torch(0.7), placeAt(x, 1.55, front + 0.75, 0));
-    m.solid.push(beam([x, 1.75, front + 0.75], [x, 1.75, front + 0.2], 0.07, PAL.iron));
+  // Rubble steps climbing from the meadow to a stone sill at the floor of the hollow, and scattered small stones
+  const sill = rockBlob(seed + 47, [1.5, 0.3, 0.8], darkRock);
+  sill.translate(0, -0.12, 0.3);
+  m.solid.push(sill);
+  for (const [x, z, s, y] of [[0.1, 1.5, 0.75, -0.55], [-0.4, 0.95, 0.65, -0.25], [0.5, 0.75, 0.55, -0.12]] as const) {
+    const g = rockBlob(seed * 13 + Math.round(z * 10), [s * 1.5, s * 0.4, s], lightRock);
+    g.translate(x, y, z);
+    m.solid.push(g);
   }
-  // Rails and sleepers running out of the tunnel
-  for (let z = back + 0.2; z < 7; z += 0.6) {
-    const y = Math.max(ground(0, z), 0) + 0.05;
-    m.solid.push(box(1.5, 0.1, 0.24, tint(PAL.woodDark, rand), { pos: [0, y, z], rot: [0, (rand() - 0.5) * 0.1, 0] }));
-  }
-  for (const sx of [-1, 1]) {
-    for (let z = back; z < 6.6; z += 0.6) {
-      const ya = Math.max(ground(sx * 0.5, z), 0) + 0.15;
-      const yb = Math.max(ground(sx * 0.5, z + 0.6), 0) + 0.15;
-      m.solid.push(beam([sx * 0.5, ya, z], [sx * 0.5, yb, z + 0.6], 0.07, "#5d5f66", 0.1));
-    }
+  for (let i = 0; i < 9; i++) {
+    const side = i % 2 ? 1 : -1;
+    const x = side * (1.7 + rand() * 2.4);
+    const z = 0.8 + rand() * 2.2;
+    const s = 0.14 + rand() * 0.2;
+    const g = rockBlob(seed * 17 + i, [s * 1.3, s, s], pick());
+    g.translate(x, ground(x, z) + s * 0.4, z);
+    m.solid.push(g);
   }
   return m;
 }
@@ -233,8 +256,8 @@ function strand(guide: THREE.Curve<THREE.Vector3>, radius: number, turns: number
   return new THREE.CatmullRomCurve3(pts);
 }
 
-/** Archway of two twisted trees meeting overhead, with vines, glowing lanterns and a "Zauberwald" sign. */
-export function forestArch(atlas: SignAtlas, seed: number): Model {
+/** Archway of two twisted trees meeting overhead, with vines and glowing lanterns. */
+export function forestArch(seed: number): Model {
   const rand = mulberry32(seed + 83);
   const m = emptyModel();
   const bark = (p: THREE.Vector3) => new THREE.Color("#5b4a6b").lerp(new THREE.Color("#7a6590"), THREE.MathUtils.clamp(p.y / 6, 0, 1));
@@ -303,16 +326,6 @@ export function forestArch(atlas: SignAtlas, seed: number): Model {
     lm.pulse.push(...lm.glow.splice(0));
     addModel(m, lm, placeAt(p[0], p[1] - drop, p[2], rand() * 3, 1.35));
   });
-  // Hanging sign
-  const sw = 2.6;
-  m.solid.push(rbox(sw, 0.62, 0.1, "#cfa0e8", { pos: [0, 3.95, 0] }, 0.05));
-  for (const sx of [-1, 1]) m.solid.push(rope([sx * 0.9, 4.26, 0], [sx * 0.75, 5.4, 0], 0, 0.025, "#3f8a3a", 2));
-  for (const side of [1, -1]) {
-    const q = atlas.quad("Zauberwald", sw * 0.92, 0.56, "#3a1f5a");
-    if (side < 0) q.rotateY(Math.PI);
-    q.translate(0, 3.95, side * 0.056);
-    m.text.push(q);
-  }
   return m;
 }
 

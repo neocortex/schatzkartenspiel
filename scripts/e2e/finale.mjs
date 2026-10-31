@@ -6,7 +6,7 @@
  * not by URL), the eruption, the black screen and the narrator's line. When the
  * finale scene starts it reloads the page and presses Continue, which proves the
  * save. From there Tadeo walks through "Los geht's!", climbs the volcano with the
- * autopilot from `volcano.mjs`, sets the heart back with Space, and the island
+ * autopilot from `volcanoPilot.mjs`, sets the heart back with Space, and the island
  * celebrates: festival, confession, fireworks, end card, save gone.
  *
  * Run:  node scripts/e2e/finale.mjs [baseUrl]
@@ -17,6 +17,8 @@ import { chromium } from "playwright";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { boatTrip } from "./boatTrip.mjs";
+import { courseHands, pilot } from "./volcanoPilot.mjs";
 
 const BASE = process.argv[2] ?? "http://localhost:5199";
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -85,22 +87,6 @@ async function skipDialogues() {
   }
 }
 
-const held = new Set();
-async function holdKeys(keys) {
-  for (const k of [...held]) {
-    if (!keys.includes(k)) {
-      await page.keyboard.up(k);
-      held.delete(k);
-    }
-  }
-  for (const k of keys) {
-    if (!held.has(k)) {
-      await page.keyboard.down(k);
-      held.add(k);
-    }
-  }
-}
-
 /** Notes every dialogue line, read from the box itself, so a short line is never missed. */
 async function recordLines() {
   await page.waitForFunction(() => window.game?.ui?.dialogue, null, { timeout: 30000 });
@@ -115,6 +101,9 @@ async function recordLines() {
   });
 }
 const heard = () => page.evaluate(() => window.said);
+
+const { holdKeys, heroState, crossPlainly } = courseHands(page);
+const { playSea, playTreasure } = boatTrip({ page, check, shot, log, waitFor, dialogueOpen, holdKeys });
 
 /** Frames the game really draws per second (the 60 fps cap can skip browser ticks). */
 const drawRate = (ms) =>
@@ -193,299 +182,7 @@ async function reloadAndContinue() {
   await sleep(500);
 }
 
-// ── The boat trip ─────────────────────────────────────────────
-
-const seaState = () => page.evaluate(() => window.engine?.scene?.e2e ?? null).catch(() => null);
-
-/** Steers along the starfish and feeds the shark three berries in the green window. */
-async function playSea() {
-  await waitFor(async () => (await seaState())?.phase === "sail" || (await dialogueOpen()), "the sea to start", 40000);
-  let s = await seaState();
-  const end = Date.now() + 200000;
-  while (s?.phase !== "shark") {
-    if (Date.now() > end) throw new Error("course not finished in time");
-    if (await dialogueOpen()) {
-      await holdKeys([]);
-      await page.keyboard.press("Space");
-      await sleep(240);
-    } else if (s?.phase === "sail") {
-      const dx = s.safe - s.x;
-      await holdKeys(Math.abs(dx) < 0.5 ? [] : [dx > 0 ? "ArrowRight" : "ArrowLeft"]);
-      await sleep(50);
-    } else {
-      await sleep(80);
-    }
-    s = await seaState();
-  }
-  await holdKeys([]);
-  log(`course done with ${s.starfish} starfish`);
-  while (s?.phase === "shark" && !(s.throws >= 3 && !s.leaping)) {
-    if (Date.now() > end + 120000) throw new Error("shark not calmed in time");
-    if (await dialogueOpen()) {
-      await page.keyboard.press("Space");
-      await sleep(240);
-    } else if (s.leaping && s.ringNow) {
-      await sleep(120);
-      await page.keyboard.press("Space");
-      const n = s.throws + 1;
-      await waitFor(async () => (await seaState()).throws >= n, `berry ${n}`, 8000);
-      await waitFor(async () => !(await seaState()).leaping, "the leap to end", 8000);
-    } else {
-      await sleep(40);
-    }
-    s = await seaState();
-  }
-  log("the shark is fed");
-}
-
-// ── The treasure island, reached by the boat ──────────────────
-
-const treasureState = () =>
-  page
-    .evaluate(() => {
-      const s = window.engine?.scene?.state;
-      if (!s || !("digs" in s)) return null;
-      return {
-        phase: s.phase,
-        x: s.tadeo.x,
-        z: s.tadeo.z,
-        tx: s.target.x,
-        tz: s.target.z,
-        meter: s.meter,
-        zone: s.zone,
-        turns: s.turns,
-        erupting: s.erupting,
-        mapCard: !!document.querySelector(".map-card"),
-        line: window.game.ui.dialogue.full,
-      };
-    })
-    .catch(() => null);
-
-/** The map card, in a treasure scene that the boat trip started: it must wait for a press and close from exactly one. */
-async function mapCardBeat() {
-  await page.waitForSelector(".map-card.ready", { timeout: 4000 });
-  await sleep(1600);
-  check("through the boat trip, the map card waits for a press", (await page.isVisible(".map-card")) && !(await page.isVisible(".map-card.closing")));
-  await shot("01_map_card_after_the_boat");
-  await page.keyboard.press("Space");
-  const pressed = Date.now();
-  let closing = false;
-  while (!closing && Date.now() - pressed < 500) {
-    closing = await page.evaluate(() => {
-      const card = document.querySelector(".map-card");
-      return !card || card.classList.contains("closing");
-    });
-  }
-  check("through the boat trip, one press closes the map card", closing, `${Date.now() - pressed} ms after the press`);
-  let gone = false;
-  while (!gone && Date.now() - pressed < 1500) gone = !(await page.isVisible(".map-card"));
-  check("the map card is gone again", gone);
-}
-
-/** Plays the treasure island with real key presses; returns once the eruption's line has been read. */
-async function playTreasure() {
-  let cardDone = false;
-  let lastTurn = -1;
-  const end = Date.now() + 200000;
-  while (Date.now() < end) {
-    const st = await treasureState();
-    if (!st) {
-      // Reason: the sea is still saying goodbye to the shark before it hands over to the treasure island
-      if (await dialogueOpen()) await page.keyboard.press("Space");
-      await sleep(200);
-      continue;
-    }
-    if (await dialogueOpen()) {
-      if (st.line.includes("Vulkan spuckt Feuer")) {
-        check("no end card while the eruption line plays", !(await page.isVisible(".endcard")));
-        await sleep(400);
-        await page.keyboard.press("Space");
-        await sleep(260);
-        await page.keyboard.press("Space");
-        return;
-      }
-      await page.keyboard.press("Space");
-      await sleep(240);
-      continue;
-    }
-    switch (st.phase) {
-      case "arrive":
-        if (st.mapCard && !cardDone) {
-          cardDone = true;
-          await mapCardBeat();
-        }
-        break;
-      case "walk": {
-        const dx = st.tx - st.x;
-        const dz = st.tz - st.z;
-        const key = Math.abs(dz) > Math.abs(dx) ? (dz < 0 ? "ArrowUp" : "ArrowDown") : dx < 0 ? "ArrowLeft" : "ArrowRight";
-        await page.keyboard.down(key);
-        await sleep(180);
-        await page.keyboard.up(key);
-        break;
-      }
-      case "dig":
-      case "hammer":
-        await page.keyboard.press("Space");
-        await sleep(170);
-        break;
-      case "key":
-        if (st.turns !== lastTurn) {
-          lastTurn = st.turns;
-          await sleep(450);
-          await page.keyboard.press("Space");
-        }
-        await sleep(120);
-        break;
-      default:
-        break;
-    }
-    await sleep(60);
-  }
-  throw new Error("the treasure island did not reach the eruption");
-}
-
 // ── The climb ─────────────────────────────────────────────────
-
-/** Runs in the page: reads the challenge and returns which arrow keys to hold. Same pilot as in `volcano.mjs`. */
-function pilot(mode) {
-  const sc = window.engine?.scene;
-  if (!sc || !sc.course || !sc.hero) return null;
-  const c = sc.course;
-  const h = sc.hero.position;
-  const cols = sc.hero.world.colliders;
-  const SPEED = 6.2;
-  const HIT = 1.75 * 0.72;
-  const sin = Math.sin(sc.yaw);
-  const cos = Math.cos(sc.yaw);
-  const bombs = sc.bombs.flying.filter((b) => b.dangerous).map((b) => ({ x: b.to.x, z: b.to.z, rem: b.dur - b.t }));
-  const world = (ax, ay) => {
-    const l = Math.hypot(ax, ay) || 1;
-    return [(ax * cos - ay * sin) / l, (ax * sin + ay * cos) / l];
-  };
-  const walk = (v, t) => {
-    let x = h.x;
-    let z = h.z;
-    let blocked = false;
-    for (let u = 0; u < t; u += 0.1) {
-      const nx = x + v[0] * SPEED * 0.1;
-      const nz = z + v[1] * SPEED * 0.1;
-      if (!c.canStand(nx, nz) || cols.hits(nx, nz, 0.4)) {
-        blocked = true;
-        break;
-      }
-      x = nx;
-      z = nz;
-    }
-    return { x, z, blocked };
-  };
-  const cands = [];
-  for (const ax of [-1, 0, 1]) for (const ay of [-1, 0, 1]) cands.push({ ax, ay, v: ax || ay ? world(ax, ay) : [0, 0] });
-  const broken = c.bridges.filter((b) => b.gap);
-  const along = (b) => (h.x - b.center.x) * b.dir.x + (h.z - b.center.y) * b.dir.y;
-  const crossing = broken.findIndex((b) => along(b) < b.gap[1]);
-  const b = broken[crossing];
-  const approach = b && [b.center.x + b.dir.x * (b.gap[0] - 2.4), b.center.y + b.dir.y * (b.gap[0] - 2.4)];
-  const headFor = approach && along(b) > -b.halfLen - 9;
-  const atCrossing = headFor && Math.hypot(approach[0] - h.x, approach[1] - h.z) < 1.3 ? crossing : -1;
-  let best = cands[4];
-  if (mode === "seek") {
-    const reach = bombs.filter((f) => Math.hypot(f.x - h.x, f.z - h.z) / SPEED < f.rem - 0.15).sort((p, q) => p.rem - q.rem)[0];
-    if (reach && Math.hypot(reach.x - h.x, reach.z - h.z) > 0.45) {
-      const dx = reach.x - h.x;
-      const dz = reach.z - h.z;
-      let top = -Infinity;
-      for (const k of cands) {
-        const score = k.v[0] * dx + k.v[1] * dz;
-        if (score > top) [top, best] = [score, k];
-      }
-    }
-  } else {
-    const point = c.pointAt(Math.min(sc.playerS + 6, c.goalS + 8));
-    const tgt = headFor ? { x: approach[0], y: approach[1] } : point;
-    let dx = tgt.x - h.x;
-    let dz = tgt.y - h.z;
-    const l = Math.hypot(dx, dz) || 1;
-    dx /= l;
-    dz /= l;
-    let top = -Infinity;
-    for (const k of cands) {
-      let score = k.v[0] * dx + k.v[1] * dz;
-      if (walk(k.v, 0.6).blocked && (k.ax || k.ay)) score -= 2;
-      for (const bomb of bombs) {
-        if (bomb.rem > 2.2) continue;
-        const p = walk(k.v, bomb.rem);
-        const d = Math.hypot(p.x - bomb.x, p.z - bomb.z);
-        const safe = HIT + 1.2;
-        if (d < safe) score -= 30 + (safe - d) * 10;
-      }
-      if (score > top) [top, best] = [score, k];
-    }
-  }
-  const keys = [];
-  if (best.ax > 0) keys.push("ArrowRight");
-  if (best.ax < 0) keys.push("ArrowLeft");
-  if (best.ay > 0) keys.push("ArrowDown");
-  if (best.ay < 0) keys.push("ArrowUp");
-  return {
-    keys,
-    state: sc.state,
-    s: sc.playerS,
-    goalS: c.goalS,
-    checkpoint: sc.checkpoint,
-    hits: sc.hits,
-    pos: [h.x, h.z],
-    atCrossing,
-    dialogue: !!document.querySelector(".dialogue.open"),
-  };
-}
-
-const heroState = () =>
-  page.evaluate(() => {
-    const sc = window.engine.scene;
-    const h = sc.hero.position;
-    return { state: sc.state, x: h.x, z: h.z, grounded: sc.hero.grounded, onRock: !!sc.course.rockAt(h.x, h.z), lava: sc.course.lavaAt(h.x, h.z) };
-  });
-
-async function untilStopped(timeout = 6000) {
-  const end = Date.now() + timeout;
-  let last = await heroState();
-  let still = 0;
-  while (Date.now() < end) {
-    await sleep(70);
-    const now = await heroState();
-    if (now.state !== "play") return false;
-    still = Math.hypot(now.x - last.x, now.z - last.z) < 0.03 && now.grounded ? still + 1 : 0;
-    if (still >= 4) return true;
-    last = now;
-  }
-  return false;
-}
-
-async function untilLanded() {
-  await sleep(120);
-  for (let i = 0; i < 40; i++) {
-    const now = await heroState();
-    if (now.grounded || now.state !== "play") return now;
-    await sleep(40);
-  }
-  return heroState();
-}
-
-/** One broken crossing with nothing but ArrowUp and Space; false when Tadeo was sent back and must walk here again. */
-async function crossByHand() {
-  await holdKeys(["ArrowUp"]);
-  if (!(await untilStopped())) return false;
-  await page.keyboard.press("Space");
-  const onRock = await untilLanded();
-  if (onRock.state !== "play" || !onRock.onRock) return false;
-  await sleep(200);
-  if (!(await untilStopped())) return false;
-  await page.keyboard.press("Space");
-  const far = await untilLanded();
-  await holdKeys([]);
-  return far.state === "play" && !far.lava && !far.onRock;
-}
 
 const heroHasHeart = () =>
   page.evaluate(() => {
@@ -547,7 +244,7 @@ async function climb() {
       continue;
     }
     if (mode === "avoid" && s.state === "play" && s.atCrossing >= 0) {
-      await crossByHand();
+      await crossPlainly();
       continue;
     }
     await holdKeys(s.state === "play" ? s.keys : []);
@@ -633,7 +330,8 @@ try {
   await page.goto(`${BASE}/?challenge=sea`);
   await recordLines();
   await playSea();
-  await playTreasure();
+  const mapCardSeen = await playTreasure();
+  check("through the boat trip, the map card shows", mapCardSeen);
   await waitFor(() => page.evaluate((line) => window.game.ui.dialogue.full === line, SAIL_BACK), "the narrator's line over black", 15000);
   await sleep(1500);
   const blackPng = await shot("04_black_and_the_narrator");

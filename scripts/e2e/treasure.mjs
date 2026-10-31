@@ -6,10 +6,10 @@
  * order it comes out, and that the volcano erupts on the horizon, on the side
  * of the world where it really lies.
  *
- * The end card now belongs to the festival after quest 12, so "no end card" is
- * checked at the moment the eruption line plays. The run stops at phase "done",
- * then checks that `finished` really resolves and that no party starts after it.
- * The chain on into quest 12 is proven by finale.mjs.
+ * The end card belongs to the festival after quest 12, so "no end card" is
+ * checked at the moment the eruption line plays and again after `finished`. The
+ * run stops at phase "done", then checks that `finished` really resolves. The
+ * chain on into quest 12 is proven by finale.mjs.
  *
  * Live state (Tadeo's position, the X, the hammer meter, the reveals) is read
  * from `window.engine.scene.state`; every action is a real keyboard press.
@@ -151,7 +151,6 @@ const volcanoView = () =>
       // Reason: above the highest notch of the rim, so the lava rivers on the cone cannot count as fire
       rimY: crater.clone().setY(crater.y + 9).project(stage.camera).y,
       facing: stage.camera.getWorldDirection(crater.clone()).dot(toCrater),
-      crabsDance: stage.critters.party,
       plume: stage.eruption.running,
       footPx: ((1 - VOLCANO_AT.clone().project(stage.camera).y) / 2) * innerHeight,
       boxTopPx: box?.top ?? null,
@@ -443,14 +442,9 @@ while (Date.now() - started < TIMEOUT_MS) {
 const ended = await page
   .evaluate(() => Promise.race([window.engine.scene.finished.then(() => "finished"), new Promise((r) => setTimeout(() => r("still waiting"), 3000))]))
   .catch(() => null);
-// Reason: the old party started right after `finished`, under the end card, so this has to look after it
+// Reason: the flow gets the challenge back at `finished`, so an end card can only show up after it
 await page.waitForTimeout(1000);
-const afterEnd = await page
-  .evaluate(() => {
-    const stage = window.engine.scene.stage;
-    return { crabsDance: stage.critters.party };
-  })
-  .catch(() => null);
+const endCardAfter = await page.isVisible(".endcard");
 
 const said = (await page.evaluate(() => window.said).catch(() => null)) ?? [];
 const facingAtBlast = await page.evaluate(() => window.facingAtBlast).catch(() => null);
@@ -466,8 +460,8 @@ check("the note is read", lines.includes(NOTE_LINE));
 check("Chuleta wonders about the P", said.includes("Chuleta: P? Wie Pirat?"));
 check("the heart comes out and is warm", state.heart && lines.some((l) => l.includes("ganz warm")));
 check("the eruption line plays", said.includes(`Erzähler: ${ERUPTION_LINE}`));
-check("no end card and no party while the line plays", atEruption && !atEruption.endcard && !atEruption.view.crabsDance, JSON.stringify(atEruption ? { endcard: atEruption.endcard, crabsDance: atEruption.view.crabsDance } : null));
-check("no party starts after the challenge ends", afterEnd && !afterEnd.crabsDance, JSON.stringify(afterEnd));
+check("no end card while the line plays", atEruption && !atEruption.endcard, JSON.stringify(atEruption ? { endcard: atEruption.endcard } : null));
+check("no end card after the challenge ends", !endCardAfter);
 check("the volcano erupts on the horizon", atEruption?.st.erupting && atEruption.view.plume);
 
 // ── What the chest gives, one thing at a time ─────────────

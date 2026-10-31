@@ -138,7 +138,8 @@ export class Game {
       return;
     }
     if (milestone || params.has("notitle")) {
-      this.setupMilestone(milestone || 1);
+      // Reason: quest 1 is the opening's cutscene and has no goal, so a game that skips it starts on the beach at quest 2
+      this.setupMilestone(milestone || 2, !milestone);
       await this.engine.setScene(this.island, 300);
       this.islandAudio();
       this.busy = false;
@@ -475,15 +476,15 @@ export class Game {
     rig.setZoom(1);
   }
 
-  /** Set quest state as if milestones 1..m-1 were done (debug starts) and place Tadeo near the goal. */
-  private setupMilestone(m: number): void {
+  /** Set quest state as if milestones 1..m-1 were done (debug starts) and place Tadeo near the goal, or on the beach. */
+  private setupMilestone(m: number, onBeach = m === 1): void {
     this.quest.setMilestone(m);
     this.story.apply(m);
     const items = QUESTS.slice(0, m - 1).map((q) => q.reward).filter((r): r is string => !!r);
     InventoryManager.getInstance().setItems(items);
     this.ui.hud.refresh();
     this.ui.hud.setVisible(true);
-    const goal = m === 1 ? LANDMARKS.spawn : (this.objectives()[0]?.at ?? LANDMARKS.spawn);
+    const goal = onBeach ? LANDMARKS.spawn : (this.objectives()[0]?.at ?? LANDMARKS.spawn);
     const hf = this.island.island.hf;
     const spot = [[0, 5], [5, 0], [-5, 0], [0, -5]].map(([dx, dz]) => [goal[0] + dx, goal[1] + dz]).find(([x, z]) => hf.isWalkable(x, z));
     const [x, z] = spot ?? LANDMARKS.spawn;

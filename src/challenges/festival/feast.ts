@@ -33,7 +33,7 @@ const SEAT = { jonas: 0, lina: 1, mia: 2, paco: 3 };
 const TADEO_AT: [number, number] = [0, 3.4];
 const OGRE_AT: [number, number] = [-7.2, -2.4];
 /** Far enough left to stay out of the corner of Paco's close-up. */
-const FOX_AT: [number, number] = [0.9, 2];
+const FOX_AT: [number, number] = [0.9, 2.6];
 const MOLE_AT: [number, number] = [-3.3, 1.4];
 const HEN_AT: [number, number] = [-1.5, 2];
 /** Behind the camera in Paco's close-up, and right of the line from the party camera to him. */

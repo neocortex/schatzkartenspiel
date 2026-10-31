@@ -99,7 +99,7 @@ export async function talk(f: Feast): Promise<void> {
       f.bow = 0;
       audio.playMusic("music_village", 2);
       s.crowd.cheer(2.4);
-      void s.director.move(shot(2.7, 2.1, 5.4, 1.7, 1.15, -1.2), 1.5);
+      void s.director.move(shot(2.9, 2.1, 4.7, 1.8, 1.15, -1.2), 1.5);
     },
     () => {
       elder.avatar.pose = "normal";

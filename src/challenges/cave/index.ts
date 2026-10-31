@@ -181,6 +181,7 @@ class CaveChallenge implements Challenge {
   private pickMushroom(i: number): void {
     const m = this.world.mushrooms[i];
     m.pick();
+    if (m.collider) this.world.colliders.remove(m.collider);
     this.carried++;
     audio.playSfx("sfx_berry_collect");
     this.goldSparks(m.group.position.clone().add(new THREE.Vector3(0, 0.9, 0)), 26);

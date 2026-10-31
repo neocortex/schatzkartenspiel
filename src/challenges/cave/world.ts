@@ -138,7 +138,7 @@ export class CaveWorld {
       const mushroom = new Mushroom(tex, this.sparks);
       const p = v3(c);
       mushroom.group.position.set(p.x, this.field.heightAt(p.x, p.z), p.z);
-      this.colliders.add(p.x, p.z, 0.5);
+      mushroom.collider = this.colliders.add(p.x, p.z, 0.5);
       this.mushrooms.push(mushroom);
       s.add(mushroom.group);
     }

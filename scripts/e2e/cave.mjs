@@ -487,9 +487,12 @@ try {
   s = await waitIdle("mashing at the hungry mole");
   check("mashing Space at the hungry mole changes nothing", !s.rockfalls[0] && s.carried === 0);
 
+  const mushroomWall = () => page.evaluate(([x, z]) => window.engine.scene.world.colliders.hits(x, z, 0), [s.mushrooms[0].x, s.mushrooms[0].z]);
+  const wallBefore = await mushroomWall();
   await pickMushroom(0, "first mushroom");
   s = await state();
   check("Tadeo carries the mushroom", s.mushrooms[0].picked && s.carried === 1, `carried ${s.carried}`);
+  check("a picked mushroom leaves no invisible wall", wallBefore && !(await mushroomWall()), `before ${wallBefore}`);
   await shot("06_mushroom_picked");
   await sleep(800);
   await shot("06b_carrying_on");

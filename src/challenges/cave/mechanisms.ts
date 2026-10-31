@@ -9,6 +9,7 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { mat, toonMesh } from "../../characters/parts";
 import { mulberry32 } from "../../core/noise";
+import { Circle } from "../../world/Colliders";
 import { Bursts } from "../shared/bursts";
 import { CrystalColor } from "./layout";
 import { GlowField, crystalMaterial, instances, rockMaterial } from "./materials";
@@ -67,6 +68,8 @@ export function goldenMushroom(scale = 1): THREE.Group {
 export class Mushroom {
   readonly group = new THREE.Group();
   picked = false;
+  /** Keeps Tadeo out of the clump until it is picked. */
+  collider: Circle | null = null;
   private body = new THREE.Group();
   private halo: THREE.Mesh;
   private pickT = -1;

@@ -1,5 +1,5 @@
 /**
- * Small reusable props for the landmarks: crates, barrels, signposts, torches,
+ * Small reusable props for the landmarks: crates, barrels, torches,
  * lantern posts, fences, benches, haystacks, flower boxes, fruit crates and
  * the like. Each builder returns a `Model` in local space (origin on the
  * ground, front facing +z) ready to be placed with `addModel`.
@@ -9,10 +9,9 @@ import * as THREE from "three";
 import { part } from "../../core/geo";
 import { mulberry32 } from "../../core/noise";
 import {
-  Model, V3, PAL, emptyModel, addModel, placeAt, pointDir, tint, withSway, sagPoints, triangles,
+  Model, V3, PAL, emptyModel, addModel, placeAt, tint, withSway, sagPoints, triangles,
   rbox, box, cyl, ball, beam, pole, rope, rockBlob, stoneFn,
 } from "./shapes";
-import { SignAtlas } from "./signs";
 
 /** Wooden crate with darker bands. */
 export function crate(seed: number, s = 0.8): Model {
@@ -40,63 +39,6 @@ export function barrel(seed: number, h = 1.0): Model {
   m.solid.push(part(g, tint(PAL.wood, rand), { pos: [0, h / 2, 0] }));
   for (const y of [0.16, 0.84]) m.solid.push(cyl(0.385, 0.385, 0.07, PAL.iron, { pos: [0, h * y, 0] }, 12));
   m.solid.push(cyl(0.33, 0.33, 0.04, PAL.woodDark, { pos: [0, h + 0.005, 0] }, 12));
-  return m;
-}
-
-/** Arrow-shaped board pointing along +x, starting at the post. */
-function arrowBoard(atlas: SignAtlas, label: string, len: number, color: THREE.ColorRepresentation): Model {
-  const m = emptyModel();
-  const h = 0.42;
-  const shape = new THREE.Shape();
-  shape.moveTo(0, -h / 2);
-  shape.lineTo(len - 0.32, -h / 2);
-  shape.lineTo(len, 0);
-  shape.lineTo(len - 0.32, h / 2);
-  shape.lineTo(0, h / 2);
-  shape.closePath();
-  const g = new THREE.ExtrudeGeometry(shape, { depth: 0.07, bevelEnabled: true, bevelSize: 0.025, bevelThickness: 0.025, bevelSegments: 1 });
-  g.translate(0.12, 0, -0.035);
-  m.solid.push(part(g, color));
-  const tw = len - 0.45;
-  const front = atlas.quad(label, tw, tw / 4);
-  front.translate(0.12 + (len - 0.32) / 2 + 0.02, 0, 0.065);
-  const back = atlas.quad(label, tw, tw / 4);
-  back.rotateY(Math.PI);
-  back.translate(0.12 + (len - 0.32) / 2 + 0.02, 0, -0.065);
-  m.text.push(front, back);
-  return m;
-}
-
-/** Signpost with arrow boards pointing in world directions (dx, dz) — call with the post unrotated. */
-export function signpost(atlas: SignAtlas, arrows: { label: string; dir: [number, number] }[], seed = 1): Model {
-  const rand = mulberry32(seed + 9);
-  const m = emptyModel();
-  const top = 1.6 + arrows.length * 0.5;
-  m.solid.push(cyl(0.09, 0.11, top, PAL.woodDark, { pos: [0, top / 2, 0] }, 7));
-  m.solid.push(part(new THREE.ConeGeometry(0.15, 0.22, 7), PAL.red, { pos: [0, top + 0.1, 0] }));
-  const colors = ["#e7b469", "#d99b55", "#efc584"];
-  arrows.forEach((a, i) => {
-    const board = arrowBoard(atlas, a.label, 1.45 + a.label.length * 0.04, colors[i % colors.length]);
-    addModel(m, board, placeAt(0, top - 0.4 - i * 0.52, 0, pointDir(a.dir[0], a.dir[1]) + (rand() - 0.5) * 0.06));
-  });
-  m.solid.push(rockBlob(seed, [0.35, 0.18, 0.35], stoneFn(PAL.stone, 0.6, rand)));
-  return m;
-}
-
-/** Board sign on two posts (front faces +z) with lettering on both sides. */
-export function boardSign(atlas: SignAtlas, label: string, w = 2.2, color: THREE.ColorRepresentation = "#e3ad66", ink?: string): Model {
-  const m = emptyModel();
-  const h = w / 3.6;
-  const y = 1.25;
-  for (const sx of [-1, 1]) m.solid.push(cyl(0.08, 0.1, y + h / 2 + 0.1, PAL.woodDark, { pos: [sx * (w / 2 - 0.12), (y + h / 2 + 0.1) / 2, -0.09] }, 6));
-  m.solid.push(rbox(w, h, 0.1, color, { pos: [0, y, 0] }, 0.04));
-  m.solid.push(rbox(w + 0.12, 0.08, 0.14, PAL.woodDark, { pos: [0, y + h / 2 + 0.02, 0] }, 0.03));
-  const front = atlas.quad(label, w * 0.92, h * 0.86, ink);
-  front.translate(0, y, 0.056);
-  const back = atlas.quad(label, w * 0.92, h * 0.86, ink);
-  back.rotateY(Math.PI);
-  back.translate(0, y, -0.056);
-  m.text.push(front, back);
   return m;
 }
 

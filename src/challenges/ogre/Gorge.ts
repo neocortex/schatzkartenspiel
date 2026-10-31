@@ -8,7 +8,6 @@
 import * as THREE from "three";
 import { createSkyDome, Clouds, DAY_SKY } from "../../world/Sky";
 import { bridge } from "../../world/models/structures";
-import { SignAtlas } from "../../world/models/signs";
 import { Bin, ModelMaterials, modelMaterials, modelGroup } from "./kit";
 import { Fx } from "./fx";
 import { BRIDGE, FALLS, UPPER_WATER, deckAt, heightAt, riverX, bakeHeights, createTerrain } from "./gorgeShape";
@@ -28,7 +27,6 @@ export class Gorge {
   private dressing: Dressing;
   private mistTimer = 0;
   private fallBase: THREE.Vector3;
-  private atlas = new SignAtlas();
 
   constructor(
     private scene: THREE.Scene,
@@ -37,8 +35,6 @@ export class Gorge {
   ) {
     this.mats = modelMaterials(bin);
     this.uniforms = { uTime: { value: 0 }, uSunDir: { value: this.sunDir } };
-    bin.texture(this.atlas.texture);
-    bin.material(this.atlas.material);
 
     scene.fog = new THREE.Fog(DAY_SKY.horizon.clone(), 70, 300);
     const sky = createSkyDome(this.sunDir);
@@ -67,8 +63,7 @@ export class Gorge {
     this.fallBase = new THREE.Vector3(riverX(FALLS.z), 0, FALLS.z + 3.4);
     this.buildWater();
     this.buildBridge();
-    this.dressing = dressGorge(scene, this.mats, this.atlas, bin);
-    this.atlas.draw();
+    this.dressing = dressGorge(scene, this.mats, bin);
     this.critters = new Critters(fx, bin);
     scene.add(this.critters.group);
   }

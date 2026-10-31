@@ -124,7 +124,7 @@ export class SeaChallenge implements Challenge {
       this.uniforms.uIsleSlope.value[this.isles] = slope;
       this.isles++;
     };
-    this.scenery = new Scenery(this.bin, this.mats, this.atlas, this.fx, addIsle);
+    this.scenery = new Scenery(this.bin, this.mats, this.fx, addIsle);
     this.course = new Course(this.bin, this.mats, this.fx, this.uniforms);
     for (const r of this.course.rocks) addIsle(r.x, r.z, r.r * 0.95, r.r * 0.9, 0.6);
     this.atlas.draw();

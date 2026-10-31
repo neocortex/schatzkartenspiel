@@ -12,7 +12,6 @@ import { part } from "../../core/geo";
 import { emptyModel, rbox, cyl, box, rockBlob, stoneFn, PAL, Model, addModel, placeAt } from "../../world/models/shapes";
 import { palmTree, roundTree, bush, FloraModel } from "../../world/models/flora";
 import { shipwreck } from "../../world/models/boats";
-import { SignAtlas } from "../../world/models/signs";
 import { mat } from "../../characters/parts";
 import { Bin, ModelMaterials, modelGroup } from "../ogre/kit";
 import { swayMaterial, scatter, placement } from "../ogre/plants";
@@ -135,7 +134,6 @@ export class Scenery {
   constructor(
     bin: Bin,
     mats: ModelMaterials,
-    atlas: SignAtlas,
     private fx: Fx,
     addIsle: Isle,
   ) {
@@ -181,7 +179,7 @@ export class Scenery {
       if (i % 3) plant(`tree${i % 2}`, () => roundTree(i % 2), placement(x, y - 0.2, z, 1.6 + rand()));
       else plant("bush", () => bush(4, "#ff6f91"), placement(x, y - 0.1, z, 1.4 + rand()));
     }
-    this.group.add(modelGroup(pier(2.6, 30, -1.5, 1.05), mats, true, atlas.material));
+    this.group.add(modelGroup(pier(2.6, 30, -1.5, 1.05), mats));
 
     // Treasure island
     const isle: IslandSpec = { cx: TREASURE.x, cz: TREASURE.z, rx: TREASURE.r, rz: TREASURE.r * 0.9, hill: 3.5, beach: 0.32, seed: 7 };

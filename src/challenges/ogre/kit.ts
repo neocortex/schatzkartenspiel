@@ -162,8 +162,8 @@ export function modelMaterials(bin: Bin): ModelMaterials {
   return { solid, glow, cloth, time };
 }
 
-/** One merged mesh per material for a painted island `Model` (lettering needs the atlas material). */
-export function modelGroup(model: Model, mats: ModelMaterials, shadows = true, letters: THREE.Material | null = null): THREE.Group {
+/** One merged mesh per material for a painted island `Model`. */
+export function modelGroup(model: Model, mats: ModelMaterials, shadows = true): THREE.Group {
   const g = new THREE.Group();
   const add = (geos: THREE.BufferGeometry[], m: THREE.Material, cast: boolean) => {
     if (!geos.length) return;
@@ -176,7 +176,6 @@ export function modelGroup(model: Model, mats: ModelMaterials, shadows = true, l
   add(model.cloth, mats.cloth, true);
   add(model.glow, mats.glow, false);
   add(model.pulse, mats.glow, false);
-  if (letters) add(model.text, letters, false);
   return g;
 }
 

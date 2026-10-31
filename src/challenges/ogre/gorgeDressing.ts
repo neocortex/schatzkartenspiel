@@ -11,7 +11,6 @@ import { mulberry32 } from "../../core/noise";
 import { roundTree, pineTree, bush } from "../../world/models/flora";
 import { rockBlob, stoneFn, emptyModel, addModel, placeAt, cyl, PAL } from "../../world/models/shapes";
 import { haystack, barrel, bucket } from "../../world/models/props";
-import { SignAtlas } from "../../world/models/signs";
 import { Bin, ModelMaterials, modelGroup } from "./kit";
 import { Fx, SHAPE } from "./fx";
 import { BRIDGE, FALLS, RIVER_ROCKS, deckAt, heightAt, riverX, riverHalfWidth } from "./gorgeShape";
@@ -33,7 +32,7 @@ const keepClear = (x: number, z: number): boolean => (Math.abs(z) < 3.2 && Math.
 const CAMP = new THREE.Vector3(14.5, 0, -6.5);
 const FIRE = new THREE.Vector3(12.6, 0, -4.2);
 
-export function dressGorge(scene: THREE.Scene, mats: ModelMaterials, atlas: SignAtlas, bin: Bin): Dressing {
+export function dressGorge(scene: THREE.Scene, mats: ModelMaterials, bin: Bin): Dressing {
   const rand = mulberry32(77);
   const r = (a: number, b: number) => a + rand() * (b - a);
   const time = mats.time;
@@ -206,7 +205,7 @@ export function dressGorge(scene: THREE.Scene, mats: ModelMaterials, atlas: Sign
   }
   props.solid.push(cyl(0.34, 0.26, 0.42, PAL.iron, { pos: [FIRE.x, fy + 1.0, FIRE.z] }, 12));
   props.solid.push(cyl(0.36, 0.36, 0.05, "#55565e", { pos: [FIRE.x, fy + 1.21, FIRE.z] }, 12));
-  scene.add(modelGroup(props, mats, true, atlas.material));
+  scene.add(modelGroup(props, mats));
 
   const flameMat = bin.material(new THREE.MeshBasicMaterial({ color: new THREE.Color(3.2, 1.3, 0.25), transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
   const flames: THREE.Mesh[] = [];

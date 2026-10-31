@@ -88,7 +88,8 @@ export class PacoRescue {
     this.rollDir.set(roll.x, 0, roll.y);
     this.tipAxis.set(roll.y, 0, -roll.x);
 
-    this.liftSpot = local(2.15, 0.7);
+    // Reason: out to the side and nearer the camera; right behind the rock it would hide his face as it comes up
+    this.liftSpot = local(2.45, 1.35);
     this.exitAt = local(-6, 7);
     const y = course.ground(c.x, c.y);
     this.beaconAt = new THREE.Vector3(rockAt.x, y, rockAt.y);

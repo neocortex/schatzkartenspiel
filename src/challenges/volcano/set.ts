@@ -86,7 +86,7 @@ export class VolcanoSet {
     this.decorations(model);
     this.group.add(meshesFromModel(model, this.materials, "volcano-set"));
 
-    this.group.add(new Scatter(course, this.materials.solid, colliders).group);
+    this.group.add(new Scatter(course, this.materials.solid, colliders, this.altar).group);
     this.group.add(this.smoke.group, this.beacon.group);
     const water = createWater(world, horizon);
     this.group.add(water);

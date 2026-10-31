@@ -214,6 +214,11 @@ function column(x: number, z: number, height: number, capital: boolean, seed: nu
   return parts;
 }
 
+/** The base, the columns and the fallen drum all lie within this distance of the middle. */
+const STONES_R = 4.9;
+const PAVING_HALF_W = 1.7;
+const PAVING_END = 9.9;
+
 /** Everything of stone: the stepped base, the paving leading up to it, the columns, a fallen drum. */
 function surroundings(): THREE.BufferGeometry[] {
   const rand = mulberry32(611);
@@ -299,6 +304,12 @@ export class Altar {
   readonly hollowAt = new THREE.Vector3();
   private heart = createFeuerherz();
   private inlay: THREE.Mesh;
+
+  /** Whether a spot on the ground lies among the stones: the stepped base with its columns, or the paving leading up to it. */
+  covers(x: number, z: number): boolean {
+    const p = new THREE.Vector3(x - this.group.position.x, 0, z - this.group.position.z).applyAxisAngle(THREE.Object3D.DEFAULT_UP, -this.group.rotation.y);
+    return Math.hypot(p.x, p.z) < STONES_R || (Math.abs(p.x) < PAVING_HALF_W && p.z > 0 && p.z < PAVING_END);
+  }
 
   /** Stands at (x, y, z) with its face turned to `facing` (yaw; 0 faces +z). */
   constructor(x: number, y: number, z: number, facing: number, materials: LandmarkMaterials) {

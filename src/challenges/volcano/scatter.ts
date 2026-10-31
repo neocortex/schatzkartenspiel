@@ -10,6 +10,7 @@ import { part } from "../../core/geo";
 import { rockBlob, stoneFn } from "../../world/models/shapes";
 import { deadTree, roundTree, bush } from "../../world/models/flora";
 import { Colliders } from "../../world/Colliders";
+import { Altar } from "./altar";
 import { Course, RIVER_HALF } from "./course";
 
 interface Placement {
@@ -44,7 +45,7 @@ export class Scatter {
   readonly group = new THREE.Group();
   private rand = mulberry32(2024);
 
-  constructor(private course: Course, private solid: THREE.Material, private colliders: Colliders) {
+  constructor(private course: Course, private solid: THREE.Material, private colliders: Colliders, private altar: Altar) {
     this.rocks();
     this.pebbles();
     this.trees();
@@ -181,7 +182,7 @@ export class Scatter {
       const rr = Math.sqrt(r()) * 13;
       const x = p.x + Math.cos(a) * rr;
       const z = p.y + Math.sin(a) * rr;
-      if (!isMeadow(x, z) || c.natural(x, z) < 0.9) continue;
+      if (!isMeadow(x, z) || c.natural(x, z) < 0.9 || this.altar.covers(x, z)) continue;
       // Keep the walking strip in the middle mostly clear
       if (c.trailDist(x, z) < 1.4 && r() < 0.8) continue;
       list.push({ x, y: c.terrain(x, z), z, rot: r() * 6.28, scale: 0.8 + r() * 0.7, color: colors[Math.floor(r() * colors.length)] });

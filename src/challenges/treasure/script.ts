@@ -312,6 +312,9 @@ export async function erupt(s: TreasureStage): Promise<void> {
   t.actor.faceTo(s.eruption.crater.x, s.eruption.crater.z);
   s.chest.endBeam();
   s.daylight.fade(0.55, 2.8);
+  // Reason: the loot lies right in front of the lens, and a bright gem there would outshine the fire far away
+  const gemTint = (s.gems.mesh.material as THREE.MeshStandardMaterial).color;
+  void s.tween(2.8, (k) => gemTint.setScalar(1 - 0.75 * smoother(k)));
   s.engine.applyPost({ ...POST_ERUPT });
   // Reason: the child has to be looking at the quiet volcano when it blows, so the camera arrives first
   await swingToVolcano(s, 2.8);
@@ -320,6 +323,8 @@ export async function erupt(s: TreasureStage): Promise<void> {
   st.erupting = true;
   s.daylight.fade(1, 1.4);
   s.hud.flash();
+  // Reason: the flash covers the screen for this moment, so nobody sees them vanish
+  s.daylight.hideClouds();
   s.director.shake(1.1);
   audio.playSfx("sfx_lava_fall", 1, 0.6);
   audio.playSfx("sfx_door", 1, 0.42);

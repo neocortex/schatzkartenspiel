@@ -120,6 +120,11 @@ export class Daylight {
     this.duration = Math.max(seconds, 0.01);
   }
 
+  /** The clouds go for good: the blast's halo would slice them and the red sky would turn them into black lumps. */
+  hideClouds(): void {
+    this.clouds.group.visible = false;
+  }
+
   update(dt: number): void {
     this.clouds.update(dt);
     if (this.t >= 1) return;
@@ -146,7 +151,8 @@ export class Daylight {
     this.sun.intensity = THREE.MathUtils.lerp(DAY.sunIntensity, ERUPTION.sunIntensity, k);
     this.hemi.intensity = THREE.MathUtils.lerp(DAY.hemiIntensity, ERUPTION.hemiIntensity, k);
     // Reason: the sun has to be behind the cone before the camera turns there; a white disc sliding down past the fire looks wrong
-    this.sunDir.copy(DAY.sunDir).normalize().lerp(ERUPTION.sunDir.clone().normalize(), THREE.MathUtils.smoothstep(k, 0, 0.5)).normalize();
+    // Reason: it starts above 0.32, the heart's dimming, or the shadows would sweep out for the heart and back for the gold
+    this.sunDir.copy(DAY.sunDir).normalize().lerp(ERUPTION.sunDir.clone().normalize(), THREE.MathUtils.smoothstep(k, 0.35, 0.5)).normalize();
     this.sun.position.copy(this.sun.target.position).addScaledVector(this.sunDir, 40);
   }
 }

@@ -454,7 +454,8 @@ export class Game {
       const mid = p.position.clone().lerp(npc.position, 0.5);
       const dir = npc.position.clone().sub(p.position).setY(0).normalize();
       const side = new THREE.Vector3(dir.z, 0, -dir.x);
-      if (side.z < 0) side.negate();
+      // Reason: on the village's south-west side; with the two north and south of each other one step would otherwise swing the camera round
+      if (side.z - side.x * 0.6 < 0) side.negate();
       rig.setShot({ pos: mid.clone().addScaledVector(side, 5.6).add(new THREE.Vector3(0, 2.4, 0)), look: mid.add(new THREE.Vector3(0, 1.1, 0)) }, 0.9);
     }
     rig.setZoom(0.62);

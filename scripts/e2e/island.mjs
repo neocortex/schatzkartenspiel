@@ -457,7 +457,7 @@ check("a riddle can be asked again after a reload", (await riddleOpen()) && (awa
 // ── 6. Village chat ─────────────────────────────────────────
 await page.goto(`${BASE}?quest=8`);
 await wait(4000);
-await page.evaluate(() => window.game.placePlayer(72, 44.4, Math.PI));
+await page.evaluate(() => window.game.placePlayer(69.2, 38.4, -Math.PI / 2));
 await wait(600);
 s = await state();
 check("villager offers a chat", s.prompt?.includes("Sprechen") ?? false, s.prompt ?? "no prompt");
@@ -521,10 +521,15 @@ const oneCaptain = await page.evaluate(async () => {
 check("createVillager(3) is Paco, and the crowd has no second Paco", oneCaptain.paco && !oneCaptain.crowd, JSON.stringify(oneCaptain));
 
 // Paco next to the elder, in the village's real light: they share scenes and must look clearly different
-const pacoY = await page.evaluate(() => window.game.npcs.get("villager3").position.y);
-await page.goto(`${BASE}?cam=71.15,${pacoY + 1.5},45.9,71.15,${pacoY + 0.85},42`);
+const pacoAt = await page.evaluate(() => {
+  const [x, z] = window.game.story.pacoHome.at;
+  return { x, y: window.game.island.island.hf.heightAt(x, z), z };
+});
+await page.goto(`${BASE}?cam=${pacoAt.x - 0.85},${pacoAt.y + 1.5},${pacoAt.z + 3.9},${pacoAt.x - 0.85},${pacoAt.y + 0.85},${pacoAt.z}`);
 await wait(4000);
 await page.evaluate(() => {
+  // Reason: this page starts at quest 1, when Paco is still away
+  window.game.story.apply(3);
   const paco = window.game.npcs.get("villager3");
   const elder = window.game.npcs.get("elder");
   elder.position.set(paco.position.x - 1.7, paco.position.y, paco.position.z);
@@ -533,6 +538,30 @@ await page.evaluate(() => {
 });
 await wait(1200);
 await shot("10-paco-and-elder");
+
+// Paco's "Hm, hm." comes from someone in the picture, from whichever side Tadeo walks up to the elder
+for (const [name, at] of Object.entries({ "from-the-well": [65.2, 39.7], "from-the-gate": [62.5, 36.2] })) {
+  await page.goto(`${BASE}?quest=3`);
+  await page.waitForFunction(() => window.engine?.scene === window.game?.island && !window.game.busy, null, { timeout: 30000 });
+  await page.evaluate(([x, z]) => window.game.placePlayer(x, z), at);
+  await wait(500);
+  await page.keyboard.press("Space");
+  const lineOnScreen = () => page.evaluate(() => (document.querySelector(".dialogue.open") ? window.game.ui.dialogue.full : ""));
+  for (let i = 0; i < 200 && !(await lineOnScreen()).includes("Hm, hm"); i++) {
+    await page.keyboard.press("Space");
+    await wait(200);
+  }
+  await wait(1200);
+  await shot(`10b-paco-hm-${name}`);
+  const inShot = await page.evaluate(() => {
+    const { island, npcs } = window.game;
+    const screen = (npc) => npc.avatar.head.getWorldPosition(npc.position.clone()).project(island.camera);
+    const [paco, elder] = [screen(npcs.get("villager3")), screen(npcs.get("elder"))];
+    return { x: +paco.x.toFixed(2), y: +paco.y.toFixed(2), elderApart: +Math.abs(paco.x - elder.x).toFixed(2) };
+  });
+  // Reason: the dialogue box covers the screen below y = -0.48
+  check(`Paco is in the picture when he says Hm, hm (${name})`, Math.abs(inShot.x) < 0.95 && inShot.y > -0.45 && inShot.y < 1 && inShot.elderApart > 0.18, JSON.stringify(inShot));
+}
 
 // The mole in the real cave, by torchlight, next to Tadeo
 await page.goto(`${BASE}?challenge=cave`);

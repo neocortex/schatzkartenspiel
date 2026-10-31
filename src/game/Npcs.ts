@@ -54,8 +54,9 @@ const VILLAGERS: { at: P2; facing: number; name: string; lines: string[] }[] = [
     lines: ["Wollen wir Fangen spielen? Du bist dran!", "Ich habe gehört, im Zauberwald leuchten die Pilze in der Nacht!"],
   },
   {
-    at: [72, 42],
-    facing: -1.2,
+    // Reason: beside the elder, so his "Hm, hm." in the legend comes from someone in the picture
+    at: [66.9, 37.8],
+    facing: -0.8,
     name: "Käpt'n Paco",
     lines: ["Als ich jung war, habe ich auch nach dem Schatz gesucht...", "Vor dem Oger an der Brücke hatten wir alle Angst."],
   },

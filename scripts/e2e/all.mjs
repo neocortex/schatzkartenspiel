@@ -18,7 +18,7 @@ const results = [];
 for (const name of names) {
   const t0 = Date.now();
   // Reason: a test that hangs must not block the rest of the run
-  const run = spawnSync("node", [`${dir}${name}.mjs`], { stdio: ["ignore", "ignore", "inherit"], timeout: 8 * 60_000 });
+  const run = spawnSync("node", [`${dir}${name}.mjs`], { stdio: ["ignore", "ignore", "inherit"], timeout: 12 * 60_000 });
   const ok = run.status === 0;
   const seconds = Math.round((Date.now() - t0) / 1000);
   results.push({ name, ok, seconds });

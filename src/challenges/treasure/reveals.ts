@@ -12,7 +12,8 @@ import { shot } from "../shared/director";
 import { TreasureStage, CHEST_AT, ease, lines } from "./stage";
 import { lootBurst } from "./fx";
 
-const NOTE_SHOT = shot(1.25, 2.55, 4.75, 1.3, 2.35, 1.75);
+// Reason: the dialogue box covers the bottom quarter of the screen, so the look stays low enough for his chin to clear it
+const NOTE_SHOT = shot(1.25, 2.5, 5.35, 1.3, 2.1, 1.75);
 const HEART_SHOT = shot(0.75, 1.5, 4.2, 0.45, 1.75, 0);
 const HELD_SHOT = shot(1.1, 2.35, 5.0, 1.3, 2.05, 1.75);
 const PLAN_SHOT = shot(-0.1, 1.8, 4.2, 0.3, 1.5, 0);
@@ -25,13 +26,16 @@ const INSIDE_CHEST = CHEST_AT.clone().add(new THREE.Vector3(0, 0.45, 0));
 /** In front of the lid, clear of the chest's light. */
 const PLAN_AT = CHEST_AT.clone().add(new THREE.Vector3(0, 1.35, 0.95));
 
+/** Starts and stops softly, unlike `ease`, which starts at full speed. */
+const gentle = (k: number): number => k * k * (3 - 2 * k);
+
 /** Glide `item` to a point in the world over `seconds`, turning to `scale`; `arc` lifts the path in the middle. */
-async function glide(s: TreasureStage, item: THREE.Object3D, to: THREE.Vector3, scale: number, seconds: number, arc = 0): Promise<void> {
+async function glide(s: TreasureStage, item: THREE.Object3D, to: THREE.Vector3, scale: number, seconds: number, arc = 0, curve = ease): Promise<void> {
   s.scene.attach(item);
   const from = item.position.clone();
   const from0 = item.scale.x;
   await s.tween(seconds, (k) => {
-    const e = ease(k);
+    const e = curve(k);
     item.position.lerpVectors(from, to, e);
     item.position.y += Math.sin(k * Math.PI) * arc;
     item.scale.setScalar(from0 + (scale - from0) * e);
@@ -109,7 +113,8 @@ export async function takeHeart(s: TreasureStage): Promise<void> {
     heart.rotation.y = (1 - ease(k)) * Math.PI * 3;
     if (Math.random() < 0.35) s.sparkleAt(heart.getWorldPosition(new THREE.Vector3()), 2, "#ff9a3a", 1.1, 0.9);
   });
-  await glide(s, heart, ABOVE_CHEST.clone().add(new THREE.Vector3(0, 0.15, 0)), 0.92, 2.6);
+  // Reason: with the usual fast start it would be past the rim in a blink; this way the child sees it come out
+  await glide(s, heart, ABOVE_CHEST.clone().add(new THREE.Vector3(0, 0.15, 0)), 0.92, 2.6, 0, gentle);
   s.state.heart = true;
   audio.playSfx("sfx_special", 0.45, 0.8);
   await s.sleep(1.5);

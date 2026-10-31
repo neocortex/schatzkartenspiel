@@ -8,13 +8,15 @@
  *  5. A stale line (superseded by a newer one) never starts playing
  *  6. A line without a recording falls back to browser speech
  *  7. Without a manifest the game still talks (browser speech) and logs no errors
+ *  8. Every spoken line in the source has a recording, and none is left with a changing value
  *
  * Run (dev server on :5199 must be running):  node scripts/e2e/voices.mjs
  * Proof: scripts/e2e/out/voices/summary.json
  */
 
 import { chromium } from "playwright";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { collectLines } from "../voice/lines.mjs";
 
 const BASE = process.env.GAME_URL ?? "http://localhost:5199/";
 const OUT = new URL("./out/voices/", import.meta.url).pathname;
@@ -30,6 +32,15 @@ const check = (name, ok, detail = "") => {
   results.push({ name, ok, detail });
   console.log(`${ok ? "✔" : "✘"} ${name}${detail ? ` — ${detail}` : ""}`);
 };
+
+/** Reads the source the way `npm run voices` does, so a line nobody rendered shows up here instead of as browser speech. */
+{
+  const { lines, dynamic } = collectLines();
+  const manifest = JSON.parse(readFileSync(new URL("../../public/voices/manifest.json", import.meta.url), "utf8"));
+  const unrecorded = lines.filter((l) => !manifest[`${l.speaker}|${l.text}`]);
+  check("every spoken line in the source has a recording", unrecorded.length === 0, `${lines.length} lines, unrecorded: ${unrecorded.map((l) => `${l.speaker}|${l.text}`).join(" / ")}`);
+  check("no spoken line has a changing value without a fixed version", dynamic.length === 0, dynamic.join(" / "));
+}
 
 /** Opens the game with a log of every recording started and every browser speech request. */
 async function open(query = "?notitle", prepare = async () => {}) {

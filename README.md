@@ -2,8 +2,9 @@
 
 A 3D treasure-hunt adventure built with **Three.js**, **TypeScript** and **Vite**, made for Tadeo
 (7 years old). You play as **Tadeo** with his hen **Chuleta**: explore a lush toon-style island,
-solve ten quests in their own mini-game worlds, help the villagers and find the king's treasure.
-All text and narration are in German.
+follow a story of twelve quests: the volcano's heart was stolen, and Tadeo finds four old things and
+brings it home. Along the way he helps the villagers and sails to a treasure island. All text and
+narration are in German.
 
 ![Schatzkartenspiel title screen](./title_screen.png)
 
@@ -11,31 +12,40 @@ All text and narration are in German.
 
 - Hand-built 3D island: shader water with shore foam, wind-blown grass, instanced vegetation,
   volcano smoke, chimney smoke, birds, butterflies, crabs, fireflies, waterfall and river
-- Four regions around the old island, linked by paths and signposts: a lagoon with a jetty, beach huts,
+- Four regions around the old island, linked by paths: a lagoon with a jetty, beach huts,
   turtles and dolphins; a misty jungle with an old ruin and parrots; a swamp with a boardwalk, frogs and
   fireflies; flower hills with a windmill and sheep
 - Post-processing: bloom, tilt-shift, ACES tone mapping, vignette
 - Rendering capped at 60 FPS and 1.25× pixel density, with 2× multisample anti-aliasing to limit GPU load
 - Chibi toon characters with outlines; Chuleta the hen runs along, rides on Tadeo's head and gives hints
-- Ten quests, each a separate 3D challenge scene (loaded on demand)
+- Twelve quests that tell one story. Most play in their own 3D challenge scene (loaded on demand), and the
+  island follows the story: the volcano rumbles harder after every quest, a thorn hedge and a boulder close
+  two paths until Tadeo can open them, and his mended boat appears at the north dock
 - Side games in the village, gold coins all over the island, and outfits to unlock
 - Natural-sounding German voices for every line (recorded with ElevenLabs), with browser speech as fallback
 - No game over anywhere: mistakes just restart the current attempt
 
 ## The adventure
 
-| # | Quest | Challenge |
-|---|-------|-----------|
-| 1 | Ankunft auf der Insel | Read the signpost on the landing beach |
-| 2 | Der Vulkan | Cross the lava fields; dodge the glowing circles where lava bombs land |
-| 3 | Der See | Read the three rune tablets around the lake |
-| 4 | Die Höhle | Torch-lit natural cave: feed a hungry mole glowing mushrooms so he digs through two rockfalls, then touch three crystals in the order the cave paintings show to reach the magic sword |
-| 5 | Der Zauberwald | A thorn hedge closes the gate until the crystal sword's blue light drives it back; then, in the twilight forest, Flocke the fox leads you to five glowing berry sprigs |
-| 6 | Der Oger an der Brücke | Card battle on the bridge (attack, heal, special); block his swings with Space at the right moment; the ogre becomes a friend and, back on the island, heaves the boulder off the mountain trail with one hand |
-| 7 | Das Eingeborenendorf | The elder tells where the key came from (it lay on his doorstep, for someone clever); campfire drum trials and a maths question; reward: the golden key. The elder then sends you to the ogre for the boulder |
-| 8 | Der Berggipfel | Side-view climb on the old people's path with rolling rocks, snowballs and a rope bridge; reward: the golden hammer, for the ice |
-| 9 | Der Hai | Sail along a trail of glowing starfish, then calm the giant shark by throwing three berries into its open mouth |
-| 10 | Die Schatzinsel | Dig at the X, break the ice, unlock the chest — and the finale |
+The volcano has a heart, the *Feuerherz*. A young pirate stole it long ago, and since then the volcano
+is waking up and the monsters are angry. Tadeo finds the pirate's map in a bottle, learns from the lake's
+guardian which four things he needs (sword, berries, hammer, key), and brings the heart back. The pirate
+turns out to be Käpt'n Paco, who has been helping him all along.
+
+| # | Quest | What happens |
+|---|-------|--------------|
+| 1 | Ankunft | Tadeo finds a bottle on the beach with a map of a small island and a big X. A shark smashes his boat at sea and he washes ashore. A voice calls for help from the volcano |
+| 2 | Der Vulkan | Cross the lava fields and dodge the glowing circles where lava bombs land. The eruptions broke two bridges, so jump across the rocks with Space. Free Käpt'n Paco from under a rock beside an old stone with an empty heart-shaped hollow |
+| 3 | Das Dorf | Walk to the village over the stepping stones, because the ogre holds the bridge. The elder tells about the Feuerherz and sees the map: the X must be where the heart is |
+| 4 | Der See | Three stone tablets at the lake ask a riddle each; pick the answer with the arrows. The Hüter, a ghost with no hands, rises from the water and tells the rhyme of the four things |
+| 5 | Die Höhle | Torch-lit natural cave: feed a hungry mole glowing mushrooms so he digs through two rockfalls, then touch three crystals in the order the cave paintings show to reach the magic sword |
+| 6 | Der Zauberwald | A thorn hedge closes the gate until the sword's blue light drives it back; then, in the twilight forest, Flocke the fox leads you to five glowing berry sprigs |
+| 7 | Das Dorf | The elder tells where the old key came from (it lay on his doorstep, for someone clever); campfire drum trials and a maths question; reward: the golden key. He then sends you to the ogre for the boulder |
+| 8 | Der Oger | Card battle on the bridge (attack with the sword, heal with berries, special); block his swings with Space at the right moment. At the end he takes a berry and becomes a friend, and back on the island he heaves the boulder off the mountain trail |
+| 9 | Der Berg | Side-view climb on the old people's path with rolling rocks, snowballs and a rope bridge; reward: the golden hammer, for the magic ice |
+| 10 | Der Hai | Tadeo's mended boat waits at the north dock. Sail along a trail of glowing starfish, then calm the giant shark by throwing three berries into its open mouth |
+| 11 | Die Schatzinsel | Dig at the X, break the magic ice with the hammer, unlock the chest with the key: gold, a crown, Paco's note, a plan and the Feuerherz. Then the volcano erupts |
+| 12 | Das Herz des Vulkans | Sail back and climb the erupting volcano with the heart (the hardest rock rate), set it on the old stone, and the volcano sleeps. The island celebrates a night festival; Paco owns up. End card |
 
 **Side games** (any time, in the village): fishing with *Fischer Jonas* and catching *Kleine Mia's*
 runaway hens. The first win earns a prize hat (fishing hat, golden crown).
@@ -114,14 +124,16 @@ on port 5199:
 
 ```bash
 npx vite --port 5199          # in one terminal
-npm run test:e2e              # all tests in a row (~15 min) → scripts/e2e/out/all.json
+npm run test:e2e              # all tests in a row (~30 min) → scripts/e2e/out/all.json
 node scripts/e2e/world.mjs    # one test: walks every region path, landmarks, region animals, fps
-node scripts/e2e/island.mjs   # likewise: title, intro, quests 1–3, coins, village, fps
-node scripts/e2e/volcano.mjs  # likewise: cave, forest, ogre, village, mountain, sea,
-                              # treasure, finale, fishing, hens
-node scripts/e2e/voices.mjs   # recordings play, changing lines, browser speech fallback
+node scripts/e2e/island.mjs   # likewise: title, opening, quests 1–4, map card, riddles, coins, fps
+node scripts/e2e/finale.mjs   # quest 12 from the sea to the festival and the end card
+node scripts/e2e/voices.mjs   # every line has a recording, recordings play, browser speech fallback
 node scripts/e2e/fps.mjs      # 60 fps cap on fast screens, no dropped frames at 60 Hz
 ```
+
+Every other challenge has a test named after it (`volcano`, `cave`, `forest`, `ogre`, `village`, `mountain`,
+`sea`, `treasure`, `fishing`, `hens`).
 
 ## Classic 2D version
 
@@ -143,7 +155,7 @@ src/
   world/           # the island: heightfield, regions, terrain, water, sky, grass, vegetation, landmarks, ambient life
   characters/      # Humanoid toon characters, Tadeo's Player controller, Chuleta (and the hen model), hats
   scenes/          # IslandScene (the overworld)
-  game/            # adventure flow: quests, NPCs, coins, outfits, side games, beacon, title
+  game/            # adventure flow: quests, NPCs, coins, outfits, side games, beacon, title, StoryWorld (what stands where per quest)
   challenges/      # one folder per challenge (index.ts exports a factory), plus shared helpers
   ui/              # dialogue box, HUD, prompts, portraits, end card
   systems/         # quest, inventory, save, narration

@@ -28,6 +28,9 @@ Graphics quality ("wow") and joy matter more than anything else. It is live at h
   launching challenges, rewards, saving). Keep it under ~550 lines: put new features in their own
   module in `game/` (see `Sightings.ts`, `sideGames.ts`, `Wardrobe.ts`, `lake.ts`, `hedgeOpening.ts`,
   `boulderLift.ts`).
+- `game/StoryWorld.ts` makes the island follow the story. `apply(milestone)` sets what stands where (the thorn hedge,
+  the mountain boulder, Tadeo's wreck or his mended boat, Paco's and the ogre's places), `rumble(finished)` shakes the
+  volcano a bit harder after every quest, and `beforeQuest` / `afterQuest` hold the island scenes around a challenge.
 - Challenges live in `src/challenges/<name>/index.ts` and default-export a `ChallengeFactory`
   (`challenges/types.ts`). They are found by `challenges/registry.ts` (`import.meta.glob`) and loaded
   on demand. A challenge resolves `finished` when won; the flow hands out the reward.

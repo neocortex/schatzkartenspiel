@@ -32,7 +32,7 @@ export const CHULETA_CHEERS: Record<number, string> = {
   4: "Gack! Wie meint er das?",
   5: "Ein echtes Zauberschwert! Du bist ein richtiger Held!",
   6: "Mmmh, Zauberbeeren! Darf ich eine picken? Nein? Schade!",
-  7: "Der goldene Schlüssel! Jetzt fehlt nur noch der Hammer!",
+  7: "Schwert, Beeren und Schlüssel! Drei Sachen hast du schon. Gack!",
   8: "Der Oger ist eigentlich ganz nett, oder?",
-  9: "Was für eine Aussicht! Ich kann die kleine Insel sehen!",
+  9: "Alle vier Sachen sind gefunden! Ich bin ganz stolz auf dich. Gack!",
 };

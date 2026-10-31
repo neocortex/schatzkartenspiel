@@ -430,7 +430,7 @@ try {
     await sleep(220);
     // Reason: a press either finishes the typing or moves on, so only reading after every press sees each whole line
     const text = await page.evaluate(() => document.querySelector(".dialogue .text")?.textContent ?? "");
-    if (text.includes("Die Brücke ist kaputt")) heardBridgeTip = true;
+    if (text.includes("Ist eine Brücke kaputt")) heardBridgeTip = true;
   }
   check("Tadeo says how to cross the broken bridge", heardBridgeTip);
   await waitFor(() => page.evaluate(() => window.engine.scene.state === "play"), "play state", 10000);

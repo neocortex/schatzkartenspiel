@@ -40,7 +40,7 @@ const TIPS: DialogueScript = [
     portrait: "portrait_tadeo",
     text: "Wo ein Kreis auf dem Boden leuchtet, landet gleich ein Lavabrocken. Da gehe ich schnell weg!",
   },
-  { speaker: "Tadeo", portrait: "portrait_tadeo", text: "Die Brücke ist kaputt! Mit der Leertaste springe ich über die Steine." },
+  { speaker: "Tadeo", portrait: "portrait_tadeo", text: "Ist eine Brücke kaputt, dann springe ich mit der Leertaste über die Steine." },
   { speaker: "Tadeo", portrait: "portrait_tadeo", text: "Ich laufe zum goldenen Licht. Los geht's!" },
 ];
 

@@ -2,6 +2,42 @@
 
 ## Unreleased
 
+### Story rethink
+
+The adventure is one story now: the volcano's heart, the Feuerherz, was stolen, and every place and object on the
+island has a reason. A 7-year-old can retell it: "Der Vulkan hat ein Herz. Ein Pirat hat es gestohlen. Ich habe vier
+Sachen gefunden und das Herz zurückgebracht. Und der Pirat war Paco!"
+
+- Twelve quests instead of ten. The first is a cutscene; the village is visited twice (the elder's legend, then the
+  key); the lake, the shark and the finale are new or rebuilt. The HUD counts "von 12"
+- The opening: Tadeo finds a bottle with a treasure map (the map card), a shark smashes his boat, and a voice calls
+  from the volcano. The map card comes back in quests 3 and 11
+- The volcano shows what the eruptions did: about half as many rocks, two of the three bridges are broken and
+  crossed by jumping from rock to rock, and Paco lies trapped beside the old stone with the empty heart-shaped
+  hollow. Käpt'n Paco replaces Opa Kalle, with his own look and voice
+- The lake: three tablets ask riddles, and the Hüter (replaces the Geist, with a real portrait) rises and tells the
+  rhyme of the four things
+- The cave is a natural cave with a hungry mole (Maulwurf) and painted clues for the crystals, instead of the mine
+  with levers and gates
+- The island follows the story (`game/StoryWorld.ts`): the thorn hedge stands until the sword opens it, the boulder
+  stays on the mountain trail until the ogre lifts it, Tadeo's wreck becomes his mended boat at the north dock, Paco
+  is away until the village quest and waits at the dock for the crossing, and the volcano rumbles harder after every
+  finished quest
+- The ogre fights because the heart is gone, and becomes a friend after he eats a berry
+- The shark is calmed by three berries thrown into its open mouth, not by the hammer. The hammer is only for the
+  chest's Zaubereis. The sea trail is glowing starfish
+- The chest also holds the Feuerherz, a plan and Paco's note signed "P."
+- The last quest brings the heart home through the volcano at full rock rate, then the whole island celebrates a
+  night festival where Paco owns up, before the end card
+- Chuleta's hints and cheers, the quest names and the save format (version 4, so old saves start over) follow the new
+  order. "Schatzinsel" now means only the small island
+- Every new or changed line has at most 14 words, and a conversation at most 5 lines (the legend, the lake rhyme and
+  the festival are longer). 159 new recordings, including the new speakers Paco, Stimme, Maulwurf and Hüter
+- `scripts/e2e/finale.mjs` plays the last quest through the festival; `voices.mjs` also checks that every line in the
+  source has a recording
+- Lettered signs are gone outside the village (signposts, "ZIEL", the ogre's toll board, "Höhle", "Zauberwald"):
+  the golden star, the compass and Chuleta's hints do the guiding
+
 ### Changed
 
 - Tadeo's hen is called Chuleta now (she was Henni)

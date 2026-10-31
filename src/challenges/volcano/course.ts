@@ -40,8 +40,8 @@ const BANK_DIST = RIVER_HALF + 0.9;
  * about 3, so each gap is an easy jump from a stop, and each rock ends past 4.0 units so a running jump can't overshoot it.
  */
 const HOP_GAP = 1.9;
-const ROCK_R_MIN = 1.35;
-const ROCK_R_MAX = 1.6;
+/** Wider than the deck, so a straight jump from anywhere on a stub lands on the rock. */
+const ROCK_R = 1.6;
 /** A rock's top sits this far below the stubs' ends, so every hop lands a little downhill or barely up. */
 const ROCK_BELOW_DECK = 0.3;
 /** Half-width of the corridor an airborne Tadeo may fly through at a broken crossing. */
@@ -218,12 +218,11 @@ export class Course {
     let far = b.halfLen;
     while (far > 0 && this.riverDist(point(far).x, point(far).y) > BANK_DIST) far -= 0.05;
     const mid = (near + far) / 2;
-    const r = clamp((far - near) / 2 - HOP_GAP, ROCK_R_MIN, ROCK_R_MAX);
     // Reason: a slanted crossing is too wide for one hop from the bank, so its stubs reach further out over the lava
-    b.gap = [Math.max(near, mid - r - HOP_GAP), Math.min(far, mid + r + HOP_GAP)];
+    b.gap = [Math.max(near, mid - ROCK_R - HOP_GAP), Math.min(far, mid + ROCK_R + HOP_GAP)];
     const top = Math.min(deckHeight(b, b.gap[0] / b.halfLen), deckHeight(b, b.gap[1] / b.halfLen)) - ROCK_BELOW_DECK;
     const at = point(mid);
-    this.rocks.push({ x: at.x, z: at.y, r, y: top });
+    this.rocks.push({ x: at.x, z: at.y, r: ROCK_R, y: top });
   }
 
   // ── Trail queries ──────────────────────────────────────────

@@ -263,6 +263,7 @@ function courseFacts() {
     firstBridgeWhole: !c.bridges[0].gap,
     crossings: broken.length,
     rocks: sc.e2e.rocks,
+    deckHalfW: Math.max(...broken.map((b) => b.halfW)),
     gaps,
     perCrossing: broken.map((b) => rockOf(b).length),
     picks,
@@ -410,6 +411,7 @@ try {
   check("one whole bridge, two crossings of rocks", facts.wholeBridges === 1 && facts.crossings === 2 && facts.firstBridgeWhole, `${facts.wholeBridges} whole, ${facts.crossings} broken`);
   check("each crossing has one or two rocks", facts.perCrossing.every((n) => n >= 1 && n <= 2), facts.perCrossing.join(","));
   check("rocks are generous", facts.rocks.every((r) => r.r >= 1.1) && maxGap <= 2.2, `radii ${facts.rocks.map((r) => r.r.toFixed(2))}, max gap ${maxGap.toFixed(2)}`);
+  check("every rock is wider than the deck, so a straight jump from its edge lands on it", facts.rocks.every((r) => r.r > facts.deckHalfW), `radii ${facts.rocks.map((r) => r.r.toFixed(2))}, deck ${facts.deckHalfW}`);
   check("no bomb is ever aimed near a hop rock", facts.picks > 0 && facts.near === 0, `${facts.near} of ${facts.picks}`);
   const volcanoSources = sourceFiles(join(HERE, "..", "..", "src", "challenges", "volcano")).map((f) => readFileSync(f, "utf8")).join("\n");
   check("no ZIEL arch", !/goalArch|"ZIEL"/.test(volcanoSources));

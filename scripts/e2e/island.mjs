@@ -167,7 +167,8 @@ await readUntil(mapCardOpen);
 check("map card shows and has no text", (await mapCardOpen()) && (await page.textContent(".map-card")).trim() === "");
 await page.keyboard.press("Space");
 await wait(150);
-check("Space does not close the card in its first 0.4 s", await mapCardOpen());
+// Reason: a press that was taken starts the closing animation, and the card stays in the page for 0.28 s while it plays
+check("Space does not close the card in its first 0.4 s", (await mapCardOpen()) && !(await page.isVisible(".map-card.closing")));
 await wait(1600);
 await shot("03-map-card");
 await page.keyboard.press("Space");
@@ -385,7 +386,8 @@ check("the card shows the three answers", (await answersShown()).join() === "Chu
 check("the first answer is read aloud when it is highlighted", (await saidAloud()).includes("Chuleta"));
 await page.keyboard.press("Space");
 await wait(100);
-check("Space does nothing in the first 0.4 s of a card", await riddleOpen());
+// Reason: a press that was taken marks the answer, and the card stays up for 0.7 s after that
+check("Space does nothing in the first 0.4 s of a card", (await riddleOpen()) && !(await page.isVisible(".riddle-answer.chosen")));
 await wait(500);
 await page.keyboard.press("ArrowDown");
 await wait(150);

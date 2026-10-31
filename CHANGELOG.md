@@ -61,7 +61,7 @@ Sachen gefunden und das Herz zurückgebracht. Und der Pirat war Paco!"
   - Sumpf: mangroves, puddles and a pond with a frog islet, a plank boardwalk to the old beach, croaking
     frogs and a cloud of fireflies
   - Blumenhügel: rolling flower meadows with a windmill, beehives and grazing sheep (one is black)
-- Stepping stones across the river west of the village, new paths and signposts to every region
+- Stepping stones across the river west of the village, new paths to every region
 - Fish and dragonflies at the lagoon and the swamp pond
 - `scripts/e2e/world.mjs`: walks every region path and checks landmarks, animals and fps
 
@@ -69,12 +69,12 @@ Sachen gefunden und das Herz zurückgebracht. Und der Pirat war Paco!"
 
 - The title flyover circles wider to show the whole island
 - Tadeo wears his hair with a soft fringe instead of spikes
-- His companion is now Henni, a brown speckled hen with a red neckerchief (replaces Pico the parrot):
+- His companion is now Chuleta, a brown speckled hen with a red neckerchief (replaces Pico the parrot):
   she runs after Tadeo, pecks about, flutters onto his head when he rests or wades, and helps in the
   side games
 - Ogre fight: the "Verteidigen" card is gone; each swing of the ogre is blocked by pressing Space when
   the shield ring turns green (too early shows "Zu früh!"), and blocks charge the special
-- Mia's speckled hen is called Hilde now (Henni is Tadeo's hen)
+- Mia's speckled hen is called Hilde now (Chuleta is Tadeo's hen)
 
 ### Fixed
 

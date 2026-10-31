@@ -125,7 +125,8 @@ on port 5199:
 ```bash
 npx vite --port 5199          # in one terminal
 npm run test:e2e              # all tests in a row (~30 min) → scripts/e2e/out/all.json
-node scripts/e2e/world.mjs    # one test: walks every region path, landmarks, region animals, fps
+node scripts/e2e/world.mjs    # one test: walks every region path, landmarks, region animals, fps, no lettered
+                              # signs outside the village, the island's changes quest by quest (StoryWorld)
 node scripts/e2e/island.mjs   # likewise: title, opening, quests 1–4, map card, riddles, coins, fps
 node scripts/e2e/finale.mjs   # quest 12 from the sea to the festival and the end card
 node scripts/e2e/voices.mjs   # every line has a recording, recordings play, browser speech fallback

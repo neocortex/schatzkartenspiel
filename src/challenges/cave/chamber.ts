@@ -150,6 +150,11 @@ export class Chamber {
 
     // The sword, blade down in the stone
     this.sword = createSword();
+    // Reason: Tadeo says it shines blue, and the quest sword's pale blade reads white under the bloom here (createSword makes the blade and its point first)
+    const blue = new THREE.MeshStandardMaterial({ color: "#3f8fff", emissive: "#1464ff", emissiveIntensity: 0.55, roughness: 0.25 });
+    this.materials.push(blue);
+    const [bar, point] = this.sword.children as THREE.Mesh[];
+    bar.material = point.material = blue;
     this.sword.rotation.set(Math.PI, 0, 0.08);
     this.swordBase = new THREE.Vector3(0, 1.75, 0);
     this.sword.position.copy(this.swordBase);

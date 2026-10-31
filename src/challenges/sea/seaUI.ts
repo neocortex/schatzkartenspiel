@@ -22,6 +22,7 @@ const CSS = /* css */ `
 .sea-berries { display: flex; gap: 8px; font-size: 34px; }
 .sea-berries span { opacity: 0.25; filter: grayscale(1); transition: all 0.3s cubic-bezier(0.2, 1.8, 0.4, 1); }
 .sea-berries span.on { opacity: 1; filter: none; transform: scale(1.15); }
+.sea-berries svg { display: block; width: 38px; height: 38px; filter: drop-shadow(0 2px 0 rgba(0,0,0,0.25)); }
 .sea-hint { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); padding: 12px 26px; border-radius: 22px;
   background: #fff8e8; border: 4px solid #3b2414; box-shadow: 0 6px 0 #3b2414; font: 600 28px "Fredoka", system-ui, sans-serif; color: #3b2414;
   opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
@@ -46,6 +47,12 @@ const STARFISH_POINTS = Array.from({ length: 10 }, (_, i) => {
   const r = i % 2 ? 3.8 : 9.4;
   return `${(Math.cos(a) * r).toFixed(2)},${(Math.sin(a) * r).toFixed(2)}`;
 }).join(" ");
+
+/** The blueberry emoji is blue, and the bunch in Tadeo's hand and the berries he throws are purple, so the slots draw their own. */
+const BERRY_ICON =
+  `<svg viewBox="-12 -12 24 24"><path d="M0 -6.5C.8 -9.8 3.8 -11 7 -10.6C6.6 -7.4 3.8 -5.6 0 -6.5Z" fill="#5fb83a"/>` +
+  `<g fill="#9b4dff" stroke="#6c2fc0" stroke-width="1"><circle cx="-5" cy="1.6" r="5"/><circle cx="5" cy="1.6" r="5"/><circle cy="-3.4" r="5"/><circle cy="6" r="5"/></g>` +
+  `<circle cx="-6.6" cy="-.2" r="1.2" fill="#e2c8ff"/><circle cx="3.2" cy="-.2" r="1.2" fill="#e2c8ff"/><circle cx="-1.6" cy="-5.2" r="1.2" fill="#e2c8ff"/><circle cx="-1.6" cy="4.2" r="1.2" fill="#e2c8ff"/></svg>`;
 
 /** There is no starfish among the emoji, so the status bar draws its own. */
 export const STARFISH_ICON =
@@ -104,7 +111,7 @@ export class SeaUI {
 
   /** Berry slots for the shark: one lights up for each berry it has eaten. */
   showFeeds(n: number): void {
-    const slots = [0, 1, 2].map((i) => `<span class="${i < n ? "on" : ""}">🫐</span>`).join("");
+    const slots = [0, 1, 2].map((i) => `<span class="${i < n ? "on" : ""}">${BERRY_ICON}</span>`).join("");
     this.ui.status(`<div class="sea-hud"><div class="sea-berries">${slots}</div><div class="sea-starfish">${STARFISH_ICON} <b>${this.starfishShown}</b></div></div>`);
   }
 

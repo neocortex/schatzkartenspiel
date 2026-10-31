@@ -1,7 +1,7 @@
 /**
  * The obstacle course between the dock and the treasure island: rocky sea
  * stacks with foam rings, giant rolling waves that sweep towards the boat
- * over one side of the lane, and a trail of golden stars that always shows
+ * over one side of the lane, and a trail of glowing starfish that always shows
  * the safe way through. Hits are never fatal — the boat just gets splashed.
  */
 
@@ -9,11 +9,10 @@ import * as THREE from "three";
 import { mulberry32 } from "../../core/noise";
 import { NOISE_GLSL } from "../../core/glsl";
 import { emptyModel, rockBlob, stoneFn } from "../../world/models/shapes";
-import { mat } from "../../characters/parts";
-import { starGeometry } from "../ogre/Ogre";
 import { Bin, ModelMaterials, modelGroup } from "../ogre/kit";
 import { Fx } from "../ogre/fx";
 import { seaHeight } from "./ocean";
+import { StarfishTrail, createStarfishTrail } from "./starfish";
 
 export interface RowSpec {
   z: number;
@@ -21,7 +20,7 @@ export interface RowSpec {
   rocks?: [number, number][];
   /** A giant wave covering x0..x1 (meets the boat at this row's z). */
   wave?: [number, number];
-  /** Where the star trail passes (a safe x). */
+  /** Where the starfish trail passes (a safe x). */
   safe: number;
 }
 
@@ -47,6 +46,13 @@ export const LANE = 9;
 
 /** Giant waves roll towards the boat at this fraction of the boat's own speed. */
 const WAVE_SPEED = 0.6;
+/** Size of a starfish (half its width) and of the glow around it. */
+const FISH_SIZE = 0.85;
+const GLOW_SIZE = 7;
+/** The glow's lean up from the water, towards the boat: lying flat it would be a thin streak from the chase camera. */
+const GLOW_LEAN = 1.0;
+/** How far a starfish leans back from upright, towards the sky; flat on the water it would be a thin line from the boat. */
+const FISH_LEAN = 0.85;
 
 const WAVE_VERT = /* glsl */ `
 attribute float aH;
@@ -152,7 +158,7 @@ interface Rock {
   hit: boolean;
 }
 
-interface Star {
+interface Starfish {
   x: number;
   z: number;
   taken: boolean;
@@ -170,13 +176,15 @@ export class Course {
   readonly group = new THREE.Group();
   readonly rocks: Rock[] = [];
   readonly waves: Wave[] = [];
-  readonly stars: Star[] = [];
-  private starMesh: THREE.InstancedMesh;
+  readonly starfish: Starfish[] = [];
+  private trail: StarfishTrail;
   private waveMat: THREE.ShaderMaterial;
   private m = new THREE.Matrix4();
   private q = new THREE.Quaternion();
+  private e = new THREE.Euler();
   private v = new THREE.Vector3();
   private s = new THREE.Vector3();
+  private c = new THREE.Color();
   private sprayTimer = 0;
 
   constructor(
@@ -201,7 +209,7 @@ export class Course {
       for (const [x, r] of row.rocks ?? []) this.addRock(x, row.z + (rand() - 0.5) * 3, r, rand, mats);
       if (row.wave) this.addWave(row.wave[0], row.wave[1], row.z);
     }
-    // Star trail: from the dock through every row's safe spot
+    // Starfish trail: from the dock through every row's safe spot
     const path: [number, number][] = [[0, -12], ...COURSE.map((r) => [r.safe, r.z] as [number, number]), [0, COURSE_END]];
     for (let i = 0; i < path.length - 1; i++) {
       const [xa, za] = path[i];
@@ -210,12 +218,11 @@ export class Course {
       for (let k = 0; k < n; k++) {
         const t = k / n;
         const e = t * t * (3 - 2 * t);
-        this.stars.push({ x: xa + (xb - xa) * e, z: za + (zb - za) * t, taken: false, pop: 0 });
+        this.starfish.push({ x: xa + (xb - xa) * e, z: za + (zb - za) * t, taken: false, pop: 0 });
       }
     }
-    this.starMesh = new THREE.InstancedMesh(starGeometry(0.42), mat("#ffd23f", 0.3, 1.1), this.stars.length);
-    this.starMesh.frustumCulled = false;
-    this.group.add(this.starMesh);
+    this.trail = createStarfishTrail(this.starfish.length, bin);
+    this.group.add(this.trail.fish, this.trail.glow);
   }
 
   private addRock(x: number, z: number, r: number, rand: () => number, mats: ModelMaterials): void {
@@ -251,10 +258,10 @@ export class Course {
   }
 
   /**
-   * Move waves, spin stars, and test the boat (centre x, z; bow points to -z).
-   * Returns obstacles hit this frame and stars collected (only while `active`).
+   * Move waves, float the starfish, and test the boat (centre x, z; bow points to -z).
+   * Returns obstacles hit this frame and starfish collected (only while `active`).
    */
-  update(dt: number, t: number, bx: number, bz: number, active: boolean): { hits: CourseHit[]; stars: THREE.Vector3[] } {
+  update(dt: number, t: number, bx: number, bz: number, active: boolean): { hits: CourseHit[]; starfish: THREE.Vector3[] } {
     const hits: CourseHit[] = [];
     const got: THREE.Vector3[] = [];
     for (const r of this.rocks) {
@@ -285,7 +292,8 @@ export class Course {
         hits.push({ kind: "wave", at: new THREE.Vector3(bx, 1.2, bz - 1), push: bx - (w.x0 + w.x1) / 2 > 0 ? 1 : -1 });
       }
     }
-    this.stars.forEach((s, i) => {
+    const { fish, glow } = this.trail;
+    this.starfish.forEach((s, i) => {
       if (active && !s.taken && Math.abs(s.z - bz) < 2.6 && Math.abs(s.x - bx) < 2.0) {
         s.taken = true;
         got.push(new THREE.Vector3(s.x, 1.2, s.z));
@@ -293,13 +301,24 @@ export class Course {
       if (s.taken) s.pop = Math.min(s.pop + dt * 4, 1);
       const far = s.z > bz + 12 || s.z < bz - 260;
       const scale = far ? 0 : s.taken ? Math.max(0, 1 - s.pop) * (1 + s.pop) : 1;
-      const y = 1.05 + seaHeight(s.x, s.z, t) * 0.6 + Math.sin(t * 3 + i) * 0.15 + s.pop * 1.5;
-      // Reason: a gentle wobble instead of a full spin, so stars never turn edge-on into thin bars
-      this.q.setFromAxisAngle(this.v.set(0, 1, 0), Math.sin(t * 2.2 + i * 0.7) * 0.5);
-      this.m.compose(this.v.set(s.x, y, s.z), this.q, this.s.setScalar(scale));
-      this.starMesh.setMatrixAt(i, this.m);
+      const sea = seaHeight(s.x, s.z, t);
+      // Reason: the slow bob dips the lower arm in and out of the water, so each one floats instead of hovering
+      const y = sea + 0.34 + Math.sin(t * 1.3 + i * 1.1) * 0.16 + s.pop * 1.5;
+      // Reason: the phase falls with the index, so the light runs along the trail, away from the boat, and shows the way
+      const pulse = 0.5 + 0.5 * Math.sin(t * 2.2 - i * 0.55);
+      this.e.set(-FISH_LEAN + Math.sin(t * 1.7 + i) * 0.1, Math.sin(t * 1.3 + i * 0.7) * 0.22, Math.sin(t * 0.5 + i * 2.4) * 0.6);
+      this.m.compose(this.v.set(s.x, y, s.z), this.q.setFromEuler(this.e), this.s.setScalar(scale * FISH_SIZE));
+      fish.setMatrixAt(i, this.m);
+      fish.setColorAt(i, this.c.setScalar(0.75 + pulse * 0.6));
+      this.e.set(GLOW_LEAN, 0, 0);
+      this.m.compose(this.v.set(s.x, y, s.z), this.q.setFromEuler(this.e), this.s.setScalar(scale * GLOW_SIZE * (0.82 + pulse * 0.3)));
+      glow.setMatrixAt(i, this.m);
+      glow.setColorAt(i, this.c.setScalar(0.65 + pulse * 0.75));
     });
-    this.starMesh.instanceMatrix.needsUpdate = true;
-    return { hits, stars: got };
+    for (const mesh of [fish, glow]) {
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.instanceColor!.needsUpdate = true;
+    }
+    return { hits, starfish: got };
   }
 }

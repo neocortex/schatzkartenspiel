@@ -2,16 +2,14 @@
  * The giant shark: a big, goofy cartoon shark (cheeky grin, huge eyes, rosy
  * cheeks) built from outlined toon shapes in the island's character style.
  * Procedurally animated: swimming tail beats, fin flaps, an opening jaw,
- * blinking, moods (grin, angry, dizzy with circling stars, happy), squash and
- * stretch, and a growing collection of bumps on the head. Free of any
- * challenge logic so it can swim anywhere.
+ * blinking, moods (grin, angry, happy), squash and stretch, and chewing with
+ * full cheeks. Free of any challenge logic so it can swim anywhere.
  *
  * Faces +z with its centre at the origin, about 6.4 units long.
  */
 
 import * as THREE from "three";
 import { mat, toonMesh } from "../../characters/parts";
-import { starGeometry } from "../ogre/Ogre";
 
 const C = {
   top: "#4f8fd0",
@@ -23,11 +21,9 @@ const C = {
   pupil: "#14202b",
   brow: "#24456b",
   blush: "#ff8fa3",
-  bump: "#ff9fb0",
-  star: "#ffd23f",
 };
 
-export type SharkMood = "grin" | "angry" | "dizzy" | "happy";
+export type SharkMood = "grin" | "angry" | "happy";
 
 let skin: THREE.MeshStandardMaterial | null = null;
 /** Two-tone skin (blue back, cream belly) via vertex colours; shared like `mat()`. */
@@ -147,8 +143,10 @@ export class Shark {
   private brows: THREE.Mesh[] = [];
   private finsL: THREE.Group;
   private finsR: THREE.Group;
-  private dizzy = new THREE.Group();
-  private bumps: THREE.Mesh[] = [];
+  private cheeks: { blush: THREE.Mesh; puff: THREE.Mesh }[] = [];
+  /** Seconds of chewing left, out of how many. */
+  private chewLeft = 0;
+  private chewFor = 1;
 
   constructor() {
     // Reason: built at half size and scaled up, so the shared outline reads as thick as on the characters
@@ -234,7 +232,6 @@ export class Shark {
     }
 
     this.buildFace();
-    this.buildDizzy();
   }
 
   private buildFace(): void {
@@ -288,11 +285,18 @@ export class Shark {
       brow.position.set(side * 0.3, 0.66, 1.0);
       h.add(brow);
       this.brows.push(brow);
-      // Rosy cheek and gills
-      const cheek = new THREE.Mesh(new THREE.CircleGeometry(0.09, 16), mat(C.blush, 0.8, 0.4));
+      // Rosy cheek (with a hidden pouch that swells up while chewing) and gills
+      const cheek = new THREE.Group();
       cheek.position.set(side * 0.475, -0.08, 0.95);
       cheek.rotation.y = side * 1.05;
+      const blush = new THREE.Mesh(new THREE.CircleGeometry(0.09, 16), mat(C.blush, 0.8, 0.4));
+      // Reason: painted and lit like the body, with no outline of its own, so it reads as the flank bulging and not as a ball stuck on
+      const puff = toonMesh(paintSkin(new THREE.SphereGeometry(0.21, 16, 12), 0), skinMaterial(), false);
+      puff.position.z = -0.05;
+      puff.visible = false;
+      cheek.add(blush, puff);
       h.add(cheek);
+      this.cheeks.push({ blush, puff });
       for (let k = 0; k < 3; k++) {
         const gill = toonMesh(new THREE.TorusGeometry(0.2, 0.014, 4, 12, Math.PI * 0.55), mat(C.topDark, 0.5), false);
         gill.position.set(side * 0.6, 0.02, 0.48 - k * 0.13);
@@ -308,37 +312,26 @@ export class Shark {
     }
   }
 
-  private buildDizzy(): void {
-    const geo = starGeometry(0.11);
-    for (let i = 0; i < 5; i++) {
-      const s = toonMesh(geo, mat(C.star, 0.3, 0.9), false);
-      const a = (i / 5) * Math.PI * 2;
-      s.position.set(Math.cos(a) * 0.5, 0, Math.sin(a) * 0.5);
-      this.dizzy.add(s);
-    }
-    this.dizzy.position.set(0, 0.95, 0.75);
-    this.dizzy.visible = false;
-    this.head.add(this.dizzy);
-  }
-
   /** Squash-and-stretch kick (positive squashes, negative stretches). */
   bounce(amount: number): void {
     this.squashV += amount * 9;
   }
 
-  /** A fresh bump on the head (one per bonk). */
-  addBump(): void {
-    const i = this.bumps.length;
-    const b = toonMesh(new THREE.SphereGeometry(0.11 - i * 0.015, 12, 8), mat(C.bump, 0.5, 0.3));
-    b.position.set((i - 1) * 0.2, 0.62 - Math.abs(i - 1) * 0.04, 0.7 + (i % 2) * 0.12);
-    b.scale.set(1, 0.8, 1);
-    this.head.add(b);
-    this.bumps.push(b);
+  /** Snap the jaw shut on a mouthful and chew it, cheeks full. */
+  chew(seconds: number): void {
+    this.chewLeft = seconds;
+    this.chewFor = seconds;
+    this.jawOpen = 0;
   }
 
-  /** World position of the top of the head (where the hammer lands). */
+  /** World position of the top of the head. */
   headPos(target = new THREE.Vector3()): THREE.Vector3 {
     return this.head.localToWorld(target.set(0, 0.55, 0.85));
+  }
+
+  /** World position of the middle of the open mouth, between the palate and the tongue. */
+  mouthPos(target = new THREE.Vector3()): THREE.Vector3 {
+    return this.head.localToWorld(target.set(0, -0.5, 1.05));
   }
 
   /** World position of the snout tip. */
@@ -357,38 +350,54 @@ export class Shark {
     this.finsL.rotation.x = Math.sin(t * 2.4) * 0.15;
     this.finsR.rotation.x = Math.sin(t * 2.4 + 1) * 0.15;
     this.finsR.rotation.z = this.waving ? -0.9 + Math.sin(t * 12) * 0.5 : 0;
+    // A happy wiggle through the whole body while waving
+    this.body.rotation.z = this.waving ? Math.sin(t * 7) * 0.13 : 0;
+    // Chewing runs from 0 to 1: first the eyes pop at the taste, then they squeeze shut with joy
+    const chewing = this.chewLeft > 0;
+    const chew = chewing ? 1 - this.chewLeft / this.chewFor : 0;
+    const wide = chewing ? 1 - THREE.MathUtils.smoothstep(chew, 0.22, 0.36) : 0;
+    const savour = chewing ? THREE.MathUtils.smoothstep(chew, 0.3, 0.42) * (1 - THREE.MathUtils.smoothstep(chew, 0.9, 1)) : 0;
+    const full = chewing ? THREE.MathUtils.smoothstep(chew, 0, 0.06) * (1 - THREE.MathUtils.smoothstep(chew, 0.86, 1)) : 0;
+    if (chewing) {
+      this.chewLeft -= dt;
+      // Reason: the swallow at the end gets its own little gulp through the whole body
+      if (this.chewLeft <= 0) this.bounce(-0.45);
+    }
     // Jaw
-    const open = this.mood === "dizzy" ? 0.35 + Math.sin(t * 3) * 0.1 : this.mouth;
+    const open = chewing ? 0.03 + Math.abs(Math.sin(t * 11)) * 0.17 : this.mouth;
     this.jawOpen += (open - this.jawOpen) * Math.min(dt * 12, 1);
     this.jaw.rotation.x = this.jawOpen * 0.75;
+    for (const { blush, puff } of this.cheeks) {
+      puff.visible = full > 0.01;
+      puff.scale.setScalar(Math.max(full, 0.01));
+      // Reason: the blush rides on the outside of the swelling pouch
+      blush.position.z = 0.002 + full * 0.165;
+      blush.scale.setScalar(1 + full * 0.45);
+    }
     // Squash and stretch (spring)
     this.squashV += (-this.squash * 90 - this.squashV * 9) * dt;
     this.squash += this.squashV * dt;
     const sq = THREE.MathUtils.clamp(this.squash, -0.4, 0.4);
     this.body.scale.set(1 + sq * 0.5, 1 - sq * 0.6, 1 + sq * 0.3);
-    // Blinking (not while dizzy)
+    // Blinking
     this.blink -= dt;
     let lid = 1;
     if (this.blink < 0.12) lid = Math.max(Math.abs(this.blink - 0.06) / 0.06, 0.1);
     if (this.blink < 0) this.blink = 1.5 + Math.random() * 3;
-    // Moods: brows, pupils, stars
+    // Moods: brows and pupils
     const m = this.mood;
-    this.dizzy.visible = m === "dizzy";
-    this.dizzy.rotation.y = t * 4;
     this.pupils.forEach((p, i) => {
       const side = i === 0 ? -1 : 1;
-      if (m === "dizzy") {
-        p.position.set(side * 0.02 + Math.cos(t * 9 + i * Math.PI) * 0.06, Math.sin(t * 9 + i * Math.PI) * 0.06, 0.13);
-      } else {
-        p.position.set(side * 0.02 + Math.sin(t * 0.7) * 0.02, m === "happy" ? 0.03 : 0, 0.13);
-      }
+      p.position.set(side * 0.02 + Math.sin(t * 0.7) * 0.02, m === "happy" ? 0.03 : 0, 0.13);
     });
-    this.eyes.forEach((e) => (e.scale.y = m === "happy" ? Math.min(lid, 0.55) : m === "dizzy" ? 1 : lid));
+    const squint = (m === "happy" ? Math.min(lid, 0.55) : lid) * (1 - savour * 0.72);
+    this.eyes.forEach((e) => e.scale.set(1 + wide * 0.22, squint * (1 + wide * 0.32), 1));
     this.brows.forEach((b, i) => {
       const side = i === 0 ? -1 : 1;
-      const tilt = m === "angry" ? 0.5 : m === "grin" ? 0.25 : m === "happy" ? -0.25 : -0.1;
-      b.rotation.set(0, 0, Math.PI / 2 + side * tilt);
-      b.position.y = m === "angry" ? 0.62 : 0.68;
+      const tilt = m === "angry" ? 0.5 : m === "grin" ? 0.25 : -0.25;
+      const eased = THREE.MathUtils.lerp(tilt, -0.32, Math.max(wide, savour));
+      b.rotation.set(0, 0, Math.PI / 2 + side * eased);
+      b.position.y = (m === "angry" ? 0.62 : 0.68) + wide * 0.08;
     });
   }
 }

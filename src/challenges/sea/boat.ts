@@ -1,21 +1,24 @@
 /**
- * Tadeo's little sailboat (the island's north-dock boat) riding the swell:
- * it bobs, pitches and rolls with the waves, leans into turns, throws spray
- * off the bow and carries Tadeo — sitting at the stern while sailing, or
- * standing with the golden hammer, ready to bonk the shark.
+ * Tadeo's little mended sailboat (the island's north-dock boat) riding the
+ * swell: it bobs, pitches and rolls with the waves, leans into turns, throws
+ * spray off the bow and carries Tadeo — sitting at the stern while sailing, or
+ * standing with the magic berries, ready to throw one to the shark.
  */
 
 import * as THREE from "three";
 import { Humanoid } from "../../characters/Humanoid";
 import { createTadeo } from "../../characters/cast";
-import { createHammer } from "../../world/models/items";
+import { createBerries } from "../../world/models/items";
 import { sailboat, NORTH_DOCK_BOAT } from "../../world/models/boats";
 import { SignAtlas } from "../../world/models/signs";
 import { ModelMaterials, modelGroup, clamp01, ease, lerp } from "../ogre/kit";
 import { Fx } from "../ogre/fx";
 import { seaHeight } from "./ocean";
 
-export type SailorPose = "sit" | "stand" | "swing" | "cheer" | "duck";
+export type SailorPose = "sit" | "stand" | "throw" | "cheer" | "duck";
+
+/** How far the raised arm leans out, so the berries are held beside Tadeo's face and not in front of it. */
+const READY_OUT = 0.7;
 
 export class Boat {
   /** Position on the water and heading (yaw 0 = bow towards -z). */
@@ -23,10 +26,10 @@ export class Boat {
   /** Pitch and roll on the swell. */
   readonly tilt = new THREE.Group();
   readonly hero: Humanoid;
-  readonly hammer: THREE.Group;
+  readonly berries: THREE.Group;
   pose: SailorPose = "sit";
-  /** Swing progress 0..1 while `pose === "swing"`. */
-  swing = 0;
+  /** Throw progress 0..1 while `pose === "throw"`. */
+  throwK = 0;
   /** Which side Tadeo faces when standing (+1 = starboard/+x, -1 = port). */
   side = 1;
   /** Forward speed and sideways velocity (set by the challenge). */
@@ -49,18 +52,20 @@ export class Boat {
     private fx: Fx,
   ) {
     this.root.add(this.tilt);
-    const model = modelGroup(sailboat(atlas, NORTH_DOCK_BOAT, null, 23), mats);
+    const model = modelGroup(sailboat(atlas, { ...NORTH_DOCK_BOAT, patched: true }, null, 23), mats);
     // Reason: boat models point their bow along +x; the course runs towards -z
     model.rotation.y = Math.PI / 2;
     this.tilt.add(model);
 
     this.hero = createTadeo();
     this.tilt.add(this.hero.root);
-    this.hammer = createHammer();
-    this.hammer.rotation.x = Math.PI / 2;
-    this.hammer.position.set(0, -0.02, 0.02);
-    this.hammer.visible = false;
-    this.hero.handR.add(this.hammer);
+    this.berries = createBerries();
+    this.berries.scale.setScalar(1.6);
+    // Reason: the raised arm points the hand's -y at the sky, so the bunch is turned over to stand upright in the fist
+    this.berries.rotation.x = Math.PI;
+    this.berries.position.set(0, -0.04, 0.02);
+    this.berries.visible = false;
+    this.hero.handR.add(this.berries);
   }
 
   get x(): number {
@@ -115,8 +120,8 @@ export class Boat {
     const h = this.hero;
     const standing = this.pose !== "sit";
     h.pose = this.pose === "cheer" ? "cheer" : this.pose === "sit" ? "sit" : "normal";
-    // Standing on the floorboards amidships, or sitting on the stern thwart
-    h.root.position.set(0, standing ? 0.05 : 0.2, standing ? 0.35 : 1.25);
+    // Standing on the floorboards amidships (on the side he faces, clear of the sail), or sitting on the stern thwart
+    h.root.position.set(standing ? this.side * 0.42 : 0, standing ? 0.05 : 0.2, standing ? 0.35 : 1.25);
     h.root.rotation.y = standing ? (this.side > 0 ? Math.PI / 2 : -Math.PI / 2) : Math.PI;
     h.update(dt, { speed: 0, grounded: true, vy: 0 });
     const a = h;
@@ -127,19 +132,20 @@ export class Boat {
       a.armL.rotation.set(-0.3, 0, -0.9);
       a.armR.rotation.set(-0.5, 0, 0.6 + Math.sin(t * 2) * 0.05);
     } else if (this.pose === "stand") {
-      // Hammer raised, knees bent, bouncing on the toes
+      // Berries held up high, knees bent, bouncing on the toes
       a.body.position.y += -0.06 + Math.abs(Math.sin(t * 5)) * 0.04;
-      a.armR.rotation.set(-2.7 + Math.sin(t * 5) * 0.08, 0, 0.25);
+      a.armR.rotation.set(-2.5 + Math.sin(t * 5) * 0.08, 0, READY_OUT);
       a.armL.rotation.set(-0.6, 0, -0.5);
       a.legL.rotation.x = -0.25;
       a.legR.rotation.x = 0.2;
-    } else if (this.pose === "swing") {
-      const s = this.swing;
-      const up = ease.outQuad(clamp01(s / 0.3));
-      const down = ease.outCubic(clamp01((s - 0.3) / 0.25));
-      a.armR.rotation.set(lerp(lerp(-2.7, -3.1, up), -0.7, down), 0, lerp(0.25, 0.05, down));
-      a.armL.rotation.set(lerp(-0.6, 0.3, down), 0, -0.7);
-      a.torso.rotation.x = lerp(-0.15 * up, 0.35, down);
+    } else if (this.pose === "throw") {
+      // A quick wind-up behind the head, then the arm whips forward and up, towards the mouth
+      const s = this.throwK;
+      const back = ease.outQuad(clamp01(s / 0.2));
+      const forward = ease.outCubic(clamp01((s - 0.2) / 0.4));
+      a.armR.rotation.set(lerp(lerp(-2.5, -3.4, back), -1.75, forward), 0, lerp(READY_OUT, 0.05, forward));
+      a.armL.rotation.set(lerp(-0.6, 0.2, forward), 0, -0.7);
+      a.torso.rotation.x = lerp(-0.2 * back, 0.28, forward);
       a.legL.rotation.x = -0.35;
       a.legR.rotation.x = 0.3;
     } else if (this.pose === "duck") {

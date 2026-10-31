@@ -469,8 +469,21 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   ],
 
   // -----------------------------------------------------------------------
-  // Milestone 9: Shark
+  // Quest 10: the shark
   // -----------------------------------------------------------------------
+  // At the dock, right before the crossing
+  sea_dock: [
+    {
+      speaker: "Käpt'n Paco",
+      portrait: "",
+      text: "Dein Boot ist geflickt! Der Oger hat es hergetragen.",
+    },
+    {
+      speaker: "Käpt'n Paco",
+      portrait: "",
+      text: "Folge den leuchtenden Seesternen. Da ist das Wasser sicher.",
+    },
+  ],
   sea_crossing: [
     {
       speaker: "Tadeo",
@@ -490,16 +503,21 @@ export const DIALOGUES: Record<string, DialogueScript> = {
       text: "Plötzlich erscheint eine riesige Flosse im Wasser...",
     },
     {
+      speaker: "Chuleta",
+      portrait: "",
+      text: "Der Hai ist auch ein Monster! Gack! Die Beeren!",
+    },
+    {
       speaker: "Tadeo",
       portrait: "portrait_tadeo",
-      text: "Ein Riesenhai! Ich muss ihn besiegen, um sicher rüberzukommen!",
+      text: "Hier, Hai! Mach den Mund auf!",
     },
   ],
   shark_defeat: [
     {
       speaker: "Tadeo",
       portrait: "portrait_tadeo",
-      text: "Der Hai ist besiegt! Jetzt kann ich sicher zur Schatzinsel fahren!",
+      text: "Der Hai ist wieder lieb! Jetzt kann ich sicher zur Schatzinsel fahren!",
     },
     {
       speaker: "Tadeo",
@@ -567,7 +585,7 @@ export const DIALOGUES: Record<string, DialogueScript> = {
     {
       speaker: "Erzähler",
       portrait: "",
-      text: "Und so endet das große Abenteuer von Tadeo auf der Schatzinsel.",
+      text: "Und so endet das große Abenteuer von Tadeo auf der Insel.",
     },
     {
       speaker: "Erzähler",

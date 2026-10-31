@@ -1,8 +1,8 @@
 /**
  * HTML overlay for the sea crossing: the voyage tracker (dock → boat →
- * treasure island) with the star counter, the three hammer slots of the
- * shark fight, big key hints, and the timing ring that shrinks onto the
- * shark's head — it turns green with "JETZT!" when Space will land the bonk.
+ * treasure island) with the starfish counter, the three berry slots for the
+ * shark, big key hints, and the timing ring that shrinks onto the shark's open
+ * mouth — it turns green with "JETZT!" when Space will throw the berry in.
  */
 
 import * as THREE from "three";
@@ -15,16 +15,18 @@ const CSS = /* css */ `
 .sea-line { position: relative; width: 340px; height: 16px; border-radius: 10px; background: #bfe9f5; box-shadow: inset 0 3px 0 rgba(0,0,0,0.15); border: 3px solid #3b2414; }
 .sea-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; background: linear-gradient(90deg, #4fc3e8, #2f9fd8); }
 .sea-boat { position: absolute; top: 50%; transform: translate(-50%, -62%); font-size: 34px; filter: drop-shadow(0 3px 0 rgba(0,0,0,0.25)); }
-.sea-stars { font-size: 28px; min-width: 86px; }
-.sea-stars b { display: inline-block; transition: transform 0.15s; }
-.sea-stars b.pop { transform: scale(1.45); }
-.sea-bonks { display: flex; gap: 8px; font-size: 34px; }
-.sea-bonks span { opacity: 0.25; filter: grayscale(1); transition: all 0.3s cubic-bezier(0.2, 1.8, 0.4, 1); }
-.sea-bonks span.on { opacity: 1; filter: none; transform: scale(1.15); }
+.sea-starfish { display: flex; align-items: center; gap: 6px; font-size: 28px; min-width: 86px; }
+.sea-starfish svg { width: 34px; height: 34px; filter: drop-shadow(0 2px 0 rgba(0,0,0,0.25)); }
+.sea-starfish b { display: inline-block; transition: transform 0.15s; }
+.sea-starfish b.pop { transform: scale(1.45); }
+.sea-berries { display: flex; gap: 8px; font-size: 34px; }
+.sea-berries span { opacity: 0.25; filter: grayscale(1); transition: all 0.3s cubic-bezier(0.2, 1.8, 0.4, 1); }
+.sea-berries span.on { opacity: 1; filter: none; transform: scale(1.15); }
 .sea-hint { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); padding: 12px 26px; border-radius: 22px;
   background: #fff8e8; border: 4px solid #3b2414; box-shadow: 0 6px 0 #3b2414; font: 600 28px "Fredoka", system-ui, sans-serif; color: #3b2414;
   opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
 .sea-hint.show { opacity: 1; }
+.sea-hint .sea-hint-fish svg { width: 30px; height: 30px; vertical-align: -6px; }
 .sea-hint .key { display: inline-block; padding: 2px 12px; margin: 0 4px; border-radius: 10px; background: #fff; border: 3px solid #3b2414; box-shadow: 0 3px 0 #3b2414; }
 .sea-ring { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; display: none; }
 .sea-ring.show { display: block; }
@@ -39,13 +41,24 @@ const CSS = /* css */ `
 @keyframes sea-pulse { to { transform: translate(-50%, -50%) scale(1.12); } }
 `;
 
+const STARFISH_POINTS = Array.from({ length: 10 }, (_, i) => {
+  const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+  const r = i % 2 ? 3.8 : 9.4;
+  return `${(Math.cos(a) * r).toFixed(2)},${(Math.sin(a) * r).toFixed(2)}`;
+}).join(" ");
+
+/** There is no starfish among the emoji, so the status bar draws its own. */
+export const STARFISH_ICON =
+  `<svg viewBox="-12 -12 24 24"><polygon points="${STARFISH_POINTS}" fill="#ff6f3f" stroke="#ff6f3f" stroke-width="3.6" stroke-linejoin="round"/>` +
+  `<circle r="1.5" fill="#ffe9c4"/><circle cy="-5" r="1" fill="#ffe9c4"/><circle cx="4.8" cy="-1.5" r="1" fill="#ffe9c4"/><circle cx="-4.8" cy="-1.5" r="1" fill="#ffe9c4"/><circle cx="3" cy="4" r="1" fill="#ffe9c4"/><circle cx="-3" cy="4" r="1" fill="#ffe9c4"/></svg>`;
+
 export class SeaUI {
   private hint: HTMLElement;
   private ring: HTMLElement;
   private shrink: HTMLElement;
   private label: HTMLElement;
   private v = new THREE.Vector3();
-  private starsShown = -1;
+  private starfishShown = 0;
 
   constructor(
     private ui: GameUI,
@@ -62,38 +75,37 @@ export class SeaUI {
     ui.layer.append(this.hint, this.ring);
   }
 
-  /** Voyage tracker + star counter in the status bar. */
+  /** Voyage tracker + starfish counter in the status bar. */
   showVoyage(): void {
     this.ui.status(
       `<div class="sea-hud"><div class="sea-track">⚓<div class="sea-line"><div class="sea-fill"></div><span class="sea-boat">⛵</span></div>🏝️</div>` +
-        `<div class="sea-stars">⭐ <b>0</b></div></div>`,
+        `<div class="sea-starfish">${STARFISH_ICON} <b>${this.starfishShown}</b></div></div>`,
     );
-    this.starsShown = -1;
   }
 
-  setVoyage(progress: number, stars: number): void {
+  setVoyage(progress: number, starfish: number): void {
     const pct = `${(Math.min(Math.max(progress, 0), 1) * 100).toFixed(1)}%`;
     const fill = document.querySelector<HTMLElement>(".sea-fill");
     const boat = document.querySelector<HTMLElement>(".sea-boat");
     if (fill) fill.style.width = pct;
     if (boat) boat.style.left = pct;
-    if (stars !== this.starsShown) {
-      const b = document.querySelector<HTMLElement>(".sea-stars b");
+    if (starfish !== this.starfishShown) {
+      const b = document.querySelector<HTMLElement>(".sea-starfish b");
       if (b) {
-        b.textContent = String(stars);
+        b.textContent = String(starfish);
         b.classList.remove("pop");
         void b.offsetWidth;
         b.classList.add("pop");
         setTimeout(() => b.classList.remove("pop"), 150);
       }
-      this.starsShown = stars;
+      this.starfishShown = starfish;
     }
   }
 
-  /** Hammer slots for the shark fight. */
-  showBonks(count: number, stars: number): void {
-    const slots = [0, 1, 2].map((i) => `<span class="${i < count ? "on" : ""}">🔨</span>`).join("");
-    this.ui.status(`<div class="sea-hud"><div class="sea-bonks">${slots}</div><div class="sea-stars">⭐ <b>${stars}</b></div></div>`);
+  /** Berry slots for the shark: one lights up for each berry it has eaten. */
+  showFeeds(n: number): void {
+    const slots = [0, 1, 2].map((i) => `<span class="${i < n ? "on" : ""}">🫐</span>`).join("");
+    this.ui.status(`<div class="sea-hud"><div class="sea-berries">${slots}</div><div class="sea-starfish">${STARFISH_ICON} <b>${this.starfishShown}</b></div></div>`);
   }
 
   /** Big hint bubble at the bottom (null hides it). */

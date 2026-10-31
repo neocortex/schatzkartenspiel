@@ -1,10 +1,11 @@
 /**
- * Quest 9 — the sea crossing. Tadeo sails the little boat from the north
+ * Quest 10 — the sea crossing. Tadeo sails his mended boat from the north
  * dock towards the treasure island on the horizon: ← → dodge sea stacks and
- * giant waves while collecting the star trail. Then a giant shark circles
- * the boat; three well-timed golden-hammer bonks (Space when the ring turns
- * green) send it off, and the boat runs aground on the treasure island's
- * beach. No failure: hits and misses only splash Tadeo.
+ * giant waves while collecting the trail of glowing starfish. Then a giant
+ * angry shark circles the boat; three well-timed magic berries thrown into its
+ * open mouth (Space when the ring turns green) make it lieb again, it swims off
+ * happy, and the boat runs aground on the treasure island's beach. No failure:
+ * hits and misses only splash Tadeo.
  */
 
 import * as THREE from "three";
@@ -24,9 +25,10 @@ import { Course, COURSE_END, LANE, CourseHit } from "./course";
 import { Scenery, LANDING_Z } from "./scenery";
 import { Boat } from "./boat";
 import { Gulls } from "./gulls";
+import { Hearts } from "./hearts";
 import { createShark, Shark } from "./Shark";
 import { SharkFight } from "./sharkFight";
-import { SeaUI } from "./seaUI";
+import { SeaUI, STARFISH_ICON } from "./seaUI";
 
 export type SeaPhase = "intro" | "sail" | "shark" | "arrive" | "done";
 
@@ -45,7 +47,7 @@ export class SeaChallenge implements Challenge {
   };
   readonly finished: Promise<void>;
   phase: SeaPhase = "intro";
-  stars = 0;
+  starfish = 0;
 
   private resolve!: () => void;
   private engine!: Engine;
@@ -69,6 +71,7 @@ export class SeaChallenge implements Challenge {
   private boat: Boat;
   private gulls = new Gulls(6);
   private shark: Shark = createShark();
+  private hearts = new Hearts(this.camera);
   private fight: SharkFight;
   private isles = 0;
   private sceneTime = 0;
@@ -127,7 +130,7 @@ export class SeaChallenge implements Challenge {
     this.atlas.draw();
     this.boat = new Boat(this.atlas, this.mats, this.fx);
     this.shark.root.visible = false;
-    scene.add(this.ocean.mesh, this.wake.mesh, this.scenery.group, this.course.group, this.boat.root, this.gulls.group, this.shark.root, this.fx.group);
+    scene.add(this.ocean.mesh, this.wake.mesh, this.scenery.group, this.course.group, this.boat.root, this.gulls.group, this.shark.root, this.hearts.group, this.fx.group);
 
     this.fight = new SharkFight(
       {
@@ -135,6 +138,7 @@ export class SeaChallenge implements Challenge {
         boat: this.boat,
         shark: this.shark,
         fx: this.fx,
+        hearts: this.hearts,
         cam: this.cam,
         pop: this.popups,
         ui: this.seaUI,
@@ -145,7 +149,7 @@ export class SeaChallenge implements Challenge {
           this.slowLeft = s;
         },
         hitStop: (s) => (this.hitStopLeft = Math.max(this.hitStopLeft, s)),
-        onBonk: (n) => this.seaUI.showBonks(n, this.stars),
+        onFeed: (n) => this.seaUI.showFeeds(n),
       },
       this.bin,
       scene,
@@ -164,8 +168,9 @@ export class SeaChallenge implements Challenge {
       safe: this.course.nextSafe(this.boat.z),
       leaping: this.fight.leaping,
       ringNow: this.fight.ringNow,
-      bonks: this.fight.bonks,
-      stars: this.stars,
+      throws: this.fight.throws,
+      mood: this.shark.mood,
+      starfish: this.starfish,
     };
   }
 
@@ -207,6 +212,7 @@ export class SeaChallenge implements Challenge {
     this.wake.update(sdt, b.x + Math.sin(yaw) * 2.3, b.z + Math.cos(yaw) * 2.3, -Math.sin(yaw), -Math.cos(yaw), this.boat.speed / CRUISE);
     this.gulls.update(sdt, b);
     this.shark.update(sdt);
+    this.hearts.update(sdt);
     this.fight.update(sdt);
     this.scenery.update(sdt);
     this.clouds.update(sdt);
@@ -222,7 +228,7 @@ export class SeaChallenge implements Challenge {
     this.sun.position.copy(this.sun.target.position).addScaledVector(this.sunDir, 70);
   }
 
-  /** Forward motion, steering, the obstacle course and the star trail. */
+  /** Forward motion, steering, the obstacle course and the starfish trail. */
   private sail(dt: number): void {
     const boat = this.boat;
     boat.speed += (this.cruise - boat.speed) * Math.min(dt * 1.2, 1);
@@ -242,13 +248,13 @@ export class SeaChallenge implements Challenge {
     const res = this.course.update(dt, this.sceneTime, p.x, p.z, this.phase === "sail");
     if (this.phase !== "sail") return;
     for (const hit of res.hits) this.onHit(hit);
-    for (const at of res.stars) {
-      this.stars++;
+    for (const at of res.starfish) {
+      this.starfish++;
       this.fx.stars(at, 8);
-      this.fx.glow.emit({ at, count: 1, speed: [0, 0], life: [0.25, 0.25], size: [1.2, 2.4], color: "#ffe066", intensity: 2 });
-      audio.playSfx("sfx_berry_collect", 0.55, 1 + (this.stars % 5) * 0.06);
+      this.fx.glow.emit({ at, count: 1, speed: [0, 0], life: [0.25, 0.25], size: [1.2, 2.4], color: "#ffb070", intensity: 2 });
+      audio.playSfx("sfx_berry_collect", 0.55, 1 + (this.starfish % 5) * 0.06);
     }
-    this.seaUI.setVoyage(-p.z / -LANDING_Z, this.stars);
+    this.seaUI.setVoyage(-p.z / -LANDING_Z, this.starfish);
   }
 
   private onHit(hit: CourseHit): void {
@@ -274,7 +280,7 @@ export class SeaChallenge implements Challenge {
     this.chase = true;
     this.cruise = CRUISE;
     seaUI.showVoyage();
-    seaUI.showHint(`<span class="key">←</span><span class="key">→</span> lenken · folge den Sternen ⭐`);
+    seaUI.showHint(`<span class="key">←</span><span class="key">→</span> lenken · folge den Seesternen <span class="sea-hint-fish">${STARFISH_ICON}</span>`);
     this.phase = "sail";
     await ui.hud.showBanner("Ahoi!", "Auf zur Schatzinsel!", 1800);
     await tl.wait(5);
@@ -290,27 +296,37 @@ export class SeaChallenge implements Challenge {
     cam.move(new THREE.Vector3(b.x - 5, 4.5, b.z + 9), new THREE.Vector3(b.x + 2, 0.5, b.z - 14), 2);
     const arrive = fight.arrive();
     await tl.wait(1.4);
+    // Reason: Tadeo takes the berries out as he says his line, so "Hier, Hai!" has something to show
+    ui.dialogue.onLine = (speaker) => {
+      if (speaker === "Tadeo") this.raiseBerries();
+    };
     await ui.say(DIALOGUES.sea_shark);
+    ui.dialogue.onLine = null;
     await arrive;
-    boat.hammer.visible = true;
-    boat.pose = "stand";
-    boat.side = 1;
-    this.fx.stars(boat.hammer.getWorldPosition(new THREE.Vector3()), 12);
-    audio.playSfx("sfx_item_get", 0.7);
-    seaUI.showBonks(0, this.stars);
-    await ui.hud.showBanner("Riesenhai!", "Bonk ihn mit dem Hammer!", 1800);
+    seaUI.showFeeds(0);
+    await ui.hud.showBanner("Riesenhai!", "Wirf die Beeren in sein Maul!", 1800);
     seaUI.showHint(`Warte auf den <b>grünen</b> Ring, dann <span class="key">Leertaste</span>!`);
     const hide = tl.wait(9).then(() => seaUI.showHint(null));
     await fight.run();
     void hide;
     seaUI.showHint(null);
     audio.playSfx("sfx_victory_fanfare", 0.7);
-    await fight.farewell();
     audio.playMusic("music_overworld");
+    await fight.farewell();
     await ui.say(DIALOGUES.shark_defeat.slice(0, 1));
     await this.arrive();
     this.phase = "done";
     this.resolve();
+  }
+
+  /** Tadeo stands up and holds the magic berries high. */
+  private raiseBerries(): void {
+    const { boat } = this;
+    boat.berries.visible = true;
+    boat.pose = "stand";
+    boat.side = 1;
+    this.fx.heal(boat.berries.getWorldPosition(new THREE.Vector3()));
+    audio.playSfx("sfx_item_get", 0.7);
   }
 
   /** Sail the last stretch, run aground, hop onto the beach next to the big X. */
@@ -318,7 +334,7 @@ export class SeaChallenge implements Challenge {
     const ui = this.ctx.ui;
     const { tl, boat, cam, fx } = this;
     this.phase = "arrive";
-    boat.hammer.visible = false;
+    boat.berries.visible = false;
     boat.pose = "sit";
     this.seaUI.showVoyage();
     this.chase = true;
@@ -326,14 +342,14 @@ export class SeaChallenge implements Challenge {
     this.autoX = 6;
     this.cruise = 7.5;
     await until(tl, () => {
-      this.seaUI.setVoyage(-boat.z / -LANDING_Z, this.stars);
+      this.seaUI.setVoyage(-boat.z / -LANDING_Z, this.starfish);
       return boat.z < LANDING_Z + 26;
     });
     this.chase = false;
     cam.move(new THREE.Vector3(boat.x + 10, 3.6, LANDING_Z - 8), new THREE.Vector3(boat.x - 1, 1.6, LANDING_Z + 6), 2.2);
     await until(tl, () => {
       this.cruise = Math.max(1.2, (boat.z - LANDING_Z) * 0.45);
-      this.seaUI.setVoyage(-boat.z / -LANDING_Z, this.stars);
+      this.seaUI.setVoyage(-boat.z / -LANDING_Z, this.starfish);
       return boat.z <= LANDING_Z;
     });
     // Scrape onto the sand

@@ -34,7 +34,7 @@ All text and narration are in German.
 | 6 | Der Oger an der Brücke | Card battle on the bridge (attack, heal, special); block his swings with Space at the right moment; the ogre becomes a friend and, back on the island, heaves the boulder off the mountain trail with one hand |
 | 7 | Das Eingeborenendorf | The elder tells where the key came from (it lay on his doorstep, for someone clever); campfire drum trials and a maths question; reward: the golden key. The elder then sends you to the ogre for the boulder |
 | 8 | Der Berggipfel | Side-view climb on the old people's path with rolling rocks, snowballs and a rope bridge; reward: the golden hammer, for the ice |
-| 9 | Die Haiattacke | Sail along a trail of stars, then bonk the giant shark with the hammer |
+| 9 | Der Hai | Sail along a trail of glowing starfish, then calm the giant shark by throwing three berries into its open mouth |
 | 10 | Die Schatzinsel | Dig at the X, break the ice, unlock the chest — and the finale |
 
 **Side games** (any time, in the village): fishing with *Fischer Jonas* and catching *Kleine Mia's*

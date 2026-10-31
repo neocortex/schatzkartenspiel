@@ -4,7 +4,7 @@
  * gate, the boulder on the mountain trail, Captain Paco and the ogre. Every
  * finished quest makes the volcano rumble a little harder. `beforeQuest` and
  * `afterQuest` are the moments when something happens on the island around a challenge:
- * the sword opens the hedge, the elder sends Tadeo on, the ogre lifts the boulder.
+ * the sword opens the hedge, the elder sends Tadeo on, the ogre lifts the boulder, Paco sees him off at the dock.
  */
 
 import * as THREE from "three";
@@ -40,6 +40,8 @@ const PACO: NpcId = "villager3";
 /** On the head of the north pier, with his back to the boat. */
 const PACO_DOCK: P2 = [-36.36, -73.58];
 const PACO_DOCK_FACING = Math.PI;
+/** Seen from up the pier, Tadeo and Paco stand in front of the mended boat, which is what Paco is talking about. */
+const DOCK_TALK_SHOT = { pos: new THREE.Vector3(-29.5, 4.8, -68.5), look: new THREE.Vector3(-39, 1.7, -75.5) };
 /** Tadeo stands on the lake's side of the arch: the hedge stands just behind it, so the beacon on the gate stays free. */
 const HEDGE_BEHIND_GATE = 0.9;
 
@@ -160,6 +162,13 @@ export class StoryWorld {
         // Reason: a reload in the forest brings the hedge back, so the sword opens it again
         if (this.hedge.up) await this.hedgeOpening.play();
         return;
+      case SEA_QUEST: {
+        const talking = this.talk("sea_dock", this.npcs.get(PACO));
+        // Reason: a talk frames the two speakers from the side, and here that puts the camera behind the sail
+        this.rig.setShot(DOCK_TALK_SHOT, 0.9);
+        await talking;
+        return;
+      }
       default:
         return;
     }

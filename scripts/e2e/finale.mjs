@@ -3,11 +3,13 @@
  *
  * It starts at `?challenge=sea` and sails the real chain with real key presses:
  * the shark, the treasure island (the map card, reached through the boat trip and
- * not by URL), the eruption, the black screen and the narrator's line. When the
- * finale scene starts it reloads the page and presses Continue, which proves the
- * save. From there Tadeo walks through "Los geht's!", climbs the volcano with the
- * autopilot from `volcanoPilot.mjs`, sets the heart back with Space, and the island
- * celebrates: festival, confession, fireworks, end card, save gone.
+ * not by URL), the eruption, the black screen and the narrator's line. The save is
+ * read on the black screen, and the finale scene is watched coming up with no reload.
+ * Then it reloads the page and presses Continue, which proves the save. From there
+ * Tadeo walks through "Los geht's!", climbs the volcano with the autopilot from
+ * `volcanoPilot.mjs`, sets the heart back with Space, and the island celebrates:
+ * festival, confession, fireworks, end card, save gone. A tab closed at the end card
+ * leaves nothing for the next game.
  *
  * Run:  node scripts/e2e/finale.mjs [baseUrl]
  * Out:  scripts/e2e/out/finale/*.png + summary.json + console.log
@@ -357,12 +359,20 @@ try {
   check("no end card and no walk between the eruption and the finale", !(await page.isVisible(".endcard")) && !(await page.evaluate(() => window.engine.scene === window.game.island)));
   const line = await heard();
   check("the narrator says it", line.some((l) => l.speaker === "Erzähler" && l.text === SAIL_BACK));
+  // Reason: read while the line is still up, because a tab closed on this black screen must not lose the treasure
+  const save12 = await saved();
+  check("the treasure saved quest 12 before the black screen", save12?.milestone === 12, JSON.stringify(save12));
   await skipDialogues();
   await waitFor(() => page.evaluate(() => !!window.engine.scene?.mode?.carriesHeart).catch(() => false), "the finale scene after the treasure", 30000);
   log("the finale scene started straight from the treasure island");
-  await waitFor(async () => (await saved())?.milestone === 12, "the save at quest 12", 5000);
-  const save12 = await saved();
-  check("the treasure saves quest 12", save12.milestone === 12, JSON.stringify(save12));
+
+  // ── The child's own way on: the same page, no reload ──────
+  await waitFor(() => page.evaluate(() => !window.engine.isSwitching), "the fade into the finale", 10000);
+  await sleep(300);
+  const onward = await frameStats(await shot("04b_finale_without_a_reload"), [0, 0, 1, 0.55]);
+  check("without a reload the black lifts and the climb is on screen", onward.bright > 40, `above the box ${onward.bright}`);
+  const layerOrder = await page.evaluate(() => window.game.ui.layer.style.zIndex);
+  check("the UI is back behind the fade", layerOrder === "", JSON.stringify(layerOrder));
 
   // ── Continue at 12 ────────────────────────────────────────
   await reloadAndContinue();

@@ -29,13 +29,15 @@ export interface Guest {
 /** Crowd seats of the villagers who have a name; seat 3 wears Paco's looks, so he is Paco himself tonight. */
 const SEAT = { jonas: 0, lina: 1, mia: 2, paco: 3 };
 
-/** Tadeo stands on the rug, so the fire burns behind him and not in him. */
-const TADEO_AT: [number, number] = [0, 1.1];
+/** Tadeo stands in the middle of the rug, so in the wide shot the fire burns above his head and not in him. */
+const TADEO_AT: [number, number] = [0, 3.4];
 const OGRE_AT: [number, number] = [-7.2, -2.4];
-const FOX_AT: [number, number] = [1.5, 1.2];
+/** Far enough left to stay out of the corner of Paco's close-up. */
+const FOX_AT: [number, number] = [0.9, 2];
 const MOLE_AT: [number, number] = [-3.3, 1.4];
 const HEN_AT: [number, number] = [-1.5, 2];
-const CHEST_AT: [number, number] = [2.8, 2.2];
+/** Behind the camera in Paco's close-up, and right of the line from the party camera to him. */
+const CHEST_AT: [number, number] = [4.2, 2.8];
 const HEN_SCALE = 0.9;
 
 /** The rocket on its plan: white lines on blue paper, the way real plans look. No words, it has to speak for itself. */

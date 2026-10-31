@@ -106,7 +106,8 @@ export async function talk(f: Feast): Promise<void> {
       paco.face(0);
       elder.face(0);
       t.avatar.pose = "talk";
-      t.faceTo(chest.group.position.x, chest.group.position.z);
+      // Reason: half towards the chest and half towards the camera; turned all the way, only the back of his head would speak
+      t.face(0.8);
       chest.open();
       chest.showGold();
       audio.playSfx("sfx_chest_open", 0.8, 1.2);
@@ -133,7 +134,8 @@ export async function talk(f: Feast): Promise<void> {
       egg.visible = true;
       audio.playSfx("sfx_item_get", 0.8);
       s.sparkleAt(egg.position.clone().add(new THREE.Vector3(0, 0.2, 0)), 50, "#ffd75e", 2.4);
-      void s.director.move(shot(egg.position.x + 0.2, 0.95, egg.position.z + 2.7, egg.position.x - 0.3, 0.3, egg.position.z), 0.9);
+      // Reason: from a little to the left, or Tadeo's side would fill the right of the frame
+      void s.director.move(shot(egg.position.x - 0.5, 0.95, egg.position.z + 2.4, egg.position.x - 0.55, 0.3, egg.position.z), 0.9);
     },
   ];
 

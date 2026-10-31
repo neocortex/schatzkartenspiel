@@ -49,7 +49,7 @@ export class Sightings {
   private spot: OgreSpot | null = null;
   /** The fight is won, though the quest is not over: he is already the friend he turns out to be. */
   private beaten = false;
-  /** A scene is moving the ogre: he greets nobody and `place` leaves him alone. */
+  /** A scene is moving the ogre: he greets nobody. `place` does not look at this: it still moves him when the quest changes his spot. */
   private scripted = false;
   private walk: { to: P2; facing: number; done: () => void } | null = null;
   private poseTimer = 0;

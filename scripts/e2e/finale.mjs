@@ -600,6 +600,8 @@ try {
   await page.evaluate(async () => {
     const { playEnding } = await import("/src/game/ending.ts");
     const g = window.game;
+    // Reason: a free Tadeo jumps on Space, and the card never hears it; on the way to the card the game is always busy
+    g.busy = true;
     void playEnding(g.ui, window.engine.input, g.coins, g.wardrobe);
   });
   await waitFor(() => page.isVisible(".endcard"), "the end card again", 10000);

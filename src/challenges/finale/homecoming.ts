@@ -151,6 +151,8 @@ export class Homecoming implements EndingStage {
 
   constructor(private c: VolcanoChallenge) {
     this.cool = c.cool;
+    // Reason: right after the treasure island's dark column, a white plume would look like the volcano had calmed down already
+    c.peak.ash = 1;
     const altar = c.set.altar;
     const hollow = altar.hollowAt;
     const yaw = altar.group.rotation.y;
@@ -329,6 +331,7 @@ export class Homecoming implements EndingStage {
     await this.tween(SETTLE_SECONDS, (k) => {
       this.cool.value = between(k, 0, 0.65);
       peak.rest = between(k, 0, 0.7);
+      peak.ash = 1 - peak.rest;
       const s = between(k, 0.08, 0.85);
       sky.zenith.lerpColors(from.zenith, CLEAR.zenith, s);
       sky.horizon.lerpColors(from.horizon, CLEAR.horizon, s);

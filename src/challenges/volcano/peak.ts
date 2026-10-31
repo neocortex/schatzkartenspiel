@@ -10,6 +10,10 @@ import { glowTexture } from "../../world/ambient/textures";
 import { Bursts } from "./kit/bursts";
 import { VOLCANO } from "./course";
 
+/** Young and old smoke when the plume is ash: sooty brown at the vent, near black higher up. */
+const ASH_YOUNG = new THREE.Color("#3d1d12");
+const ASH_OLD = new THREE.Color("#141112");
+
 export class Peak {
   readonly group = new THREE.Group();
   /** Where bombs leave the crater. */
@@ -21,12 +25,16 @@ export class Peak {
   private light: THREE.PointLight;
   private flare = 0;
   private plume: THREE.ShaderMaterial;
+  private paleYoung: THREE.Color;
+  private paleOld: THREE.Color;
   private fountain: THREE.ShaderMaterial;
 
   constructor(smoke: SmokeSystem, private bursts: Bursts) {
     const floor = this.vent.clone().setY(VOLCANO.rim - 7.5);
     const plume = smoke.add([floor], "volcano");
     this.plume = (plume.children[0] as THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>).material;
+    this.paleYoung = this.plume.uniforms.uColorA.value.clone();
+    this.paleOld = this.plume.uniforms.uColorB.value.clone();
     const fountain = smoke.sparks([floor.clone().setY(VOLCANO.rim - 4)], { perSource: 160, life: 3.4, up: [10, 21], lateral: 5.5, gravity: 9, size: 1.1, intensity: 7, wind: 2.5 });
     this.fountain = fountain.material as THREE.ShaderMaterial;
     this.group.add(fountain);
@@ -46,6 +54,13 @@ export class Peak {
     this.light = new THREE.PointLight("#ff6a1f", 2600, 0, 2);
     this.light.position.copy(this.vent).setY(VOLCANO.rim + 4);
     this.group.add(this.light);
+  }
+
+  /** How dark the plume is: 0 the pale smoke of the rescue run, 1 black ash. */
+  set ash(k: number) {
+    const { uColorA, uColorB } = this.plume.uniforms;
+    uColorA.value.lerpColors(this.paleYoung, ASH_YOUNG, k);
+    uColorB.value.lerpColors(this.paleOld, ASH_OLD, k);
   }
 
   /** Launch flash: sparks, a dark smoke puff and a flare of the crater light. */

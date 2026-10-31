@@ -11,7 +11,8 @@
  *  6. Village (debug start): chat with a villager
  *  6b. The new cast: portraits, faces in the dialogue box, Paco beside the elder, the mole in the cave, the Hüter on the lake
  *  7. Quest 12 (debug start): the goal is the volcano gate, and away from it the island is free
- *  8. A save from an older version offers no Continue, and starting over keeps coins and hats
+ *  8. A save from an older version offers no Continue, and starting over keeps coins and hats;
+ *     a valid save offers both, and a new game from it clears them
  *  9. Mashing Space through the whole opening skips nothing and leaves the game correct
  *
  * Run (dev server on :5199 must be running):  node scripts/e2e/island.mjs
@@ -643,6 +644,26 @@ await page.keyboard.press("Space");
 await wait(3000);
 const startedOver = await keep();
 check("starting over keeps coins and hats", startedOver.coins === 3 && startedOver.hats === 1, JSON.stringify(startedOver));
+
+// ── 8b. A running adventure ─────────────────────────────────
+// The same coins and hat with a valid save: choosing a new game gives up the running one, and its finds with it
+await page.evaluate(() => {
+  localStorage.setItem("schatzkarten_save", JSON.stringify({ version: 4, milestone: 6, items: ["sword"], playerX: 0, playerY: 0, timestamp: 1 }));
+  localStorage.setItem("schatzkarten_coins", JSON.stringify([0, 1, 2]));
+  localStorage.setItem("schatzkarten_prizes", JSON.stringify(["fishingHat"]));
+  localStorage.setItem("schatzkarten_hat", JSON.stringify("fishingHat"));
+});
+await page.goto(BASE);
+await wait(4000);
+check("a valid save offers Continue and a new game", (await page.evaluate(() => window.game.title.choices)).join() === "continue,new");
+const running = await keep();
+check("coins and hats are loaded with a valid save", running.coins === 3 && running.hats === 1, JSON.stringify(running));
+await page.keyboard.press("ArrowDown");
+await wait(150);
+await page.keyboard.press("Space");
+await wait(3000);
+const abandoned = await keep();
+check("a new game from a valid save clears coins and hats", abandoned.coins === 0 && abandoned.hats === 0, JSON.stringify(abandoned));
 
 // ── 9. Mashing Space through the whole opening ──────────────
 await page.evaluate(() => localStorage.clear());

@@ -182,6 +182,17 @@ async function reloadAndContinue() {
   await sleep(500);
 }
 
+/** Press Space through the whole opening of a new game, until Tadeo can walk. */
+async function playThroughOpening() {
+  const end = Date.now() + 120000;
+  while (Date.now() < end) {
+    if ((await page.evaluate(() => !window.game.busy && !window.game.ui.dialogue.isOpen && !window.engine.isSwitching)) === true) return;
+    await page.keyboard.press("Space");
+    await sleep(120);
+  }
+  throw new Error("the opening of the next game did not end");
+}
+
 // ── The climb ─────────────────────────────────────────────────
 
 const heroHasHeart = () =>
@@ -375,6 +386,12 @@ try {
   await sleep(500);
   const canTalkToJonas = atJonas.prompt.includes("Angeln") && (await dialogueOpen());
   check("side games are not locked at 12", canTalkToJonas, JSON.stringify(atJonas));
+  // Reason: with every coin and two prize hats in hand, the end card further down has something to leave behind
+  await page.evaluate(() => {
+    localStorage.setItem("schatzkarten_coins", JSON.stringify([...Array(30).keys()]));
+    localStorage.setItem("schatzkarten_prizes", JSON.stringify(["fishingHat", "crown"]));
+    localStorage.setItem("schatzkarten_hat", JSON.stringify("fishingHat"));
+  });
   await reloadAndContinue();
 
   // ── Through the gate and up the volcano ───────────────────
@@ -537,7 +554,7 @@ try {
   check("the party loops: fireworks are on", party.phase === "party" && party.fireworks === true, JSON.stringify(party));
   const card = await page.textContent(".endcard");
   check("end card says the island is saved", card.includes("Du hast die Insel gerettet!"), card.replace(/\s+/g, " ").trim());
-  check("the end card counts the coins", /Goldmünzen: \d+ \/ \d+/.test(card));
+  check("the end card counts the coins he found", card.includes("Goldmünzen: 30 / 30"), card.match(/Goldmünzen: [^\s]+ \/ \d+/)?.[0]);
   check("the end card promises the rocket and the mended boat", card.includes("Rakete") && card.includes("Boot"));
   check("save is gone after the end", await noSave());
   await sleep(2600);
@@ -551,6 +568,32 @@ try {
     // Reason: the baseline file is a local proof, not in git; a fresh clone falls back to the number it held
   }
   check("runs at the baseline fps at the festival", fps >= baselineFps - 3, `${fps.toFixed(1)}, baseline ${baselineFps}, sparks ${sparks}`);
+
+  // ── The tab is closed at the end card, with no Space ──────
+  await page.goto(BASE);
+  await page.waitForFunction(() => window.game?.title, null, { timeout: 40000 });
+  check("a tab closed at the end card comes back with no Continue", (await page.evaluate(() => window.game.title.choices)).join() === "new");
+  await sleep(600);
+  await page.keyboard.press("Space");
+  await playThroughOpening();
+  const fresh = await page.evaluate(() => {
+    const { coins, wardrobe } = window.game;
+    // Reason: a coin that was taken has its instance scaled to nothing; the first column of its matrix is how big it is
+    const sizes = coins.spots.map((_, i) => Math.hypot(...coins.body.instanceMatrix.array.slice(i * 16, i * 16 + 3)));
+    return { coins: coins.collected, findable: sizes.filter((s) => s > 0.5).length, of: coins.spots.length, hats: wardrobe.prizes.size, hat: wardrobe.hat, worn: wardrobe.worn.size };
+  });
+  check("the next game starts with no coins, and all of them can be found", fresh.coins === 0 && fresh.findable === 30 && fresh.of === 30, JSON.stringify(fresh));
+  check("the next game starts with no prize hats", fresh.hats === 0 && fresh.hat === null && fresh.worn === 0, JSON.stringify(fresh));
+
+  // ── Space on the end card ─────────────────────────────────
+  // Reason: the festival is the same way to the card, and it was just walked; this is the card's own way out
+  await page.evaluate(async () => {
+    const { playEnding } = await import("/src/game/ending.ts");
+    const g = window.game;
+    void playEnding(g.ui, window.engine.input, g.coins, g.wardrobe);
+  });
+  await waitFor(() => page.isVisible(".endcard"), "the end card again", 10000);
+  await sleep(2700);
   await page.keyboard.press("Space");
   await page.waitForFunction(() => window.game?.title, null, { timeout: 40000 });
   check("Space on the end card starts the game again, with no Continue", (await page.evaluate(() => window.game.title.choices)).join() === "new");

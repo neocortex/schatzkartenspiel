@@ -15,14 +15,14 @@ import { Npcs, Npc } from "./Npcs";
 import { Title } from "./Title";
 import { Chuleta } from "../characters/Chuleta";
 import { CHULETA_HINTS, CHULETA_CHEERS } from "./chuletaLines";
-import { Coins, COIN_COUNT } from "./Coins";
+import { Coins } from "./Coins";
 import { Wardrobe } from "./Wardrobe";
 import { SIDE_GAMES, SideGame } from "./sideGames";
 import { Sightings } from "./Sightings";
 import { StoryWorld } from "./StoryWorld";
 import { Lake } from "./lake";
 import { playOpening } from "./opening";
-import { showEndCard } from "../ui/EndCard";
+import { playEnding } from "./ending";
 import { showMapCard } from "../ui/MapCard";
 import { QuestManager } from "../systems/QuestManager";
 import { InventoryManager } from "../systems/InventoryManager";
@@ -440,14 +440,7 @@ export class Game {
   private async finale(): Promise<void> {
     await this.enterChallenge("finale");
     await this.enterChallenge("festival");
-    await this.ending();
-  }
-
-  private async ending(): Promise<void> {
-    SaveManager.getInstance().deleteSave();
-    await showEndCard(this.ui.layer, this.engine.input, `${this.coins.collected} / ${COIN_COUNT}`);
-    this.coins.reset();
-    location.reload();
+    await playEnding(this.ui, this.engine.input, this.coins, this.wardrobe);
   }
 
   // ── Helpers ───────────────────────────────────────────────

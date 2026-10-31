@@ -47,9 +47,9 @@ void main() {
   vec2 p = (vUv - 0.5) * 2.0;
   // Reason: a round core with a thin cross makes it a twinkle, not a dot
   float core = pow(max(1.0 - length(p), 0.0), 2.0);
-  float cross = max(1.0 - abs(p.x) * 9.0, 0.0) * max(1.0 - abs(p.y), 0.0) + max(1.0 - abs(p.y) * 9.0, 0.0) * max(1.0 - abs(p.x), 0.0);
+  float rays = max(1.0 - abs(p.x) * 9.0, 0.0) * max(1.0 - abs(p.y), 0.0) + max(1.0 - abs(p.y) * 9.0, 0.0) * max(1.0 - abs(p.x), 0.0);
   float fade = smoothstep(0.0, 0.1, vLife) * (1.0 - smoothstep(0.45, 1.0, vLife));
-  float strength = (core * 1.3 + cross * 0.9) * fade * step(0.0001, vLife);
+  float strength = (core * 1.3 + rays * 0.9) * fade * step(0.0001, vLife);
   gl_FragColor = vec4(uColor * strength, strength);
   #include <colorspace_fragment>
 }

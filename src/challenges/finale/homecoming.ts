@@ -17,15 +17,15 @@ import type { VolcanoChallenge } from "../volcano/VolcanoChallenge";
 
 export type HomecomingPhase = "climb" | "walk" | "wait" | "flight" | "home" | "wide" | "calm" | "thanks" | "joy";
 
-/** The clear evening the eruption was hiding, as warm as the day it began. */
+/** The clear sky the eruption was hiding: bright, blue and clean, the way a rainbow wants it. */
 const CLEAR = {
-  zenith: new THREE.Color("#2a6fe6"),
-  horizon: new THREE.Color("#ffdcae"),
-  sunGlow: new THREE.Color("#ffc98a"),
-  fog: new THREE.Color("#eec9a6"),
-  sun: new THREE.Color("#fff0d6"),
+  zenith: new THREE.Color("#1f7fee"),
+  horizon: new THREE.Color("#c4eaff"),
+  sunGlow: new THREE.Color("#fff2cf"),
+  fog: new THREE.Color("#cfeafa"),
+  sun: new THREE.Color("#fff4dc"),
   sunIntensity: 2.7,
-  hemiSky: new THREE.Color("#ffe7cf"),
+  hemiSky: new THREE.Color("#e4f2ff"),
   hemiGround: new THREE.Color("#7a4434"),
   hemiIntensity: 1.05,
 };
@@ -316,10 +316,13 @@ export class Homecoming implements EndingStage {
 
   /** The eruption dies down: lava and crater go to rest, the red sky clears, the rainbow grows. The column sinks to a glow. */
   async settle(): Promise<void> {
-    const { sky, stage, peak } = this.c;
+    const { sky, stage, peak, set } = this.c;
     const from = { zenith: sky.zenith.clone(), horizon: sky.horizon.clone(), sunGlow: sky.sunGlow.clone() };
     const fog = stage.scene.fog as THREE.Fog;
+    // Reason: the sea keeps its own copy of the sky it reflects, and a pink sea under a blue sky looks wrong
+    const seaSky: THREE.Color = (set.water.material as THREE.ShaderMaterial).uniforms.uSky.value;
     const before = {
+      seaSky: seaSky.clone(),
       fog: fog.color.clone(),
       sun: stage.sun.color.clone(),
       sunIntensity: stage.sun.intensity,
@@ -336,6 +339,7 @@ export class Homecoming implements EndingStage {
       sky.zenith.lerpColors(from.zenith, CLEAR.zenith, s);
       sky.horizon.lerpColors(from.horizon, CLEAR.horizon, s);
       sky.sunGlow.lerpColors(from.sunGlow, CLEAR.sunGlow, s);
+      seaSky.lerpColors(before.seaSky, CLEAR.horizon, s);
       fog.color.lerpColors(before.fog, CLEAR.fog, s);
       stage.sun.color.lerpColors(before.sun, CLEAR.sun, s);
       stage.sun.intensity = THREE.MathUtils.lerp(before.sunIntensity, CLEAR.sunIntensity, s);

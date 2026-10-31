@@ -37,6 +37,7 @@ export class VolcanoSet {
   readonly rescue: PacoRescue | null;
   /** Where the beacon stands. */
   readonly goalAt: THREE.Vector3;
+  readonly water: THREE.Mesh;
   private rand = mulberry32(99);
 
   constructor(private course: Course, world: WorldUniforms, horizon: THREE.Color, readonly colliders: Colliders, withPaco: boolean) {
@@ -88,8 +89,8 @@ export class VolcanoSet {
 
     this.group.add(new Scatter(course, this.materials.solid, colliders, this.altar).group);
     this.group.add(this.smoke.group, this.beacon.group);
-    const water = createWater(world, horizon);
-    this.group.add(water);
+    this.water = createWater(world, horizon);
+    this.group.add(this.water);
   }
 
   /** Off-trail spot at distance band [a, b] beyond the trail edge (null when blocked). */

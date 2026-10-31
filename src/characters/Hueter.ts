@@ -174,7 +174,9 @@ function figureGeometry(): THREE.BufferGeometry {
   const head = stoneHead(() => WHITE, INK, WHITE);
   // Reason: small sparkles in the dark eyes make him look alive and friendly instead of hollow
   const sparkles = [-1, 1].map((sx) => ball(0.065, SPARK, [sx * 0.55 - 0.05, 2.05, 1.09]));
-  const headParts = [...head.solid, ...head.dark, ...sparkles].map((g) => {
+  // Reason: a stone mouth drawn straight reads stern, and he must not scare a child; the big smile is still to come
+  const faintSmile = mouthCorners(0.3, 0.16, 0.7, 1.0, 0.48);
+  const headParts = [...head.solid, ...head.dark, ...sparkles, ...faintSmile].map((g) => {
     g.scale(HEAD_SCALE, HEAD_SCALE, HEAD_SCALE);
     g.translate(0, HEAD_Y, 0);
     return still(g);
@@ -194,10 +196,14 @@ function figureGeometry(): THREE.BufferGeometry {
   return merge([...headParts, robeGeometry(), ...sleeves]);
 }
 
-/** The corners of his mouth, turned up: hidden until he has found his rest. */
+/** The two ends of his mouth, turned up by `tilt`, in the stone head's own measure. */
+function mouthCorners(length: number, height: number, x: number, y: number, tilt: number): THREE.BufferGeometry[] {
+  return [-1, 1].map((side) => rbox(length, height, 0.25, INK, { pos: [side * x, y, 1.02], rot: [0, 0, side * tilt] }, 0.07));
+}
+
+/** His big smile: hidden until he has found his rest. */
 function smileGeometry(): THREE.BufferGeometry {
-  const corners = [-1, 1].map((side) => rbox(0.42, 0.2, 0.25, INK, { pos: [side * 0.74, 1.04, 1.02], rot: [0, 0, side * 0.62] }, 0.08));
-  const geo = merge(corners);
+  const geo = merge(mouthCorners(0.42, 0.2, 0.74, 1.04, 0.62));
   geo.scale(HEAD_SCALE, HEAD_SCALE, HEAD_SCALE);
   geo.translate(0, HEAD_Y, 0);
   return withSway(geo, () => 0);

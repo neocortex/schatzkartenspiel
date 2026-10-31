@@ -7,8 +7,9 @@
  * of the world where it really lies.
  *
  * Until quest 12 exists, milestone 11 still ends in the old end card once the
- * challenge resolves, so "no end card and no party" is checked at the moment
- * the eruption line plays and the run stops at phase "done".
+ * challenge resolves, so "no end card" is checked at the moment the eruption
+ * line plays. The run stops at phase "done", then checks that `finished` really
+ * resolves and that no party starts after it.
  *
  * Live state (Tadeo's position, the X, the hammer meter, the reveals) is read
  * from `window.engine.scene.state`; every action is a real keyboard press.
@@ -25,6 +26,8 @@ const OUT = "scripts/e2e/out/treasure";
 const TIMEOUT_MS = 240_000;
 const ERUPTION_LINE = "Da! Der Vulkan spuckt Feuer! Schnell zurück!";
 const NOTE_LINE = 'Ein Zettel. "Es tut mir leid. P."';
+/** Burning pixels above the crater's rim: the fountain makes far more, a lava bomb crossing alone or a quiet crater far fewer. */
+const FIRE_ABOVE_RIM = 3000;
 const FORBIDDEN = ["die Alten", "Altar", "ewiges Eis", "besänftigen"];
 const OLD_ENDING = ["Und so endet", "legendären Schatz", "besten Abenteuer", "alle Prüfungen bestanden und den Schatz"];
 mkdirSync(OUT, { recursive: true });
@@ -145,6 +148,8 @@ const volcanoView = () =>
     return {
       offMapDeg: (Math.abs(onMap - inScene) * 180) / Math.PI,
       screen: { x: screen.x, y: screen.y },
+      // Reason: above the highest notch of the rim, so the lava rivers on the cone cannot count as fire
+      rimY: crater.clone().setY(crater.y + 9).project(stage.camera).y,
       facing: stage.camera.getWorldDirection(crater.clone()).dot(toCrater),
       fireworks: stage.fireworks.auto,
       crabsDance: stage.critters.party,
@@ -155,19 +160,21 @@ const volcanoView = () =>
   });
 
 /**
- * Does the frame read as a volcano spitting fire? Counts burning pixels in a box around the crater, and smoke in the
- * column above it: pixels much darker than the open sky at the same height, so a sky that is dark itself does not count.
- * A grey blob on the horizon has neither. `sky` is how bright the open sky is: fire only stands out against a dark one.
+ * Does the frame read as a volcano spitting fire? Counts burning pixels above the crater's rim, where the rivers on the
+ * cone cannot help and a pale sky has too little colour to pass, and smoke in the column above it: pixels much darker
+ * than the open sky at the same height, so a sky that is dark itself does not count. A grey blob on the horizon has
+ * neither. `sky` is how bright the open sky is: fire only stands out against a dark one.
  */
-const fireInFrame = (png, screen) =>
+const fireInFrame = (png, { screen, rimY }) =>
   page.evaluate(
-    async ({ b64, screen }) => {
+    async ({ b64, screen, rimY }) => {
       const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
       const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
       const g = canvas.getContext("2d");
       g.drawImage(bitmap, 0, 0);
       const cx = ((screen.x + 1) / 2) * bitmap.width;
       const cy = ((1 - screen.y) / 2) * bitmap.height;
+      const rim = ((1 - rimY) / 2) * bitmap.height;
       const count = (x0, y0, x1, y1, test) => {
         const [l, t] = [Math.max(0, Math.round(x0)), Math.max(0, Math.round(y0))];
         const [w, h] = [Math.min(bitmap.width, Math.round(x1)) - l, Math.min(bitmap.height, Math.round(y1)) - t];
@@ -177,22 +184,23 @@ const fireInFrame = (png, screen) =>
         for (let i = 0; i < px.length; i += 4) if (test(px[i], px[i + 1], px[i + 2])) n++;
         return n;
       };
-      const mean = (x0, y0, x1, y1) => {
+      // Reason: the median, because a lava bomb crossing the patch would drag a mean up and make the sky look bright
+      const median = (x0, y0, x1, y1) => {
         const px = g.getImageData(x0, y0, x1 - x0, y1 - y0).data;
-        let sum = 0;
-        for (let i = 0; i < px.length; i += 4) sum += (px[i] + px[i + 1] + px[i + 2]) / 3;
-        return sum / (px.length / 4);
+        const brightness = [];
+        for (let i = 0; i < px.length; i += 4) brightness.push((px[i] + px[i + 1] + px[i + 2]) / 3);
+        return brightness.sort((a, b) => a - b)[brightness.length >> 1];
       };
       // Reason: the wind leans the column to the screen's left, so the open sky to compare with is on the right
       const skyLeft = Math.min(Math.round(cx + 420), bitmap.width - 80);
-      const sky = mean(skyLeft, 10, skyLeft + 70, Math.max(Math.round(cy - 40), 20));
+      const sky = median(skyLeft, 10, skyLeft + 70, Math.max(Math.round(cy - 40), 20));
       return {
-        burning: count(cx - 90, cy - 90, cx + 90, cy + 90, (r, gr, b) => r > 215 && gr > 60 && b < gr),
+        burning: count(cx - 90, rim - 90, cx + 90, rim, (r, gr, b) => r > 215 && gr > 60 && r - b > 100),
         sky: Math.round(sky),
         smoke: count(cx - 260, 0, cx + 160, cy - 30, (r, gr, b) => (r + gr + b) / 3 < sky * 0.72),
       };
     },
-    { b64: png.toString("base64"), screen },
+    { b64: png.toString("base64"), screen, rimY },
   );
 
 const phasesSeen = new Set();
@@ -208,6 +216,7 @@ let lastKeyTurn = -1;
 let mapCardSeen = false;
 let mapCardDone = false;
 let atEruption = null;
+let quietView = null;
 let final = null;
 /** The state at the moment each reveal first showed, to prove their order. */
 const revealed = {};
@@ -269,6 +278,26 @@ const watchBlast = () =>
     };
   });
 
+/**
+ * Where each thing from the chest first shows, and where the chest's rim is. Reason: measured in the page on every
+ * frame, because a thing that shows above the rim has popped out of thin air even if it ends up in the right place.
+ */
+const watchChest = () =>
+  page.evaluate(() => {
+    if (window.firstSeen) return;
+    window.firstSeen = {};
+    const chest = window.engine.scene.stage.chest;
+    window.chestRim = chest.inner.getWorldPosition(chest.inner.position.clone()).y;
+    const update = chest.update;
+    chest.update = function (dt, time) {
+      update.call(this, dt, time);
+      for (const name of ["note", "heart", "plan"]) {
+        const item = this[name];
+        if (item.visible && window.firstSeen[name] === undefined) window.firstSeen[name] = item.getWorldPosition(item.position.clone()).y;
+      }
+    };
+  });
+
 /** What has to be true while the eruption line is on screen. */
 async function eruptionMoment(st) {
   const view = await volcanoView();
@@ -276,7 +305,12 @@ async function eruptionMoment(st) {
   await page.waitForTimeout(900);
   const png = await page.screenshot({ path: `${OUT}/09-erupt-3-line.png` });
   const later = await volcanoView();
-  const fire = await fireInFrame(png, later.screen);
+  const fire = await fireInFrame(png, later);
+  // Reason: a lava bomb can cross the box in any one frame, but the fountain is there in all of them
+  for (let i = 0; i < 2; i++) {
+    await page.waitForTimeout(350);
+    fire.burning = Math.min(fire.burning, (await fireInFrame(await page.screenshot(), later)).burning);
+  }
   const fps = await drawRate(2500);
   atEruption = { st, view, endcard, fire, fps };
 }
@@ -291,6 +325,20 @@ while (Date.now() - started < TIMEOUT_MS) {
   if (st.phase === "done") {
     final = st;
     break;
+  }
+  if (st.shown.heart && !shots.has("08-reveal-2a-heart-rising")) {
+    // Reason: it starts hidden inside the chest, so its first moment is when it comes up through the rim
+    await page
+      .waitForFunction(
+        () => {
+          const heart = window.engine.scene.stage.chest.heart;
+          return heart.getWorldPosition(heart.position.clone()).y > window.chestRim - 0.1;
+        },
+        null,
+        { timeout: 2000, polling: "raf" },
+      )
+      .catch(() => {});
+    await shotOnce("08-reveal-2a-heart-rising");
   }
   // Each reveal gets a moment without a dialogue box, and its own picture
   for (const [flag, name] of [
@@ -375,12 +423,16 @@ while (Date.now() - started < TIMEOUT_MS) {
       await page.waitForTimeout(120);
       break;
     case "open":
+      await watchChest();
       await shotOnce("07-open", 1100);
       break;
     case "erupt":
       await watchBlast();
       if (st.erupting) await shotOnce("09-erupt-2-volcano", 1900);
-      else await shotOnce("09-erupt-0-quiet", 3500);
+      else {
+        await shotOnce("09-erupt-0-quiet", 3500);
+        quietView ??= await volcanoView();
+      }
       break;
     default:
       break;
@@ -388,8 +440,23 @@ while (Date.now() - started < TIMEOUT_MS) {
   await page.waitForTimeout(60);
 }
 
+// The run stopped at "done", which the script sets itself: only `finished` says that the flow got the challenge back
+const ended = await page
+  .evaluate(() => Promise.race([window.engine.scene.finished.then(() => "finished"), new Promise((r) => setTimeout(() => r("still waiting"), 3000))]))
+  .catch(() => null);
+// Reason: the old party started right after `finished`, under the end card, so this has to look after it
+await page.waitForTimeout(1000);
+const afterEnd = await page
+  .evaluate(() => {
+    const stage = window.engine.scene.stage;
+    return { fireworks: stage.fireworks.auto, crabsDance: stage.critters.party };
+  })
+  .catch(() => null);
+
 const said = (await page.evaluate(() => window.said).catch(() => null)) ?? [];
 const facingAtBlast = await page.evaluate(() => window.facingAtBlast).catch(() => null);
+const firstSeen = await page.evaluate(() => ({ items: window.firstSeen, rim: window.chestRim })).catch(() => null);
+const quiet = quietView ? await fireInFrame(readFileSync(`${OUT}/09-erupt-0-quiet.png`), quietView) : null;
 const lines = said.map((l) => l.replace(/^[^:]+: /, ""));
 const state = final ?? (await read()) ?? {};
 
@@ -400,7 +467,8 @@ check("the note is read", lines.includes(NOTE_LINE));
 check("Chuleta wonders about the P", said.includes("Chuleta: P? Wie Pirat?"));
 check("the heart comes out and is warm", state.heart && lines.some((l) => l.includes("ganz warm")));
 check("the eruption line plays", said.includes(`Erzähler: ${ERUPTION_LINE}`));
-check("no end card and no party here", atEruption && !atEruption.endcard && !atEruption.view.fireworks && !atEruption.view.crabsDance, JSON.stringify(atEruption?.view ?? null));
+check("no end card and no party while the line plays", atEruption && !atEruption.endcard && !atEruption.view.fireworks && !atEruption.view.crabsDance, JSON.stringify(atEruption ? { endcard: atEruption.endcard, fireworks: atEruption.view.fireworks, crabsDance: atEruption.view.crabsDance } : null));
+check("no party starts after the challenge ends", afterEnd && !afterEnd.fireworks && !afterEnd.crabsDance, JSON.stringify(afterEnd));
 check("the volcano erupts on the horizon", atEruption?.st.erupting && atEruption.view.plume);
 
 // ── What the chest gives, one thing at a time ─────────────
@@ -411,6 +479,11 @@ check("then the plan, before the gold", revealed.plan?.heart && !revealed.plan.g
 check("then the gold, then the crown on his head", revealed.gold?.plan && !revealed.gold.crowned && revealed.crowned?.gold);
 check("then the eruption", revealed.erupting?.crowned);
 check(
+  "each thing rises out of the chest, from below its rim",
+  firstSeen?.items && ["note", "heart", "plan"].every((name) => firstSeen.items[name] < firstSeen.rim),
+  JSON.stringify(firstSeen),
+);
+check(
   "the chest's heart is the Feuerherz from the stone",
   await page.evaluate(() => !!window.engine.scene.stage?.chest.heart.getObjectByName("feuerherz")).catch(() => false),
 );
@@ -420,7 +493,8 @@ const view = atEruption?.view;
 check("the volcano lies where the map says, seen from this island", view && view.offMapDeg < 2, view ? `${view.offMapDeg.toFixed(2)} deg off` : "");
 check("the camera is already on the volcano when it blows", facingAtBlast > 0.98, `facing ${facingAtBlast?.toFixed(3)}`);
 check("the camera is turned to it", view && view.facing > 0.97 && Math.abs(view.screen.x) < 0.75 && Math.abs(view.screen.y) < 0.95, JSON.stringify(view?.screen ?? null));
-check("it reads as a volcano spitting fire", atEruption?.fire.burning > 200 && atEruption?.fire.smoke > 3000, JSON.stringify(atEruption?.fire ?? null));
+check("it reads as a volcano spitting fire", atEruption?.fire.burning > FIRE_ABOVE_RIM && atEruption?.fire.smoke > 3000, JSON.stringify(atEruption?.fire ?? null));
+check("no fire above the rim before the blast", quiet?.burning < FIRE_ABOVE_RIM, JSON.stringify(quiet));
 check("the sky is dark, so the fire stands out", atEruption?.fire.sky < 60, `sky brightness ${atEruption?.fire.sky}`);
 check("the whole volcano stands above the dialogue box", view?.boxTopPx !== null && view?.footPx < view?.boxTopPx, `foot at ${view?.footPx?.toFixed(0)} px, box at ${view?.boxTopPx?.toFixed(0)} px`);
 let baseline = 57.7;
@@ -446,7 +520,7 @@ check("the hammer is only for the ice", !said.some((l) => /Hammer/.test(l) && !/
 // ── The play itself ───────────────────────────────────────
 check("arrow up walks away from the camera", walk.arrowUpMovesAway === true);
 check("at least one super hit", (state.perfectHits ?? 0) >= 1, `${state.perfectHits ?? 0}`);
-check("the challenge ends by itself after the line", state.phase === "done");
+check("the challenge ends by itself after the line", state.phase === "done" && ended === "finished", `${ended}`);
 check("no page errors", errors.length === 0, errors.join(" | "));
 
 const summary = {

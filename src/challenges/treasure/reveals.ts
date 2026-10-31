@@ -37,6 +37,18 @@ async function glide(s: TreasureStage, item: THREE.Object3D, to: THREE.Vector3, 
   });
 }
 
+/**
+ * Show `item` at the bottom of the chest, ready to glide up through the rim.
+ * Reason: it still hangs under the chest and INSIDE_CHEST is a place in the world, so it has to let go of the chest
+ * first; otherwise the chest's own height counts twice and it appears in mid-air.
+ */
+function showInside(s: TreasureStage, item: THREE.Object3D, scale: number): void {
+  s.scene.attach(item);
+  item.position.copy(INSIDE_CHEST);
+  item.scale.setScalar(scale);
+  item.visible = true;
+}
+
 /** The point above Tadeo's raised hands. */
 function aboveTadeo(s: TreasureStage, towardsCamera = 0): THREE.Vector3 {
   return s.tadeo.actor.position.clone().add(new THREE.Vector3(0, 2.15, towardsCamera));
@@ -56,9 +68,7 @@ async function stow(s: TreasureStage, item: THREE.Object3D): Promise<void> {
 export async function takeNote(s: TreasureStage): Promise<void> {
   const t = s.tadeo;
   const note = s.chest.note;
-  note.position.copy(INSIDE_CHEST);
-  note.scale.setScalar(0.3);
-  note.visible = true;
+  showInside(s, note, 0.3);
   audio.playSfx("sfx_menu_confirm", 0.7);
   void s.tween(2.2, (k) => {
     note.rotation.set(-0.5 * (1 - k) + Math.sin(k * 12) * 0.08 * (1 - k), Math.sin(k * 9) * 0.5 * (1 - k), Math.sin(k * 7) * 0.2 * (1 - k));
@@ -93,9 +103,7 @@ export async function takeHeart(s: TreasureStage): Promise<void> {
   await s.sleep(1.0);
   // Reason: the deepest sound there is, slowed down: the heartbeat the child will feel again at the old stone
   for (const wait of [0, 0.45, 1.25, 1.7]) void s.sleep(wait).then(() => audio.playSfx("sfx_door", 0.55, 0.42));
-  heart.position.copy(INSIDE_CHEST);
-  heart.scale.setScalar(0.25);
-  heart.visible = true;
+  showInside(s, heart, 0.25);
   void s.tween(2.6, (k) => {
     heart.rotation.y = (1 - ease(k)) * Math.PI * 3;
     if (Math.random() < 0.35) s.sparkleAt(heart.getWorldPosition(new THREE.Vector3()), 2, "#ff9a3a", 1.1, 0.9);
@@ -136,9 +144,7 @@ export async function takePlan(s: TreasureStage): Promise<void> {
   t.actor.faceTo(CHEST_AT.x, CHEST_AT.z);
   void s.director.move(PLAN_SHOT, 1.1);
   await s.sleep(0.8);
-  plan.position.copy(INSIDE_CHEST);
-  plan.scale.setScalar(0.5);
-  plan.visible = true;
+  showInside(s, plan, 0.5);
   audio.playSfx("sfx_menu_confirm", 0.7, 0.8);
   void s.tween(1.2, (k) => {
     plan.rotation.set(0, Math.sin(k * 3) * 0.4 * (1 - k) + 0.25, (1 - k) * 3);

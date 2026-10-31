@@ -17,7 +17,7 @@ import { Fx } from "./fx";
 import { Director } from "./director";
 import { Popups } from "./popups";
 import { Gorge } from "./Gorge";
-import { createOgre, Ogre } from "./Ogre";
+import { createOgre, Ogre } from "../../characters/Ogre";
 import { Hero } from "./hero";
 import { FightUI } from "./FightUI";
 import { BlockPrompt } from "./blockPrompt";

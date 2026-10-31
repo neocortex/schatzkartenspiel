@@ -15,7 +15,7 @@ import { Chuleta } from "../characters/Chuleta";
 import { Humanoid } from "../characters/Humanoid";
 import { createTadeo } from "../characters/cast";
 import { mat, toonMesh } from "../characters/parts";
-import { createShark, Shark } from "../challenges/sea/Shark";
+import { createShark, Shark } from "../characters/Shark";
 import { Bursts } from "../challenges/shared/bursts";
 import { Owned } from "../challenges/shared/dispose";
 import { Particles } from "../challenges/shared/particles";

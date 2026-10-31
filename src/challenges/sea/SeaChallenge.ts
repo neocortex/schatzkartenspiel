@@ -26,7 +26,7 @@ import { Scenery, LANDING_Z } from "./scenery";
 import { Boat } from "./boat";
 import { Gulls } from "./gulls";
 import { Hearts } from "./hearts";
-import { createShark, Shark } from "./Shark";
+import { createShark, Shark } from "../../characters/Shark";
 import { SharkFight } from "./sharkFight";
 import { SeaUI, STARFISH_ICON } from "./seaUI";
 

@@ -16,7 +16,7 @@ import { Timeline, ease, lerp, hump, clamp01, Bin } from "../ogre/kit";
 import { Fx } from "../ogre/fx";
 import { Director } from "../ogre/director";
 import { Popups } from "../ogre/popups";
-import { Shark } from "./Shark";
+import { Shark } from "../../characters/Shark";
 import { Boat } from "./boat";
 import { Hearts } from "./hearts";
 import { SeaUI } from "./seaUI";

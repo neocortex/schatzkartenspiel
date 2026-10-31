@@ -9,7 +9,7 @@
 
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
-import { mat, toonMesh } from "../../characters/parts";
+import { mat, toonMesh } from "./parts";
 
 const C = {
   skin: "#7fb648",

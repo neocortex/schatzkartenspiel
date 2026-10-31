@@ -12,7 +12,7 @@ import { Mole, createMole } from "../../characters/Mole";
 import { mat, toonMesh } from "../../characters/parts";
 import { glowTexture } from "../../world/ambient/textures";
 import { Fox } from "../forest/fox";
-import { Ogre, createOgre } from "../ogre/Ogre";
+import { Ogre, createOgre } from "../../characters/Ogre";
 import { Actor } from "../shared/actor";
 import { Bursts } from "../shared/bursts";
 import { Particles } from "../shared/particles";

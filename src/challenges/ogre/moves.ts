@@ -12,7 +12,7 @@ import { Fx } from "./fx";
 import { Director } from "./director";
 import { Popups } from "./popups";
 import { Hero } from "./hero";
-import { Ogre, OgrePose, OgreMood } from "./Ogre";
+import { Ogre, OgrePose, OgreMood } from "../../characters/Ogre";
 import { deckAt } from "./gorgeShape";
 import { OgreMove, OgreResult } from "./fight";
 

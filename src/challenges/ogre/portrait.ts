@@ -5,7 +5,7 @@
  */
 
 import * as THREE from "three";
-import { createOgre } from "./Ogre";
+import { createOgre } from "../../characters/Ogre";
 
 let cached: string | null = null;
 

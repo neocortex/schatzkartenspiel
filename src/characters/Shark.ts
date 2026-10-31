@@ -9,7 +9,7 @@
  */
 
 import * as THREE from "three";
-import { mat, toonMesh } from "../../characters/parts";
+import { mat, toonMesh } from "./parts";
 
 const C = {
   top: "#4f8fd0",

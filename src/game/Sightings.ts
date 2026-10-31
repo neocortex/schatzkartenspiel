@@ -8,8 +8,8 @@
  */
 
 import * as THREE from "three";
-import { createOgre, Ogre } from "../challenges/ogre/Ogre";
-import { createShark, Shark } from "../challenges/sea/Shark";
+import { createOgre, Ogre } from "../characters/Ogre";
+import { createShark, Shark } from "../characters/Shark";
 import { blobShadow } from "../characters/Humanoid";
 import { Colliders, Circle } from "../world/Colliders";
 import { LANDMARKS, P2 } from "../world/layout";

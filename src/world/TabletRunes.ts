@@ -123,6 +123,13 @@ export class TabletRunes {
     t.sparks.visible = true;
   }
 
+  /** A tablet lit on an earlier day of the story: awake at once, with no flash and no sparks. */
+  wake(i: number): void {
+    const t = this.tablets[i];
+    if (!t || t.lit >= 0) return;
+    t.lit = FLASH_UP + FLASH_DOWN;
+  }
+
   isLit(i: number): boolean {
     return (this.tablets[i]?.lit ?? -1) >= 0;
   }

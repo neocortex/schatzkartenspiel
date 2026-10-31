@@ -105,6 +105,12 @@ export async function storyChecks({ page, BASE, check, shot, wait, brightness })
     await wait(600);
   };
   const story = () => page.evaluate(() => window.game.story.e2e);
+  /** How many lake tablets show their settled glow right now. */
+  const tabletsAwake = () =>
+    page.evaluate(() => {
+      const { landmarks } = window.game.island.island;
+      return landmarks.tablets.group.children.filter((o) => o.name === "tablet-runes" && o.material === landmarks.materials.pulse).length;
+    });
   const place = async (x, z) => {
     await page.evaluate(([x, z]) => window.game.placePlayer(x, z), [x, z]);
     await wait(500);
@@ -170,6 +176,8 @@ export async function storyChecks({ page, BASE, check, shot, wait, brightness })
     await open(`?quest=${m}`);
     const got = await story();
     check(`island state at quest ${m}`, sameFields(got, want), JSON.stringify(got));
+    const awake = await tabletsAwake();
+    check(`tablets at quest ${m}: lit only after the lake`, awake === (Number(m) > 4 ? 3 : 0), `${awake} of 3`);
   }
 
   // ── The way past the boulder and the ogre ─────────────────
@@ -356,6 +364,8 @@ export async function storyChecks({ page, BASE, check, shot, wait, brightness })
     const pos = await player();
     const reachable = await reach(page, pos, goal.at, { radius: goal.radius - 0.1 });
     check(`Continue at quest ${m} matches the island and the goal is reachable`, sameFields(got, EXPECTED[m]) && reachable, JSON.stringify({ got, goal: goal?.at, reachable }));
+    const awake = await tabletsAwake();
+    check(`Continue at quest ${m} keeps the tablets as the story left them`, awake === (Number(m) > 4 ? 3 : 0), `${awake} of 3`);
   }
   await page.evaluate(() => localStorage.removeItem("schatzkarten_save"));
 

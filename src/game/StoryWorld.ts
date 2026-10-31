@@ -25,6 +25,8 @@ import { audio } from "../audio/Audio";
 
 /** Paco comes home to the village at this quest. */
 const VILLAGE_QUEST = 3;
+/** The riddles of the lake; once this quest is won all three tablets have been lit. */
+const LAKE_QUEST = 4;
 /** The sword opens the hedge right before this quest's challenge. */
 const FOREST_QUEST = 6;
 /** The hedge has gone once the forest quest is won, the boulder once the mountain trail opens. */
@@ -136,6 +138,8 @@ export class StoryWorld {
     if (m < VILLAGE_QUEST) this.npcs.setSpot(PACO, null);
     else if (m < SEA_QUEST) this.npcs.setSpot(PACO, this.pacoHome.at, this.pacoHome.facing);
     else this.npcs.setSpot(PACO, PACO_DOCK, PACO_DOCK_FACING);
+    // Reason: a reload forgets the tablets, so a game that has passed the lake lights them again
+    if (m > LAKE_QUEST) LANDMARKS.tablets.forEach((_, i) => landmarks.tablets.wake(i));
     this.sightings.place(m);
   }
 

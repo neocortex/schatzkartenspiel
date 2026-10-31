@@ -527,7 +527,7 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   ],
 
   // -----------------------------------------------------------------------
-  // Milestone 10: Treasure
+  // Quest 11: the small island. The chest holds more than gold.
   // -----------------------------------------------------------------------
   treasure_arrive: [
     {
@@ -545,7 +545,17 @@ export const DIALOGUES: Record<string, DialogueScript> = {
     {
       speaker: "Tadeo",
       portrait: "portrait_tadeo",
-      text: "Eine Truhe! Aber sie ist in Eis eingeschlossen. Ich brauche den Goldenen Hammer!",
+      text: "Eine Truhe! Aber sie steckt in Eis.",
+    },
+    {
+      speaker: "Chuleta",
+      portrait: "",
+      text: "Das ist Zaubereis! Das schmilzt nie.",
+    },
+    {
+      speaker: "Chuleta",
+      portrait: "",
+      text: "Nur der Hammer schafft es!",
     },
   ],
   treasure_hammer: [
@@ -560,42 +570,51 @@ export const DIALOGUES: Record<string, DialogueScript> = {
       text: "Jetzt noch der Goldene Schlüssel...",
     },
   ],
-  treasure_open: [
-    {
-      speaker: "Erzähler",
-      portrait: "",
-      text: "Die Truhe öffnet sich mit einem goldenen Leuchten!",
-    },
+  // The chest gives up one thing after the other: each conversation below is a beat of its own
+  treasure_note: [
     {
       speaker: "Tadeo",
       portrait: "portrait_tadeo",
-      text: "DER SCHATZ! Unglaublich! Gold, Edelsteine, und... eine Krone!",
+      text: 'Ein Zettel. "Es tut mir leid. P."',
     },
     {
-      speaker: "Erzähler",
+      speaker: "Chuleta",
       portrait: "",
-      text: "Tadeo hat den legendären Schatz der Insel gefunden! Was für ein Abenteuer!",
+      text: "P? Wie Pirat?",
     },
   ],
-
-  // -----------------------------------------------------------------------
-  // Victory
-  // -----------------------------------------------------------------------
-  victory: [
+  // The first line is said before he touches the heart, the second with the heart in his hands
+  treasure_heart: [
     {
-      speaker: "Erzähler",
-      portrait: "",
-      text: "Und so endet das große Abenteuer von Tadeo auf der Insel.",
-    },
-    {
-      speaker: "Erzähler",
-      portrait: "",
-      text: "Mit Mut, Klugheit und Entschlossenheit hat er alle Prüfungen bestanden und den Schatz gefunden.",
+      speaker: "Tadeo",
+      portrait: "portrait_tadeo",
+      text: "Das Herz! Ich habe ein bisschen Angst...",
     },
     {
       speaker: "Tadeo",
       portrait: "portrait_tadeo",
-      text: "Das war das beste Abenteuer meines Lebens! Aber wer weiß... vielleicht wartet schon das nächste!",
+      text: "Oh. Es ist ganz warm!",
+    },
+  ],
+  treasure_plan: [
+    {
+      speaker: "Tadeo",
+      portrait: "portrait_tadeo",
+      text: "Eine Papierrolle? Die schaue ich mir später an.",
+    },
+  ],
+  treasure_gold: [
+    {
+      speaker: "Tadeo",
+      portrait: "portrait_tadeo",
+      text: "DER SCHATZ! Gold, Edelsteine und... eine Krone!",
+    },
+  ],
+  treasure_erupt: [
+    {
+      speaker: "Erzähler",
+      portrait: "",
+      text: "Da! Der Vulkan spuckt Feuer! Schnell zurück!",
     },
   ],
 };

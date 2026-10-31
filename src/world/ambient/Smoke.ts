@@ -14,7 +14,7 @@ import { glowTexture, puffTexture } from "./textures";
 /** Direction the wind blows smoke (matches the grass sway and drifting clouds). */
 export const WIND = new THREE.Vector3(0.9, 0, 0.4).normalize();
 
-export type SmokeStyle = "chimney" | "steam" | "campfire" | "smoulder" | "volcano" | "volcanoBurst" | "seaSteam" | "mist";
+export type SmokeStyle = "chimney" | "steam" | "campfire" | "smoulder" | "volcano" | "volcanoBurst" | "eruption" | "seaSteam" | "mist";
 
 interface SmokeParams {
   /** Puffs alive per source. */
@@ -54,6 +54,11 @@ const STYLES: Record<SmokeStyle, SmokeParams> = {
   volcanoBurst: {
     puffs: 36, life: 8, rise: 46, spread: 8, size: [6, 25], wind: 18, turb: 3,
     colorA: "#1e1a1a", colorB: "#8d8682", opacity: 0.95, glow: "#ff6a1c",
+  },
+  // The real thing, seen from far out at sea: a black column, lit from below by the fire it comes out of
+  eruption: {
+    puffs: 60, life: 15, rise: 235, spread: 42, size: [20, 92], wind: 120, turb: 12,
+    colorA: "#3d1d12", colorB: "#141112", opacity: 0.97, glow: "#ff7a24",
   },
   seaSteam: { puffs: 14, life: 6, rise: 8, spread: 2, size: [1.2, 6], wind: 6, turb: 0.8, colorA: "#f4f6f8", colorB: "#ffffff", opacity: 0.32, pulse: 0.35 },
   // Low jungle mist: big faint banks that barely rise and creep along with the wind. They fade out within

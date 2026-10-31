@@ -1,9 +1,9 @@
 /**
  * Set dressing of the treasure island: swaying palms, bushes and beach grass,
  * shells and starfish on the sand, rocks, the old shipwreck, Tadeo's beached
- * sailboat, a barrel and crate washed ashore, and the main island with its
- * smoking volcano on the horizon. Static props are merged into one mesh per
- * material; plants and beach finds are instanced.
+ * sailboat, a barrel and crate washed ashore, and the main island's hills on
+ * the horizon, the side Tadeo came from. Static props are merged into one mesh
+ * per material; plants and beach finds are instanced.
  */
 
 import * as THREE from "three";
@@ -16,10 +16,10 @@ import { shipwreck, sailboat } from "../../world/models/boats";
 import { barrel, crate } from "../../world/models/props";
 import { SignAtlas } from "../../world/models/signs";
 import { createMaterials } from "../../world/models/effects";
-import { SmokeSystem } from "../../world/ambient/Smoke";
 import { WorldUniforms } from "../../world/Terrain";
 import { Owned } from "../shared/dispose";
 import { Ground, ISLAND, X_AT } from "./terrain";
+import { VOLCANO_AT } from "./eruption";
 
 /** Circles Tadeo can't walk through: [x, z, radius]. */
 export const BLOCKERS: [number, number, number][] = [];
@@ -35,6 +35,8 @@ const PALMS: [number, number, number, number][] = [
 export const BOAT_AT = new THREE.Vector3(4.6, -0.28, 8.3);
 /** Where Tadeo stands after hopping off the boat. */
 export const LANDING = new THREE.Vector2(2.5, 3.7);
+/** Where the camera stops to watch the eruption, behind Tadeo and looking over him at the horizon. No grass grows here. */
+export const ERUPT_FROM = new THREE.Vector3(3.6, 1.75, -4.6);
 
 /** Place a model with yaw, uniform scale and a little tilt (half-buried things). */
 function place(x: number, y: number, z: number, yaw: number, scale = 1, tiltX = 0, tiltZ = 0): THREE.Matrix4 {
@@ -73,14 +75,13 @@ export class Scenery {
   constructor(
     private ground: Ground,
     world: WorldUniforms,
-    smoke: SmokeSystem,
     owned: Owned,
   ) {
     BLOCKERS.length = 0;
     this.plants(world.uTime, owned);
     this.beachFinds(owned);
     this.props(world, owned);
-    this.mainIsland(smoke, owned);
+    this.mainIsland(owned);
   }
 
   private h(x: number, z: number): number {
@@ -129,7 +130,7 @@ export class Scenery {
       const z = -2.5 + (this.rand() - 0.5) * 21;
       const y = this.h(x, z);
       const clump = this.noise.fbm(x * 0.25, z * 0.25, 2);
-      if (y < 0.45 || clump < 0.15 || Math.hypot(x - X_AT.x, z - X_AT.y) < 4.2 || Math.abs(x - 1.6) < 1.6 && z > 0) continue;
+      if (y < 0.45 || clump < 0.15 || Math.hypot(x - X_AT.x, z - X_AT.y) < 4.2 || Math.abs(x - 1.6) < 1.6 && z > 0 || Math.hypot(x - ERUPT_FROM.x, z - ERUPT_FROM.z) < 1.8) continue;
       const s = 0.7 + this.rand() * 0.7;
       grass.setMatrixAt(n++, m.compose(new THREE.Vector3(x, y - 0.03, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.rand() * 6.28), new THREE.Vector3(s, s * (0.8 + this.rand() * 0.6), s)));
     }
@@ -256,39 +257,36 @@ export class Scenery {
     make(all.dark, mats.dark, false);
   }
 
-  /** The big island on the horizon: green hills, a beach rim and the smoking volcano. */
-  private mainIsland(smoke: SmokeSystem, owned: Owned): void {
-    const at = new THREE.Vector3(-70, 0, -430);
+  /**
+   * The big island on the horizon: green hills, a beach rim, dark ground around the volcano at its western end (the
+   * right, from here), and the snowy mountain far along it. The volcano itself is in `eruption.ts`.
+   */
+  private mainIsland(owned: Owned): void {
     const land = new THREE.IcosahedronGeometry(1, 10);
     const pos = land.attributes.position as THREE.BufferAttribute;
-    const volcano = new THREE.Vector2(-40, -18);
+    const volcano = new THREE.Vector2(-110, -18);
+    const mountain = new THREE.Vector2(112, 4);
     const c = new THREE.Color();
     const colors = new Float32Array(pos.count * 3);
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i) * 170;
       const z = pos.getZ(i) * 70;
       let y = Math.max(pos.getY(i), 0) * 34 * (0.65 + this.noise.fbm(x * 0.02, z * 0.02, 3) * 0.7) - 6;
-      // The volcano cone with a crater on top
-      const dv = Math.hypot(x - volcano.x, z - volcano.y);
-      const cone = Math.max(0, 1 - dv / 70) ** 1.25 * 92;
-      const crater = (1 - smoothstep(5, 12, dv)) * 10;
-      y = Math.max(y, cone - crater);
+      const dm = Math.hypot(x - mountain.x, z - mountain.y);
+      y = Math.max(y, Math.max(0, 1 - dm / 62) ** 1.15 * 84);
       pos.setXYZ(i, x, y, z);
       const sandBand = 1 - smoothstep(1, 3.5, y);
-      const rock = smoothstep(42, 64, y);
       c.set("#4f9a3a").lerp(new THREE.Color("#2f6f2c"), smoothstep(10, 30, y + this.noise.noise(x * 0.05, z * 0.05) * 8));
-      c.lerp(new THREE.Color("#8a7766"), rock).lerp(new THREE.Color("#4a403c"), smoothstep(70, 84, y));
+      c.lerp(new THREE.Color("#8a7766"), smoothstep(36, 50, y)).lerp(new THREE.Color("#f4f7fa"), smoothstep(54, 62, y));
+      c.lerp(new THREE.Color("#3d302b"), 1 - smoothstep(70, 130, Math.hypot(x - volcano.x, z - volcano.y)));
       c.lerp(new THREE.Color("#f2e3bd"), sandBand);
       colors.set([c.r, c.g, c.b], i * 3);
     }
     land.setAttribute("color", new THREE.BufferAttribute(colors, 3));
     land.computeVertexNormals();
     const mesh = new THREE.Mesh(land, owned.add(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true })));
-    mesh.position.copy(at);
-    mesh.rotation.y = 0.12;
+    // Reason: the island is built around its own middle; this puts its volcano spot exactly on `VOLCANO_AT`
+    mesh.position.set(VOLCANO_AT.x - volcano.x, 0, VOLCANO_AT.z - volcano.y);
     this.group.add(mesh);
-    // Reason: the crater rim sits ~82 m up; puffs start just above it so the plume rises out of the cone
-    const peak = new THREE.Vector3(volcano.x, 84, volcano.y).applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.12).add(at);
-    smoke.add([peak], "volcano");
   }
 }

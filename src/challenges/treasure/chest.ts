@@ -1,12 +1,14 @@
 /**
  * The treasure chest frozen in a block of ice: a faceted, see-through ice
  * block whose painted crack texture grows with every hammer blow, the golden
- * key turning in the lock, the springy lid, and what is inside — a glowing
- * heap of gold, a golden light beam with turning rays, and the crown.
+ * key turning in the lock, the springy lid, and what is inside — Paco's note,
+ * the Feuerherz, a rolled-up plan, a glowing heap of gold, a golden light beam
+ * with turning rays, and the crown.
  */
 
 import * as THREE from "three";
-import { createChest, createKey } from "../../world/models/items";
+import { createChest, createFeuerherz, createKey } from "../../world/models/items";
+import { glowTexture } from "../../world/ambient/textures";
 import { mat, toonMesh } from "../../characters/parts";
 import { hash2 } from "../../core/noise";
 import { Owned } from "../shared/dispose";
@@ -36,6 +38,78 @@ export function createCrown(): THREE.Group {
     g.add(spike, pearl, gem);
   }
   return g;
+}
+
+/** A torn scrap of old paper with a few hasty hand-written words: Paco's note. About 1 unit wide, facing +z. */
+function createNote(owned: Owned): THREE.Group {
+  const cv = document.createElement("canvas");
+  cv.width = 512;
+  cv.height = 360;
+  const g = cv.getContext("2d")!;
+  // Reason: walking round the sheet in small jittered steps gives it a torn edge; a hash keeps the tear the same every time
+  g.beginPath();
+  const STEPS = 60;
+  for (let i = 0; i < STEPS; i++) {
+    const a = (i / STEPS) * Math.PI * 2;
+    const box = Math.min(1 / Math.max(Math.abs(Math.cos(a)), 0.001), 1 / Math.max(Math.abs(Math.sin(a)) * (512 / 360), 0.001));
+    const r = (232 - hash2(i, 7) * 26) * box;
+    const x = 256 + Math.cos(a) * r;
+    const y = 180 + Math.sin(a) * r * (360 / 512);
+    if (i === 0) g.moveTo(x, y);
+    else g.lineTo(x, y);
+  }
+  g.closePath();
+  const paper = g.createRadialGradient(256, 170, 40, 256, 180, 300);
+  paper.addColorStop(0, "#f8ecc9");
+  paper.addColorStop(0.7, "#eeda9f");
+  paper.addColorStop(1, "#c79c5e");
+  g.fillStyle = paper;
+  g.fill();
+  g.strokeStyle = "rgba(90, 53, 18, 0.55)";
+  g.lineWidth = 5;
+  g.stroke();
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillStyle = "#3b2412";
+  g.translate(256, 180);
+  g.rotate(-0.045);
+  g.font = `700 58px "Bradley Hand", "Segoe Script", "Comic Sans MS", cursive`;
+  g.fillText("Es tut mir leid.", 0, -44);
+  g.font = `700 108px "Bradley Hand", "Segoe Script", "Comic Sans MS", cursive`;
+  g.fillStyle = "#8c1a14";
+  g.fillText("P.", 118, 72);
+  const texture = owned.add(new THREE.CanvasTexture(cv));
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const sheet = new THREE.PlaneGeometry(1, 0.7, 14, 10);
+  const pos = sheet.attributes.position as THREE.BufferAttribute;
+  // Reason: a sheet that lay rolled up for sixty years keeps its curl
+  for (let i = 0; i < pos.count; i++) pos.setZ(i, Math.sin(pos.getX(i) * 2.4 + 0.6) * 0.05 + Math.sin(pos.getY(i) * 3.1) * 0.02);
+  sheet.computeVertexNormals();
+  const material = owned.add(new THREE.MeshStandardMaterial({ map: texture, emissive: "#ffffff", emissiveMap: texture, emissiveIntensity: 0.32, roughness: 0.95, alphaTest: 0.5, side: THREE.DoubleSide }));
+  const mesh = new THREE.Mesh(sheet, material);
+  mesh.castShadow = true;
+  const note = new THREE.Group();
+  note.add(mesh);
+  return note;
+}
+
+/** A rolled-up plan on blue paper, tied with a red ribbon. Lies along x, about 0.9 units long. */
+function createPlan(): THREE.Group {
+  const plan = new THREE.Group();
+  const roll = toonMesh(new THREE.CylinderGeometry(0.09, 0.09, 0.82, 18).rotateZ(Math.PI / 2), mat("#4d8fe6", 0.7));
+  const hollow = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.84, 14).rotateZ(Math.PI / 2), mat("#1f4377", 0.8));
+  const edge = toonMesh(new THREE.BoxGeometry(0.82, 0.012, 0.09), mat("#9cc6f7", 0.7), false);
+  edge.position.set(0, 0.086, 0.045);
+  const ribbon = toonMesh(new THREE.CylinderGeometry(0.097, 0.097, 0.1, 18).rotateZ(Math.PI / 2), mat("#e63946", 0.5));
+  plan.add(roll, hollow, edge, ribbon);
+  for (const side of [-1, 1]) {
+    const loop = toonMesh(new THREE.SphereGeometry(0.07, 10, 8), mat("#e63946", 0.5));
+    loop.scale.set(1, 0.5, 0.35);
+    loop.position.set(side * 0.07, 0.11, 0.05);
+    loop.rotation.z = side * 0.5;
+    plan.add(loop);
+  }
+  return plan;
 }
 
 /** Faceted ice block: a subdivided box with jittered corners, flat-shaded. */
@@ -136,6 +210,10 @@ export class TreasureChest {
   readonly body = new THREE.Group();
   readonly lid: THREE.Group;
   readonly crown = createCrown();
+  /** What lies in the chest besides the gold; each one is hidden until the script brings it out. */
+  readonly note: THREE.Group;
+  readonly heart = createFeuerherz();
+  readonly plan = createPlan();
   readonly beam = new THREE.Group();
   readonly light = new THREE.PointLight("#ffc65a", 0, 0, 2);
   /** Where the lock is, in world space (updated each frame). */
@@ -150,6 +228,9 @@ export class TreasureChest {
   private key = createKey();
   private beamMat: THREE.ShaderMaterial;
   private heap: THREE.Mesh;
+  private inner: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+  private glowLevel = 0;
+  private glowTarget = 0;
   private squash = 0;
   private squashVel = 0;
   private flash = 0;
@@ -216,11 +297,30 @@ export class TreasureChest {
     this.keyPivot.visible = false;
     lid.add(this.keyPivot);
 
-    // Inside: a glowing heap of gold
+    // Inside: a dark hollow with a light welling up from it, and later a glowing heap of gold
+    const hollow = new THREE.Mesh(new THREE.PlaneGeometry(1.06, 0.66).rotateX(-Math.PI / 2), mat("#2a160c", 1));
+    hollow.position.y = 0.73;
+    this.inner = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.5, 1.1).rotateX(-Math.PI / 2),
+      owned.add(new THREE.MeshBasicMaterial({ map: glowTexture(), color: "#ffc65a", transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })),
+    );
+    this.inner.position.y = 0.735;
     this.heap = new THREE.Mesh(new THREE.SphereGeometry(0.5, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat("#ffd24a", 0.3, 0.9));
     this.heap.scale.set(1.05, 0.42, 0.68);
     this.heap.position.y = 0.56;
-    this.body.add(this.heap);
+    this.heap.visible = false;
+    this.body.add(hollow, this.inner, this.heap);
+
+    this.note = createNote(owned);
+    this.heart.traverse((o) => {
+      const material = (o as THREE.Mesh).material as THREE.Material | undefined;
+      if (material) owned.add(material);
+    });
+    for (const item of [this.note, this.heart, this.plan]) {
+      item.visible = false;
+      item.position.y = 0.5;
+      this.group.add(item);
+    }
 
     this.beamMat = this.beamMaterial();
     owned.add(this.beamMat);
@@ -301,12 +401,32 @@ export class TreasureChest {
     this.keyTurnTarget = stage >= 3 ? Math.PI / 2 : stage === 2 ? 0.35 : 0;
   }
 
-  /** Spring the lid open and start the golden glow. */
+  /** Spring the lid open: only a soft light comes out, and the hollow still looks empty. */
   open(): void {
     this.lidTarget = -2.05;
     this.lidVel = -9;
+    this.glow(5, "#ffc65a");
+  }
+
+  /** How strong the light from inside is, and its colour. */
+  glow(level: number, color: THREE.ColorRepresentation): void {
+    this.glowTarget = level;
+    this.light.color.set(color);
+    this.inner.material.color.set(color);
+  }
+
+  /** The gold shows at last, and with it the great beam. */
+  showGold(): void {
+    this.heap.visible = true;
     this.beamOn = true;
     this.beam.visible = true;
+    this.glow(26, "#ffc65a");
+  }
+
+  /** The great beam sinks back into the chest, and the gold is only gold again. */
+  endBeam(): void {
+    this.beamOn = false;
+    this.glow(2, "#ffc65a");
   }
 
   update(dt: number, time: number): void {
@@ -331,13 +451,16 @@ export class TreasureChest {
     this.lidAngle += this.lidVel * dt;
     this.lid.rotation.x = this.lidAngle;
 
-    if (this.beamOn) {
-      this.beamGrow = Math.min(1, this.beamGrow + dt * 0.9);
+    this.glowLevel += (this.glowTarget - this.glowLevel) * Math.min(dt * 2.4, 1);
+    this.light.intensity = this.glowLevel * (1 + Math.sin(time * 5.3) * 0.11);
+    this.inner.material.opacity = Math.min(this.glowLevel / 8, 1);
+    if (this.beam.visible) {
+      this.beamGrow = THREE.MathUtils.clamp(this.beamGrow + dt * (this.beamOn ? 0.9 : -1.3), 0, 1);
       const g = 1 - (1 - this.beamGrow) ** 3;
       this.beam.scale.set(0.6 + g * 0.4, Math.max(g, 0.001), 0.6 + g * 0.4);
       this.beam.rotation.y = time * 0.35;
       this.beamMat.uniforms.uPower.value = g * (0.85 + Math.sin(time * 3.1) * 0.1);
-      this.light.intensity = g * (26 + Math.sin(time * 5.3) * 3);
+      if (!this.beamOn && this.beamGrow === 0) this.beam.visible = false;
     }
     this.beamMat.uniforms.uTime.value = time;
     this.lock.getWorldPosition(this.lockWorld);

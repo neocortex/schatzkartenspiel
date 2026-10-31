@@ -1,6 +1,6 @@
 /**
  * Sky, sun and atmosphere of the treasure island, with a smooth transition
- * from a bright tropical afternoon to a glowing sunset for the finale (sky
+ * from a bright tropical afternoon to the ash-red sky of the eruption (sky
  * dome, sun direction and colour, sky fill light, fog, the water's sky
  * reflection and the clouds all blend together).
  */
@@ -8,6 +8,7 @@
 import * as THREE from "three";
 import { createSkyDome, Clouds, SkyPalette } from "../../world/Sky";
 import { Owned } from "../shared/dispose";
+import { VOLCANO_AT } from "./eruption";
 
 interface Look {
   zenith: string;
@@ -20,7 +21,9 @@ interface Look {
   hemiGround: string;
   hemiIntensity: number;
   fog: string;
+  fogFar: number;
   waterSky: string;
+  waterTint: string;
   glint: string;
   cloud: string;
 }
@@ -36,25 +39,30 @@ const DAY: Look = {
   hemiGround: "#f2dcb0",
   hemiIntensity: 1.15,
   fog: "#cfe7f2",
+  fogFar: 900,
   waterSky: "#a6dcf2",
+  waterTint: "#ffffff",
   glint: "#fff1d6",
   cloud: "#b8c8e6",
 };
 
-const SUNSET: Look = {
-  zenith: "#272a74",
-  horizon: "#ff9a68",
-  sunGlow: "#ffb15e",
-  sunDir: new THREE.Vector3(-0.5, 0.16, -0.85),
-  sun: "#ffad6a",
-  sunIntensity: 2.0,
-  hemiSky: "#9a90e6",
-  hemiGround: "#e0a678",
-  hemiIntensity: 1.05,
-  fog: "#f2a585",
-  waterSky: "#ffb48e",
-  glint: "#ffc47e",
-  cloud: "#ff9f86",
+const ERUPTION: Look = {
+  zenith: "#120a1c",
+  horizon: "#5c1a16",
+  sunGlow: "#a8460c",
+  // Reason: the sun sinks right behind the volcano (its bearing, low enough to stay hidden by the cone), so the cone is a black shape against the brightest part of the sky
+  sunDir: VOLCANO_AT.clone().setY(36),
+  sun: "#ff7038",
+  sunIntensity: 1.1,
+  hemiSky: "#5a3f70",
+  hemiGround: "#6e3526",
+  hemiIntensity: 0.5,
+  fog: "#4a1a14",
+  fogFar: 1700,
+  waterSky: "#b8401c",
+  waterTint: "#9c5a44",
+  glint: "#ff8a3a",
+  cloud: "#26121a",
 };
 
 const smoother = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
@@ -64,6 +72,7 @@ export class Daylight {
   readonly sunDir = DAY.sunDir.clone().normalize();
   /** Colour of the sky reflected in the water, and of the sun glints (shared with the lagoon shader). */
   readonly waterSky = new THREE.Color(DAY.waterSky);
+  readonly waterTint = new THREE.Color(DAY.waterTint);
   readonly glint = new THREE.Color(DAY.glint);
   readonly fog = new THREE.Fog(DAY.fog, 70, 900);
   readonly sun: THREE.DirectionalLight;
@@ -103,8 +112,8 @@ export class Daylight {
     this.apply();
   }
 
-  /** Blend to the sunset (1) or back to day (0) over `seconds`. */
-  fade(to: 0 | 1, seconds: number): void {
+  /** Blend towards the eruption's sky (1 = all the way, 0 = bright day) over `seconds`. */
+  fade(to: number, seconds: number): void {
     this.from = this.mix;
     this.to = to;
     this.t = 0;
@@ -122,19 +131,22 @@ export class Daylight {
   private apply(): void {
     const k = this.mix;
     const c = (a: string, b: string, out: THREE.Color) => out.set(a).lerp(new THREE.Color(b), k);
-    c(DAY.zenith, SUNSET.zenith, this.palette.zenith);
-    c(DAY.horizon, SUNSET.horizon, this.palette.horizon);
-    c(DAY.sunGlow, SUNSET.sunGlow, this.palette.sunGlow);
-    c(DAY.sun, SUNSET.sun, this.sun.color);
-    c(DAY.hemiSky, SUNSET.hemiSky, this.hemi.color);
-    c(DAY.hemiGround, SUNSET.hemiGround, this.hemi.groundColor);
-    c(DAY.fog, SUNSET.fog, this.fog.color);
-    c(DAY.waterSky, SUNSET.waterSky, this.waterSky);
-    c(DAY.glint, SUNSET.glint, this.glint);
-    c(DAY.cloud, SUNSET.cloud, this.cloudMat.emissive);
-    this.sun.intensity = THREE.MathUtils.lerp(DAY.sunIntensity, SUNSET.sunIntensity, k);
-    this.hemi.intensity = THREE.MathUtils.lerp(DAY.hemiIntensity, SUNSET.hemiIntensity, k);
-    this.sunDir.copy(DAY.sunDir).normalize().lerp(SUNSET.sunDir.clone().normalize(), k).normalize();
+    c(DAY.zenith, ERUPTION.zenith, this.palette.zenith);
+    c(DAY.horizon, ERUPTION.horizon, this.palette.horizon);
+    c(DAY.sunGlow, ERUPTION.sunGlow, this.palette.sunGlow);
+    c(DAY.sun, ERUPTION.sun, this.sun.color);
+    c(DAY.hemiSky, ERUPTION.hemiSky, this.hemi.color);
+    c(DAY.hemiGround, ERUPTION.hemiGround, this.hemi.groundColor);
+    c(DAY.fog, ERUPTION.fog, this.fog.color);
+    c(DAY.waterSky, ERUPTION.waterSky, this.waterSky);
+    c(DAY.waterTint, ERUPTION.waterTint, this.waterTint);
+    c(DAY.glint, ERUPTION.glint, this.glint);
+    c(DAY.cloud, ERUPTION.cloud, this.cloudMat.emissive);
+    this.fog.far = THREE.MathUtils.lerp(DAY.fogFar, ERUPTION.fogFar, k);
+    this.sun.intensity = THREE.MathUtils.lerp(DAY.sunIntensity, ERUPTION.sunIntensity, k);
+    this.hemi.intensity = THREE.MathUtils.lerp(DAY.hemiIntensity, ERUPTION.hemiIntensity, k);
+    // Reason: the sun has to be behind the cone before the camera turns there; a white disc sliding down past the fire looks wrong
+    this.sunDir.copy(DAY.sunDir).normalize().lerp(ERUPTION.sunDir.clone().normalize(), THREE.MathUtils.smoothstep(k, 0, 0.5)).normalize();
     this.sun.position.copy(this.sun.target.position).addScaledVector(this.sunDir, 40);
   }
 }

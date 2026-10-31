@@ -1,15 +1,15 @@
 /**
  * TreasureStage — the 3D treasure island and its toolbox for the script:
- * island, lagoon, sky, props, critters, the frozen chest, Tadeo, the camera
- * director and all particle effects, plus awaitable helpers (sleep, wait for
- * a key press, wait until Tadeo reaches the X, framed dialogue) so the steps
- * in `script.ts` read like a little play.
+ * island, lagoon, sky, props, critters, the frozen chest, the volcano on the
+ * horizon, Tadeo, the camera director and all particle effects, plus awaitable
+ * helpers (sleep, wait for a key press, wait until Tadeo reaches the X, framed
+ * dialogue) so the steps in `script.ts` read like a little play.
  */
 
 import * as THREE from "three";
 import { Engine } from "../../core/Engine";
 import { GameUI } from "../../ui/GameUI";
-import { DialogueScript } from "../../data/dialogues";
+import { DIALOGUES, DialogueScript } from "../../data/dialogues";
 import { SmokeSystem } from "../../world/ambient/Smoke";
 import { WorldUniforms } from "../../world/Terrain";
 import { Director, Shot, shot } from "../shared/director";
@@ -22,12 +22,13 @@ import { Scenery, BLOCKERS, LANDING } from "./scenery";
 import { XMark } from "./xmark";
 import { Critters } from "./critters";
 import { TreasureChest } from "./chest";
+import { Eruption } from "./eruption";
 import { TadeoRig } from "./tadeo";
 import { TreasureHud } from "./hud";
 import { Fireworks, createSand, createShards, createCoins, createGems, createSparkles } from "./fx";
 
 export interface TreasureState {
-  phase: "arrive" | "walk" | "dig" | "reveal" | "hammer" | "key" | "open" | "victory" | "done";
+  phase: "arrive" | "walk" | "dig" | "reveal" | "hammer" | "key" | "open" | "erupt" | "done";
   tadeo: { x: number; z: number };
   target: { x: number; z: number };
   digs: number;
@@ -40,10 +41,23 @@ export interface TreasureState {
   meter: number;
   zone: [number, number];
   turns: number;
+  /** What has come out of the chest so far, in the order it comes. */
+  note: boolean;
+  heart: boolean;
+  plan: boolean;
+  gold: boolean;
+  crowned: boolean;
+  /** The volcano on the horizon has blown. */
+  erupting: boolean;
 }
 
 /** Where the chest sits (on the X, on the flat dig site). */
 export const CHEST_AT = new THREE.Vector3(X_AT.x, 0.55, X_AT.y);
+
+/** A slice of a dialogue from the game's dialogue data. */
+export const lines = (name: string, from = 0, to?: number): DialogueScript => (DIALOGUES[name] ?? []).slice(from, to);
+
+export const ease = (k: number) => 1 - (1 - k) ** 3;
 
 interface Timer {
   left: number;
@@ -70,6 +84,7 @@ export class TreasureStage {
   readonly xmark: XMark;
   readonly critters: Critters;
   readonly chest: TreasureChest;
+  readonly eruption: Eruption;
   readonly tadeo: TadeoRig;
   readonly hud: TreasureHud;
   readonly sand: Particles;
@@ -92,6 +107,12 @@ export class TreasureStage {
     meter: 0,
     zone: [0.72, 0.98],
     turns: 0,
+    note: false,
+    heart: false,
+    plan: false,
+    gold: false,
+    crowned: false,
+    erupting: false,
   };
   engine!: Engine;
   /** Arrow keys move Tadeo while true. */
@@ -130,13 +151,14 @@ export class TreasureStage {
     this.director = new Director(this.camera);
     this.smoke = new SmokeSystem(this.world);
     this.ground = new Ground(this.owned.add(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 })));
-    const lagoon = createLagoon({ uTime: this.world.uTime, uSunDir: { value: this.daylight.sunDir }, uSky: { value: this.daylight.waterSky }, uSunColor: { value: this.daylight.glint } });
-    const scenery = new Scenery(this.ground, this.world, this.smoke, this.owned);
+    const lagoon = createLagoon({ uTime: this.world.uTime, uSunDir: { value: this.daylight.sunDir }, uSky: { value: this.daylight.waterSky }, uSunColor: { value: this.daylight.glint }, uTint: { value: this.daylight.waterTint } });
+    const scenery = new Scenery(this.ground, this.world, this.owned);
     this.xmark = new XMark(this.ground, this.owned);
     this.critters = new Critters(this.ground);
     this.chest = new TreasureChest(this.owned);
     this.chest.group.position.copy(CHEST_AT);
     this.chest.group.visible = false;
+    this.eruption = new Eruption(this.smoke, this.owned);
 
     this.tadeo = new TadeoRig(LANDING.x, LANDING.y, Math.PI * 0.85);
     this.tadeo.actor.ground = (x, z) => this.ground.heightAt(x, z);
@@ -160,7 +182,7 @@ export class TreasureStage {
     this.shock.position.copy(CHEST_AT).setY(CHEST_AT.y + 0.06);
 
     this.scene.add(
-      this.daylight.group, this.ground.mesh, lagoon, scenery.group, this.xmark.group, this.critters.group, this.chest.group, this.smoke.group,
+      this.daylight.group, this.ground.mesh, lagoon, scenery.group, this.xmark.group, this.critters.group, this.chest.group, this.eruption.group, this.smoke.group,
       this.sand.mesh, this.shards.mesh, this.coins.mesh, this.gems.mesh, this.sparkles.mesh, this.confetti.mesh, this.fireworks.sparks.mesh, this.shock,
     );
     this.director.cut(shot(30, 18, 40, 0, 1, -3));
@@ -337,6 +359,7 @@ export class TreasureStage {
     }
     this.critters.update(dt, time, tp);
     this.chest.update(dt, time);
+    this.eruption.update(dt, time, this.camera);
     this.sand.update(dt, this.camera, time);
     this.shards.update(dt, this.camera, time);
     this.coins.update(dt, this.camera, time);

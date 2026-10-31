@@ -1,17 +1,17 @@
 /**
- * Treasure challenge (quest 10, the finale): a little island of white sand
- * and palms in a turquoise lagoon. Tadeo walks to the red X, digs up a chest
- * frozen in ice, smashes the ice with the golden hammer, unlocks the chest
- * with the golden key and is crowned amid gold, confetti and fireworks. After
- * the victory words `finished` resolves and the party keeps going under the
- * game's end card.
+ * Treasure challenge (quest 11): a little island of white sand and palms in a
+ * turquoise lagoon. The map card shows the X, Tadeo walks to it, digs up a
+ * chest frozen in Zaubereis, smashes the ice with the golden hammer and
+ * unlocks the chest with the golden key. It holds Paco's note, the stolen
+ * Feuerherz, a rolled-up plan, gold and a crown. Then the volcano on the
+ * horizon erupts, and `finished` resolves.
  */
 
 import { Engine, PostSettings } from "../../core/Engine";
 import { audio } from "../../audio/Audio";
 import { Challenge, ChallengeContext, ChallengeFactory } from "../types";
 import { TreasureStage, TreasureState } from "./stage";
-import { arrive, walkToX, dig, hammer, unlock, openChest, victory, party } from "./script";
+import { arrive, walkToX, dig, hammer, unlock, openChest, erupt } from "./script";
 
 class TreasureChallenge implements Challenge {
   readonly scene;
@@ -59,13 +59,11 @@ class TreasureChallenge implements Challenge {
       await hammer(s);
       await unlock(s);
       await openChest(s);
-      await victory(s);
+      await erupt(s);
     } catch (e) {
       console.error("Treasure challenge script failed", e);
     }
     this.resolve();
-    // Reason: the celebration keeps looping behind the end card until the page reloads
-    void party(s);
   }
 
   update(dt: number, time: number): void {

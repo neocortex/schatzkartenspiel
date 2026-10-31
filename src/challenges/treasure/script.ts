@@ -1,18 +1,20 @@
 /**
- * The treasure hunt, step by step: arrive by boat, walk to the X, dig,
- * smash the ice with the golden hammer, turn the golden key, open the chest
- * (beam of light, gold and jewels, the crown for Tadeo), and the never-ending
- * sunset party with fireworks that keeps running under the game's end card.
+ * The treasure hunt, step by step: arrive by boat and look at the map, walk
+ * to the X, dig, smash the ice with the golden hammer, turn the golden key,
+ * open the chest (the note, the heart, the plan, then gold, jewels and the
+ * crown), and the volcano on the horizon erupts.
  */
 
 import * as THREE from "three";
 import { audio } from "../../audio/Audio";
-import { DIALOGUES, DialogueScript } from "../../data/dialogues";
+import { showMapCard } from "../../ui/MapCard";
 import { shot, Shot } from "../shared/director";
-import { TreasureStage, CHEST_AT } from "./stage";
+import { TreasureStage, CHEST_AT, ease, lines } from "./stage";
 import { X_AT, PILE_AT } from "./terrain";
+import { ERUPT_FROM, LANDING } from "./scenery";
 import { lootBurst } from "./fx";
 import { key, bar, dots } from "./hud";
+import { takeNote, takeHeart, takePlan, takeGold } from "./reveals";
 
 const DIG_SPOT = new THREE.Vector2(0, -1.3);
 const HAMMER_SPOT = new THREE.Vector2(1.65, 0.05);
@@ -23,15 +25,18 @@ const DIG_SHOT = shot(1.9, 4.5, 5.5, 0, 0.5, -0.55);
 const REVEAL_SHOT = shot(2.9, 1.8, 5.2, 0.2, 1.35, 0);
 const HAMMER_SHOT = shot(0.9, 2.5, 5.7, 0.6, 1.2, 0);
 const KEY_SHOT = shot(-3.2, 2.25, 3.3, 0.1, 1.0, 0.5);
-const OPEN_SHOT = shot(0.6, 1.5, 6.6, 0.2, 2.4, 0);
-const HERO_SHOT = shot(-0.4, 1.35, 7.6, 0.75, 1.8, 0.8);
+const OPEN_SHOT = shot(0.8, 1.9, 5.0, 0.35, 1.45, 0);
+/**
+ * Where the lens points, relative to the crater: the fire stands left of Tadeo, and the cone's foot stays above the
+ * dialogue box, so the whole volcano is still there while the line is on screen.
+ */
+const ERUPT_AIM = new THREE.Vector3(-8, -25, 0);
+const FOV_NORMAL = 40;
+const FOV_ERUPT = 36;
 
 const X3 = new THREE.Vector3(X_AT.x, CHEST_AT.y, X_AT.y);
 
-/** A slice of a dialogue from the game's dialogue data. */
-const lines = (name: string, from: number, to?: number): DialogueScript => (DIALOGUES[name] ?? []).slice(from, to);
-
-const ease = (k: number) => 1 - (1 - k) ** 3;
+const smoother = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
 
 export async function arrive(s: TreasureStage): Promise<void> {
   s.state.phase = "arrive";
@@ -48,6 +53,8 @@ export async function arrive(s: TreasureStage): Promise<void> {
   t.actor.faceTo(X_AT.x, X_AT.y);
   await s.sleep(0.4);
   await s.say(lines("treasure_arrive", 0, 1), s.tadeoShot(-1.3, 4.6));
+  // Reason: the card's poll runs after the scene's update, so it has to close before the first `nextKey` waiter exists
+  await showMapCard(s.ui.layer, s.engine.input);
 }
 
 /** The player walks Tadeo to the X with the arrow keys. */
@@ -267,7 +274,7 @@ export async function unlock(s: TreasureStage): Promise<void> {
   s.hud.status(null);
 }
 
-/** The lid springs open: light, gold, jewels — and a crown for Tadeo. */
+/** The lid springs open, and the chest gives up one thing after the other. */
 export async function openChest(s: TreasureStage): Promise<void> {
   s.state.phase = "open";
   const t = s.tadeo;
@@ -278,88 +285,81 @@ export async function openChest(s: TreasureStage): Promise<void> {
   s.chest.open();
   audio.playSfx("sfx_chest_open", 1);
   s.director.shake(0.45);
-  s.engine.applyPost({ ...POST_GLOW });
-  const top = CHEST_AT.clone().add(new THREE.Vector3(0, 0.9, 0.1));
-  s.sparkleAt(top, 90, "#ffd75e", 4.5, 1.3);
-  await s.sleep(0.5);
-  lootBurst(s.coins, s.gems, top, 90, 30);
-  audio.playMusic("music_victory");
-  await s.sleep(1.3);
-  await s.say(lines("treasure_open", 0, 1));
-  lootBurst(s.coins, s.gems, top, 60, 20, 0.8);
-  t.actor.face(0);
-  await s.say(lines("treasure_open", 1, 2), HERO_SHOT);
-  await crownFlight(s);
-  // Party time
-  audio.playSfx("sfx_victory_fanfare", 0.9);
-  s.confettiCannons(1.2);
-  t.avatar.pose = "cheer";
-  t.actor.jump(6);
-  s.critters.party = true;
-  s.daylight.fade(1, 9);
-  await s.sleep(2.4);
-  await s.say(lines("treasure_open", 2), HERO_SHOT);
+  s.sparkleAt(CHEST_AT.clone().add(new THREE.Vector3(0, 0.9, 0.1)), 40, "#ffd75e", 2.5);
+  await s.sleep(1.2);
+  await takeNote(s);
+  await takeHeart(s);
+  await takePlan(s);
+  await takeGold(s);
 }
 
-/** Extra bloom while the treasure glows. */
-export const POST_GLOW = { bloomIntensity: 1.15, bloomThreshold: 0.78, tiltShift: true, tiltFocus: 1.1, tiltOffset: 0.0, saturation: 0.18, contrast: 0.08, vignette: 0.45, exposure: 1.02 };
+/** The eruption: everything hot blooms and the far horizon stays sharp. */
+const POST_ERUPT = { bloomIntensity: 0.8, bloomThreshold: 0.9, tiltShift: false, saturation: 0.08, contrast: 0.12, vignette: 0.55, exposure: 1.0 };
 
-/** The crown rises out of the chest, spins in the golden light and lands on Tadeo's head. */
-async function crownFlight(s: TreasureStage): Promise<void> {
-  const crown = s.chest.crown;
+/**
+ * The joy breaks off. The ground shakes, Tadeo turns round, the camera swings past him to the horizon, the day goes
+ * dim, and far out beyond his boat the volcano blows. The challenge ends when the line is said.
+ */
+export async function erupt(s: TreasureStage): Promise<void> {
+  const st = s.state;
   const t = s.tadeo;
-  crown.visible = true;
-  crown.position.set(0, 0.5, 0);
-  crown.scale.setScalar(0.01);
-  audio.playSfx("sfx_special", 0.5);
-  await s.tween(1.3, (k) => {
-    crown.position.y = 0.5 + ease(k) * 2.0;
-    crown.rotation.y = k * Math.PI * 4;
-    crown.scale.setScalar(0.01 + ease(Math.min(k * 1.6, 1)) * 1.3);
-    if (Math.random() < 0.5) s.sparkleAt(crown.getWorldPosition(new THREE.Vector3()), 2, "#ffd75e", 1, 0.8);
-  });
-  // Detach into world space, then fly in an arc onto Tadeo's head
-  const start = crown.getWorldPosition(new THREE.Vector3());
-  s.scene.attach(crown);
-  const head = t.avatar.head;
-  const end = new THREE.Vector3();
-  await s.tween(0.9, (k) => {
-    head.localToWorld(end.set(0, 0.36, 0.02));
-    const e = ease(k);
-    crown.position.lerpVectors(start, end, e);
-    crown.position.y += Math.sin(k * Math.PI) * 1.2;
-    crown.rotation.y = Math.PI * 4 + k * Math.PI * 2;
-    crown.scale.setScalar(1.3 - e * 0.3);
-  });
-  head.add(crown);
-  crown.position.set(0, 0.36, 0.02);
-  crown.rotation.set(-0.12, 0, 0.06);
-  crown.scale.setScalar(1);
-  s.sparkleAt(end, 70, "#ffd75e", 3.5, 1.2);
-  audio.playSfx("sfx_item_get", 0.7);
+  st.phase = "erupt";
+  audio.stopMusic(0.6);
+  audio.playSfx("sfx_door", 1, 0.5);
+  s.director.shake(1.0);
+  t.avatar.pose = "normal";
+  await s.sleep(1.0);
+  s.director.shake(0.7);
+  t.actor.faceTo(s.eruption.crater.x, s.eruption.crater.z);
+  s.chest.endBeam();
+  s.daylight.fade(0.55, 2.8);
+  s.engine.applyPost({ ...POST_ERUPT });
+  // Reason: the child has to be looking at the quiet volcano when it blows, so the camera arrives first
+  await swingToVolcano(s, 2.8);
+  await s.sleep(0.5);
+  s.eruption.start(s.time);
+  st.erupting = true;
+  s.daylight.fade(1, 1.4);
+  s.hud.flash();
+  s.director.shake(1.1);
+  audio.playSfx("sfx_lava_fall", 1, 0.6);
+  audio.playSfx("sfx_door", 1, 0.42);
+  await s.sleep(3.2);
+  await s.say(lines("treasure_erupt"));
+  // Tadeo runs for his boat, and that is the last we see of the island
+  void t.actor.walkTo(LANDING.x, LANDING.y, 4.4);
+  await s.sleep(1.4);
+  st.phase = "done";
 }
 
-/** The victory words; the party keeps going after this (see `party`). */
-export async function victory(s: TreasureStage): Promise<void> {
-  s.state.phase = "victory";
-  s.fireworks.auto = true;
-  orbit(s);
-  await s.say("victory");
-  s.state.phase = "done";
-}
-
-/** Slowly circle Tadeo and the open chest, looking up into the fireworks sky. */
-function orbit(s: TreasureStage): void {
-  const t0 = s.time;
-  const centre = new THREE.Vector3(0.6, 0, 0.9);
-  const a0 = Math.atan2(HERO_SHOT.pos.x - centre.x, HERO_SHOT.pos.z - centre.z);
+/** From the camera's place, round Tadeo's west side (the open sand) to behind him, ending on the volcano in a long lens. */
+function swingToVolcano(s: TreasureStage, seconds: number): Promise<void> {
+  const centre = s.tadeo.actor.position.clone().add(new THREE.Vector3(0, 1.1, 0));
+  const from = s.camera.position.clone().sub(centre);
+  const to = ERUPT_FROM.clone().sub(centre);
+  const a0 = Math.atan2(from.x, from.z);
+  // Reason: going round clockwise seen from above passes the empty sand west of the chest; the palms and the crate stand east of him
+  const a1 = Math.atan2(to.x, to.z) - Math.PI * 2;
+  const r0 = Math.hypot(from.x, from.z);
+  const r1 = Math.hypot(to.x, to.z);
+  const dir = new THREE.Vector3();
+  const crater = s.eruption.crater.clone().add(ERUPT_AIM);
+  let k = 0;
   s.director.track((): Shot => {
-    const a = a0 + (s.time - t0) * 0.12;
-    return {
-      pos: new THREE.Vector3(centre.x + Math.sin(a) * 7.6, 1.5 + Math.sin((s.time - t0) * 0.3) * 0.25, centre.z + Math.cos(a) * 7.6),
-      look: new THREE.Vector3(centre.x, 2.2, centre.z),
-    };
-  }, 1.2);
+    const e = smoother(k);
+    const a = THREE.MathUtils.lerp(a0, a1, e);
+    const r = THREE.MathUtils.lerp(r0, r1, e);
+    // Reason: the arc lifts the camera over the tufts of grass it would otherwise pass right through
+    const pos = centre.clone().add(new THREE.Vector3(Math.sin(a) * r, THREE.MathUtils.lerp(from.y, to.y, e) + Math.sin(e * Math.PI) * 1.4, Math.cos(a) * r));
+    // Reason: a straight blend of two look points flips the view when the camera passes between them, so the view direction turns along with the orbit
+    dir.copy(centre).sub(pos).normalize().lerp(crater.clone().sub(pos).normalize(), THREE.MathUtils.smoothstep(e, 0.55, 1)).normalize();
+    return { pos, look: pos.clone().addScaledVector(dir, 30) };
+  }, 24);
+  return s.tween(seconds, (t) => {
+    k = t;
+    s.camera.fov = THREE.MathUtils.lerp(FOV_NORMAL, FOV_ERUPT, smoother(t));
+    s.camera.updateProjectionMatrix();
+  });
 }
 
 /** Endless celebration under the end card: hops, confetti, coin showers, fireworks. */

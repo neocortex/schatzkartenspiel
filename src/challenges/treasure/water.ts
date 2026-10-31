@@ -16,6 +16,8 @@ export interface WaterUniforms {
   uSunDir: { value: THREE.Vector3 };
   uSky: { value: THREE.Color };
   uSunColor: { value: THREE.Color };
+  /** Multiplies the sea's own colours and foam: white by day, dark when the sky goes dark. */
+  uTint: { value: THREE.Color };
 }
 
 export function createLagoon(u: WaterUniforms): THREE.Mesh {
@@ -69,6 +71,7 @@ uniform float uTime;
 uniform vec3 uSunDir;
 uniform vec3 uSky;
 uniform vec3 uSunColor;
+uniform vec3 uTint;
 uniform vec3 uSand;
 uniform vec3 uShallow;
 uniform vec3 uLagoon;
@@ -111,6 +114,9 @@ void main() {
   float shallow = 1.0 - smoothstep(0.15, 2.4, depth);
   col += vec3(0.85, 1.0, 0.95) * caustics(p * 0.85, uTime * 1.2) * 0.32 * shallow;
 
+  // Reason: the ramp above is the colour of the sand and the water itself, and would glow turquoise under any sky
+  col *= uTint;
+
   // Sky reflection
   float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 5.0);
   col = mix(col, uSky, clamp(fres * 0.85, 0.0, 0.65));
@@ -131,7 +137,7 @@ void main() {
   float reef = smoothstep(-0.75, -0.3, ground) * step(1.8, r);
   float surf = smoothstep(0.35, 0.75, vnoise(p * vec2(0.9, 1.6) + vec2(uTime * 0.6, -uTime * 0.3)) + 0.25 * sin(uTime * 2.0 + p.x * 0.3));
   float foam = max(max(lip, bandMask * 0.85), reef * surf * 0.9);
-  col = mix(col, vec3(1.0), foam * 0.92);
+  col = mix(col, uTint, foam * 0.92);
 
   // Soft edge where the water meets the beach
   float alpha = max(smoothstep(0.0, 0.1, depth), foam);

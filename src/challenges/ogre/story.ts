@@ -147,7 +147,7 @@ export async function outro(s: Stage, ui: GameUI): Promise<void> {
   audio.playSfx("sfx_victory_fanfare");
   shots.wide(s);
   fx.stars(hero.root.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 1.8, 0)), 16);
-  await ui.hud.showBanner("Gewonnen!", "Die Brücke ist frei!", 2400);
+  await ui.hud.showBanner("Gewonnen!", "Der Oger ist jetzt dein Freund!", 2400);
   hero.pose = "normal";
   hero.speed = 3.2;
   const start = hero.root.position.x;

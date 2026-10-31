@@ -436,7 +436,7 @@ try {
       continue;
     }
     if (t.includes("♥")) await once("13_berry_for_the_ogre");
-    if (t.includes("Die Brücke ist frei")) {
+    if (t.includes("Der Oger ist jetzt dein Freund")) {
       await sleep(400);
       await shot("15_victory");
       // Reason: the faded banner stays in the DOM, so wait out its 2.4 s plus half the walk

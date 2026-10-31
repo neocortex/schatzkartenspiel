@@ -17,8 +17,12 @@ import { seaHeight } from "./ocean";
 
 export type SailorPose = "sit" | "stand" | "throw" | "cheer" | "duck";
 
-/** How far the raised arm leans out, so the berries are held beside Tadeo's face and not in front of it. */
-const READY_OUT = 0.7;
+/**
+ * The arm with the berries while he waits: held out at chest height towards the shark and leaning out to the side.
+ * Reason: raised any higher, the big bunch comes between his face and the camera.
+ */
+const READY_UP = -1.45;
+const READY_OUT = 0.75;
 
 export class Boat {
   /** Position on the water and heading (yaw 0 = bow towards -z). */
@@ -61,7 +65,7 @@ export class Boat {
     this.tilt.add(this.hero.root);
     this.berries = createBerries();
     this.berries.scale.setScalar(1.6);
-    // Reason: the raised arm points the hand's -y at the sky, so the bunch is turned over to stand upright in the fist
+    // Reason: the arm held out points the hand's -y ahead, so the bunch is turned over to grow out of the fist
     this.berries.rotation.x = Math.PI;
     this.berries.position.set(0, -0.04, 0.02);
     this.berries.visible = false;
@@ -132,9 +136,9 @@ export class Boat {
       a.armL.rotation.set(-0.3, 0, -0.9);
       a.armR.rotation.set(-0.5, 0, 0.6 + Math.sin(t * 2) * 0.05);
     } else if (this.pose === "stand") {
-      // Berries held up high, knees bent, bouncing on the toes
+      // Berries held out, knees bent, bouncing on the toes
       a.body.position.y += -0.06 + Math.abs(Math.sin(t * 5)) * 0.04;
-      a.armR.rotation.set(-2.5 + Math.sin(t * 5) * 0.08, 0, READY_OUT);
+      a.armR.rotation.set(READY_UP + Math.sin(t * 5) * 0.08, 0, READY_OUT);
       a.armL.rotation.set(-0.6, 0, -0.5);
       a.legL.rotation.x = -0.25;
       a.legR.rotation.x = 0.2;
@@ -143,7 +147,7 @@ export class Boat {
       const s = this.throwK;
       const back = ease.outQuad(clamp01(s / 0.2));
       const forward = ease.outCubic(clamp01((s - 0.2) / 0.4));
-      a.armR.rotation.set(lerp(lerp(-2.5, -3.4, back), -1.75, forward), 0, lerp(READY_OUT, 0.05, forward));
+      a.armR.rotation.set(lerp(lerp(READY_UP, -3.4, back), -1.75, forward), 0, lerp(READY_OUT, 0.05, forward));
       a.armL.rotation.set(lerp(-0.6, 0.2, forward), 0, -0.7);
       a.torso.rotation.x = lerp(-0.2 * back, 0.28, forward);
       a.legL.rotation.x = -0.35;

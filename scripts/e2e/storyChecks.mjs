@@ -1,7 +1,7 @@
 /**
  * The island follows the story: for every quest the wreck, boats, boulder, hedge, Paco and the ogre stand where the
  * story says, the boulder and the ogre really close the way, goals stay reachable after a Continue, and the volcano
- * rumbles a little harder each time. Part of world.mjs; `reach` is for any E2E that asks where Tadeo can walk.
+ * rumbles a little harder each time. Part of world.mjs; `installFlood` and `reach` are for any E2E that asks where Tadeo can walk.
  */
 
 import { readFileSync } from "node:fs";
@@ -29,7 +29,7 @@ const DOCK_END = [-36, -76];
 const STEPS_FOOT = [54.75, -13];
 
 /** Runs in the page: flood fill over Player's own walk rule (terrain or deck, and no collider within his radius). */
-function installFlood() {
+export function installFlood() {
   const STEP = 0.25;
   const HALF = 175;
   const N = Math.round((HALF * 2) / STEP) + 1;

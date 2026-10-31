@@ -3,7 +3,8 @@
  * stands where: Tadeo's wreck or his mended boat, the thorn hedge at the forest
  * gate, the boulder on the mountain trail, Captain Paco and the ogre. Every
  * finished quest makes the volcano rumble a little harder. `beforeQuest` and
- * `afterQuest` are the moments when something happens on the island around a challenge.
+ * `afterQuest` are the moments when something happens on the island around a challenge:
+ * the sword opens the hedge, the elder sends Tadeo on, the ogre lifts the boulder.
  */
 
 import * as THREE from "three";
@@ -15,8 +16,10 @@ import { Site } from "../world/models/site";
 import { faceDir } from "../world/models/shapes";
 import { HedgeProp, StoryProp, mountainBoulder, standProp, thornHedge } from "../world/models/storyProps";
 import { Player } from "../characters/Player";
+import { DialogueScript } from "../data/dialogues";
+import { BoulderLift, LiftPhase } from "./boulderLift";
 import { HedgeOpening } from "./hedgeOpening";
-import { Npcs, NpcId } from "./Npcs";
+import { Npc, Npcs, NpcId } from "./Npcs";
 import { OgreSpot, Sightings } from "./Sightings";
 import { audio } from "../audio/Audio";
 
@@ -26,6 +29,9 @@ const VILLAGE_QUEST = 3;
 const FOREST_QUEST = 6;
 /** The hedge has gone once the forest quest is won, the boulder once the mountain trail opens. */
 const FOREST_OPEN_QUEST = 7;
+/** The village quest ends with the elder sending Tadeo to the ogre; the ogre lifts the boulder at the end of his own. */
+const VILLAGE_TRIALS_QUEST = 7;
+const OGRE_QUEST = 8;
 const TRAIL_OPEN_QUEST = 9;
 const SEA_QUEST = 10;
 const QUEST_COUNT = 12;
@@ -45,6 +51,7 @@ export interface StoryWorldState {
   hedge: boolean;
   paco: "away" | "village" | "dock";
   ogre: OgreSpot;
+  lift: LiftPhase;
   lastRumble: number;
 }
 
@@ -89,10 +96,18 @@ export class StoryWorld {
   readonly boulder: Barrier;
   readonly hedge: Barrier<HedgeProp>;
   private hedgeOpening: HedgeOpening;
+  private boulderLift: BoulderLift;
   private pacoHome: { at: P2; facing: number };
   private lastRumble = 0;
 
-  constructor(private island: Island, private rig: CameraRig, player: Player, private npcs: Npcs, private sightings: Sightings) {
+  constructor(
+    private island: Island,
+    private rig: CameraRig,
+    player: Player,
+    private npcs: Npcs,
+    private sightings: Sightings,
+    private talk: (script: string | DialogueScript, npc?: Npc) => Promise<void>,
+  ) {
     const { hf, colliders, landmarks } = island;
     const ground = (x: number, z: number) => hf.heightAt(x, z);
     this.boulder = new Barrier(mountainBoulder(), colliders, SPOTS.trailBoulder[0], SPOTS.trailBoulder[1], 0, ground);
@@ -102,6 +117,7 @@ export class StoryWorld {
     this.hedge = new Barrier(thornHedge(), colliders, hx, hz, rot, ground);
     this.group.add(this.boulder.prop.group, this.hedge.prop.group);
     this.hedgeOpening = new HedgeOpening({ scene: island.scene, rig, player, hedge: this.hedge, ground });
+    this.boulderLift = new BoulderLift({ scene: island.scene, rig, player, sightings, boulder: this.boulder, ground, talk });
     // Reason: all rocks, thorns and the wreck are up while Game places the coins, so no coin lands inside them; `apply` then sets the real state
     landmarks.setBoatVisible("wreck", true);
     const paco = npcs.get(PACO);
@@ -131,6 +147,12 @@ export class StoryWorld {
     audio.playSfx("sfx_door", 0.5 + 0.5 * strength, 0.5);
   }
 
+  /** A challenge has just been won and the island is not on screen yet: what the island shows already follows from it. */
+  won(m: number): void {
+    // Reason: the ogre is no longer the guard the story still says he is, so he must not roar at Tadeo when the island fades in
+    if (m === OGRE_QUEST) this.sightings.befriend();
+  }
+
   /** What happens on the island right before a quest's challenge. */
   async beforeQuest(m: number): Promise<void> {
     switch (m) {
@@ -146,6 +168,13 @@ export class StoryWorld {
   /** What happens on the island right after a quest's challenge. */
   async afterQuest(m: number): Promise<void> {
     switch (m) {
+      case VILLAGE_TRIALS_QUEST:
+        await this.talk("village_after", this.npcs.get("elder"));
+        return;
+      case OGRE_QUEST:
+        // Reason: a reload after the fight brings the boulder back, and the ogre lifts it again after the next fight
+        if (this.boulder.up) await this.boulderLift.play();
+        return;
       default:
         return;
     }
@@ -155,6 +184,7 @@ export class StoryWorld {
     this.boulder.prop.update(dt);
     this.hedge.prop.update(dt);
     this.hedgeOpening.update(dt);
+    this.boulderLift.update(dt);
   }
 
   /** What really stands on the island, read from the scene. */
@@ -170,6 +200,7 @@ export class StoryWorld {
       hedge: this.hedge.up,
       paco: !paco.avatar.root.visible ? "away" : atDock ? "dock" : "village",
       ogre: this.sightings.ogreSpot,
+      lift: this.boulderLift.phase,
       lastRumble: this.lastRumble,
     };
   }

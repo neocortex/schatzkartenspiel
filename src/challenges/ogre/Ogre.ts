@@ -34,7 +34,7 @@ const C = {
   hair: "#4a3020",
 };
 
-export type OgrePose = "idle" | "roar" | "windup" | "slam" | "swipeWind" | "swipe" | "hit" | "sit" | "wave" | "munch" | "stomp";
+export type OgrePose = "idle" | "roar" | "windup" | "slam" | "swipeWind" | "swipe" | "hit" | "sit" | "wave" | "munch" | "stomp" | "lift" | "fling";
 export type OgreMood = "grumpy" | "angry" | "hurt" | "happy" | "dizzy";
 
 /** Joint angles and offsets a pose sets (radians / units). Missing keys fall back to IDLE. */
@@ -62,6 +62,10 @@ const POSES: Record<OgrePose, Partial<PoseParams>> = {
   sit: { bodyY: -0.86, torsoX: -0.12, headX: 0.12, legL: -1.45, legR: -1.38, spread: 0.22, lsx: -0.75, lsz: -0.25, lex: -0.65, rsx: -0.7, rsz: 0.25, rex: -0.7, wrist: 0 },
   wave: { bodyY: -0.86, torsoX: -0.12, headX: -0.05, headZ: 0.12, legL: -1.45, legR: -1.38, spread: 0.22, lsx: -2.75, lsz: -0.55, lex: -0.35, rsx: -0.7, rsz: 0.25, rex: -0.7 },
   munch: { bodyY: -0.86, torsoX: -0.05, headX: 0.08, legL: -1.45, legR: -1.38, spread: 0.22, lsx: -1.55, lsz: 0.35, lex: -1.75, rsx: -0.7, rsz: 0.25, rex: -0.7 },
+  // Reason: the club hand stays out of it: the left arm goes straight up under a heavy load, the other fist on the hip, leaning back to balance it
+  lift: { torsoX: -0.2, headX: -0.3, bodyY: -0.2, lean: -0.06, legL: 0.12, legR: -0.12, spread: 0.2, lsx: -3.05, lsz: -0.15, lex: -0.12, rsx: 0.25, rsz: 0.7, rex: -1.7 },
+  // The follow-through of a throw: the arm that was up swings forward and down, the whole body leans after it
+  fling: { torsoX: 0.4, headX: 0.15, bodyY: -0.14, legL: -0.3, legR: 0.2, spread: 0.18, lsx: -1.25, lsz: -0.2, lex: -0.15, rsx: 0.45, rsz: 0.8, rex: -1.2 },
 };
 
 export class Ogre {

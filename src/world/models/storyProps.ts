@@ -409,19 +409,32 @@ function rockColor(y0: number, y1: number): ColorFn {
 
 /** Where each rock of the rockfall stands, in the group's space, and how big it is. */
 const ROCKS: { x: number; z: number; size: V3; y: number; cuts: number; collider: number; flight: V3 }[] = [
-  // The giant, right on the trail, a good part of it sunk into the ground
-  { x: 0, z: 0, size: [4.2, 3.9, 4], y: 1.1, cuts: 14, collider: 3.5, flight: [-26, 3, -2] },
+  // The giant, right on the trail, a good part of it sunk into the ground (its flight is the throw below)
+  { x: 0, z: 0, size: [4.2, 3.9, 4], y: 1.1, cuts: 14, collider: 3.5, flight: [0, 0, 0] },
   // Its smaller neighbours close the gaps to the cliff and to the rock at the foot of the steps
-  { x: -2.9, z: 0.75, size: [1.9, 1.8, 1.8], y: 0.5, cuts: 8, collider: 1.4, flight: [-12, 1, 6] },
+  { x: -2.9, z: 0.75, size: [1.9, 1.8, 1.8], y: 0.5, cuts: 8, collider: 1.4, flight: [-10, 1, 1] },
   { x: 2.55, z: -1.85, size: [2.3, 2.3, 2.2], y: 0.7, cuts: 9, collider: 1.65, flight: [12, 1, -3] },
   { x: 3.1, z: 1.0, size: [1.5, 1.3, 1.4], y: 0.35, cuts: 7, collider: 1.05, flight: [9, 1, 7] },
-  { x: -1.75, z: 2.85, size: [1.2, 1.05, 1.15], y: 0.25, cuts: 6, collider: 0.75, flight: [-6, 1, 9] },
+  { x: -1.75, z: 2.85, size: [1.2, 1.05, 1.15], y: 0.25, cuts: 6, collider: 0.75, flight: [-8, 1, 4] },
 ];
 
 /**
+ * Where a helper stands to heave the giant (in the boulder's space): on the trail just south of it, looking at it. His left
+ * arm goes up on the cliff side and a little back, as he leans away from the load, so the giant is held there.
+ */
+export const BOULDER_LIFTER: readonly [number, number] = [-0.5, 4.9];
+const HELD: V3 = [BOULDER_LIFTER[0] + 1.2, 6.2, BOULDER_LIFTER[1] + 0.8];
+/** Where the giant comes down, in the boulder's space: the middle of the river, north-west of the trail below the waterfall. */
+export const BOULDER_SPLASH: readonly [number, number] = [-9.3, -1.9];
+/** Seconds into the exit: the giant is held overhead at `held`, leaves the hand at `throwAt`, lands at `landAt`. */
+export const BOULDER_EXIT = { seconds: 3.8, held: 1.3, throwAt: 1.7, landAt: 3.1 } as const;
+/** Gravity of the throw, in m/s². */
+const THROW_G = 20;
+
+/**
  * The giant boulder on the mountain trail with its rockfall around it. Every rock
- * stands on its own collider. Exit: the giant is heaved up and thrown off over
- * the cliff towards the river, the small ones tumble away after it.
+ * stands on its own collider. Exit, as a helper standing at BOULDER_LIFTER would do it: the giant is heaved overhead,
+ * held a moment and thrown into the river, where it sinks; the small ones tumble away after it.
  */
 export function mountainBoulder(): StoryProp {
   const group = new THREE.Group();
@@ -451,22 +464,54 @@ export function mountainBoulder(): StoryProp {
     mesh.position.set(r.x, r.y, r.z);
     group.add(mesh);
     blockers.push({ x: r.x, z: r.z, r: r.collider });
-    parts.push({ mesh, home: mesh.position.clone(), flight: r.flight, spin: [rand() * 3 - 1.5, rand() * 3 - 1.5, rand() * 3 - 1.5], delay: i === 0 ? 0 : 0.12 + rand() * 0.15 });
+    // Reason: the small rocks are shaken loose when the giant leaves the ground and tumble off while it flies
+    const delay = i === 0 ? 0 : BOULDER_EXIT.throwAt - 0.4 + rand() * 0.5;
+    parts.push({ mesh, home: mesh.position.clone(), flight: r.flight, spin: [rand() * 3 - 1.5, rand() * 3 - 1.5, rand() * 3 - 1.5], delay });
   });
+  const [giant, ...small] = parts;
+  const { seconds, held, throwAt, landAt } = BOULDER_EXIT;
+
+  const flight = landAt - throwAt;
+  const from = new THREE.Vector3(...HELD);
+  const landing = new THREE.Vector3(BOULDER_SPLASH[0], 0, BOULDER_SPLASH[1]);
+  const pos = new THREE.Vector3();
 
   return storyProp(
     group,
     blockers,
-    2.2,
+    seconds,
     (k) => {
-      for (const { mesh, home, flight, spin, delay } of parts) {
-        const t = THREE.MathUtils.clamp((k - delay) / (1 - delay), 0, 1);
-        // Reason: first a heave straight up, then a long arc; the rock is gone before it would land
-        const lift = smoothstep(0, 0.3, t);
-        const fly = smoothstep(0.22, 1, t);
-        mesh.position.set(home.x + flight[0] * fly, home.y + 4.5 * lift + 8 * Math.sin(fly * Math.PI) - 7 * fly * fly, home.z + flight[2] * fly);
+      const t = k * seconds;
+      // Reason: the water is at world y = 0, whatever height the group stands at
+      const water = -group.position.y;
+      landing.y = water + 0.4;
+      // Reason: a throw with a steady horizontal part and a parabola for the height that comes down on the river exactly at `landAt`
+      const vy = (landing.y - from.y + 0.5 * THROW_G * flight * flight) / flight;
+
+      // The giant: up, over the helper's hand, held, thrown, down into the river and out of sight
+      const lift = smoothstep(0, 0.7, t / held);
+      const over = smoothstep(0.55, 1, t / held);
+      const f = THREE.MathUtils.clamp((t - throwAt) / flight, 0, 1);
+      if (t < throwAt) {
+        const shudder = Math.sin(t * 46) * 0.07 * (1 - over);
+        pos.set(THREE.MathUtils.lerp(giant.home.x, from.x, over) + shudder, THREE.MathUtils.lerp(giant.home.y, from.y, lift) + Math.sin(t * 15) * 0.1 * over, THREE.MathUtils.lerp(giant.home.z, from.z, over));
+      } else {
+        const air = f * flight;
+        pos.set(THREE.MathUtils.lerp(from.x, landing.x, f), from.y + vy * air - 0.5 * THROW_G * air * air, THREE.MathUtils.lerp(from.z, landing.z, f));
+        // Reason: after it lands the rock settles into the river bed and the ground hides it
+        pos.y -= smoothstep(landAt, seconds, t) * 6.5;
+      }
+      giant.mesh.position.copy(pos);
+      giant.mesh.rotation.set(Math.sin(t * 15) * 0.05 * (t < throwAt ? over : 0) + giant.spin[0] * f * 2, giant.spin[1] * f * 2, giant.spin[2] * f * 2);
+
+      // The small ones tumble off, shrinking away
+      for (const { mesh, home, flight: away, spin, delay } of small) {
+        const u = THREE.MathUtils.clamp((t - delay) / 1.4, 0, 1);
+        const hop = smoothstep(0, 0.25, u);
+        const fly = smoothstep(0.1, 1, u);
+        mesh.position.set(home.x + away[0] * fly, home.y + 1.5 * hop + 3.5 * Math.sin(fly * Math.PI) - 2 * fly * fly, home.z + away[2] * fly);
         mesh.rotation.set(spin[0] * fly * 3, spin[1] * fly * 3, spin[2] * fly * 3);
-        mesh.scale.setScalar(1 - smoothstep(0.72, 1, t));
+        mesh.scale.setScalar(1 - smoothstep(0.75, 1, u));
       }
     },
     () => {

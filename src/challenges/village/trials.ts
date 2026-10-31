@@ -18,7 +18,7 @@ import { shot } from "../shared/director";
 const line = (speaker: string, text: string) => ({ speaker, portrait: "", text });
 
 const WELCOME: DialogueScript = [
-  line("Dorfältester", "Willkommen am Feuerkreis, Tadeo! Das ganze Dorf ist gekommen, um dir zuzusehen."),
+  line("Dorfältester", "Willkommen am Feuerkreis, Tadeo! Nur wer klug ist, bekommt den Schlüssel."),
 ];
 const PRACTICE: DialogueScript = [
   line("Weise Frau", "Das sind unsere Zaubertrommeln. Jede Pfeiltaste spielt eine Trommel. Probier sie aus!"),
@@ -308,7 +308,6 @@ export async function keyReward(s: VillageStage): Promise<void> {
   audio.playSfx("sfx_victory_fanfare", 0.7);
   await s.sleep(1.4);
   await s.ui.itemGet("key");
-  await s.say(success.slice(1), null, two);
   await s.say(THANKS, null, two);
   s.tadeo.face(0);
   s.tadeo.avatar.pose = "cheer";

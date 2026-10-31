@@ -1,8 +1,9 @@
 /**
- * E2E: play the village challenge (quest 7) from start to finish with real
- * key presses — including one wrong drum beat and one wrong maths answer to
- * prove that mistakes only lead to a fresh attempt — and verify the game
- * returns to the island with the golden key in the inventory.
+ * E2E: play quest 7 from start to finish with real key presses. Tadeo asks the
+ * elder on the island for the key and hears where it came from, plays the village
+ * challenge — including one wrong drum beat and one wrong maths answer to
+ * prove that mistakes only lead to a fresh attempt — and is back on the island
+ * with the golden key, where the elder sends him on to the ogre for the boulder.
  *
  * The live trial state (drum pattern, correct answer) is read from
  * `window.engine.scene.state`; every action is a real keyboard press.
@@ -26,6 +27,7 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
 const errors = [];
 const logs = [];
+const checks = [];
 page.on("pageerror", (e) => errors.push(e.message));
 page.on("console", (m) => {
   if (m.type() === "error") errors.push(m.text());
@@ -33,7 +35,12 @@ page.on("console", (m) => {
 });
 
 const started = Date.now();
-await page.goto(`${BASE}/?challenge=village`);
+const check = (name, ok, detail = "") => {
+  checks.push({ name, ok: !!ok, detail: String(detail) });
+  console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail !== "" ? ` (${detail})` : ""}`);
+};
+await page.goto(`${BASE}/?quest=7`);
+await page.waitForFunction(() => window.game?.story && window.engine?.scene === window.game.island, null, { timeout: 30000 });
 
 let reloads = 0;
 page.on("framenavigated", (f) => {
@@ -46,6 +53,7 @@ const read = () =>
     const s = scene?.state;
     return {
       onIsland: !!scene && "island" in scene,
+      milestone: window.game.quest.currentMilestone,
       phase: s?.phase ?? null,
       trial: s?.trial ?? 0,
       sequence: s?.sequence ?? [],
@@ -67,10 +75,40 @@ async function shotOnce(name, delay = 0) {
   await page.screenshot({ path: `${OUT}/${name}.png` });
 }
 
+/** Notes every dialogue line and every bubble read aloud, so a short line is never missed. */
+async function recordLines() {
+  await page.evaluate(async () => {
+    window.said = [];
+    const box = Object.getPrototypeOf(window.game.ui.dialogue);
+    const begin = box.showLine;
+    box.showLine = function () {
+      begin.call(this);
+      window.said.push(`${this.script[this.index].speaker}: ${this.script[this.index].text}`);
+    };
+    const { NarrationManager } = await import("/src/systems/NarrationManager.ts");
+    const narration = NarrationManager.getInstance();
+    const speak = narration.speakLine.bind(narration);
+    narration.speakLine = (text, speaker) => {
+      if (!window.said.at(-1)?.endsWith(text)) window.said.push(`${speaker}: ${text}`);
+      return speak(text, speaker);
+    };
+  });
+}
+const said = () => page.evaluate(() => window.said ?? []);
+
+// The elder first: Tadeo asks him for the key on the island, and the challenge starts when the talk ends
+await recordLines();
+await page.evaluate(() => window.game.placePlayer(65, 39.5));
+await page.waitForTimeout(500);
+const prompt = await page.evaluate(() => document.querySelector(".prompt")?.textContent.trim() ?? "");
+check("the elder offers a talk before the trials", prompt.includes("Sprechen"), prompt);
+await page.keyboard.press("Space");
+
 const phasesSeen = new Set();
 const mistakes = { drum: false, math: false };
 let lastKey = "";
 let result = null;
+let entered = false;
 
 while (Date.now() - started < TIMEOUT_MS) {
   const st = await read();
@@ -78,17 +116,23 @@ while (Date.now() - started < TIMEOUT_MS) {
     await page.waitForTimeout(500);
     continue;
   }
-  if (st.onIsland) {
+  if (st.phase) {
+    phasesSeen.add(st.phase);
+    entered = true;
+  }
+  // Back on the island, the elder talks again before the next quest starts
+  if (st.onIsland && entered && st.milestone >= 8 && !st.dialogue) {
     result = st;
     break;
   }
-  if (st.phase) phasesSeen.add(st.phase);
+  if (st.onIsland && entered && st.dialogue) await shotOnce("07b-elder-sends-on", 900);
   if (st.itemGet) {
     await shotOnce("06-key-item-get", 600);
     await page.waitForTimeout(300);
     continue;
   }
   if (st.dialogue) {
+    if (!entered) await shotOnce("00a-the-key-came-at-night", 900);
     if (st.phase === "intro") await shotOnce("01-welcome", 900);
     if (st.phase === "reward") await shotOnce("05-key-dialogue", 600);
     await page.keyboard.press("Space");
@@ -168,13 +212,35 @@ if (result) {
 }
 const inventory = await page.evaluate(() => JSON.parse(localStorage.getItem("schatzkarten_save") ?? "null"));
 
+// ── What was said ─────────────────────────────────────────────
+
+const lines = await said();
+// Reason: "Gack!" is Chuleta's cluck, not a sentence
+const sentences = (l) => (l.replace(/\bGack!?/g, "").match(/[.!?]+(\s|$)/g) ?? []).length;
+const words = (l) => l.split(": ").slice(1).join(": ").split(/\s+/).length;
+check("elder explains the key before the trials", lines.some((l) => l.includes("eines Morgens vor meiner Tür")));
+check("the note says the key is for someone clever", lines.some((l) => l.includes("Nur für jemanden, der klug ist")));
+check("the welcome at the fire says what the test is for", lines.some((l) => l.startsWith("Dorfältester: Willkommen am Feuerkreis") && l.includes("klug")));
+check("after the trials he sends Tadeo to the ogre", lines.some((l) => l.includes("Riesenfels")) && lines.some((l) => l.includes("Nur der Oger ist stark genug")));
+check("Chuleta wants her berries for the monster", lines.some((l) => l.startsWith("Chuleta: ") && l.includes("Die Beeren")));
+// Reason: the trials' own lines stay as they were, so only what the story added around them is measured
+const added = await page.evaluate(async () => {
+  const { DIALOGUES } = await import("/src/data/dialogues.ts");
+  return [...DIALOGUES.village_enter, ...DIALOGUES.village_after].map((l) => `${l.speaker}: ${l.text}`);
+});
+const welcome = lines.filter((l) => l.startsWith("Dorfältester: Willkommen am Feuerkreis"));
+check("the elder's talks were all heard in this run", added.length >= 6 && added.every((l) => lines.includes(l)), added.filter((l) => !lines.includes(l)).join(" | "));
+check("every added line is one or two short sentences", [...added, ...welcome].every((l) => words(l) <= 14 && sentences(l) <= 2), [...added, ...welcome].filter((l) => words(l) > 14 || sentences(l) > 2).join(" | "));
+check("nobody says the forbidden words", !/\b(die Alten|Altar|ewiges Eis|besänftigen)/.test(lines.join("\n")));
+
 const summary = {
   test: "village",
-  passed: !!result && hasKeyInHud && errors.length === 0 && mistakes.drum && mistakes.math,
+  passed: !!result && hasKeyInHud && errors.length === 0 && mistakes.drum && mistakes.math && checks.every((c) => c.ok),
   backOnIsland: !!result,
   keyInInventory: hasKeyInHud,
   mistakesRecoveredFrom: mistakes,
   phasesSeen: [...phasesSeen],
+  checks,
   durationSec: Math.round((Date.now() - started) / 1000),
   devServerReloads: reloads,
   errors,

@@ -1,7 +1,9 @@
 /**
- * E2E proof for the ogre challenge (quest 6).
+ * E2E proof for the ogre quest (quest 8): the fight and the boulder.
  *
- * Opens `?challenge=ogre`, advances dialogues with Space and fights the whole
+ * Opens `?quest=8` on the island, where the boulder still shuts the mountain
+ * trail, walks to the gate at the east end of the bridge and starts the fight
+ * with one Space. Advances dialogues with Space and fights the whole
  * battle with real key presses on the card menu (← → to pick, Space to go).
  * It reads the live state (`window.engine.scene.phase / rules / menu /
  * blocker`) only to decide what to press: try the locked special once
@@ -9,8 +11,10 @@
  * otherwise attack. During the ogre's swings it presses Space when the shield
  * ring turns green. On the first swing it presses too early once ("Zu früh!")
  * and then lets the swing hit on purpose; every later swing is blocked,
- * including the big slam (BOING). Passes when the game is back on the island
- * with no page errors.
+ * including the big slam (BOING). Back on the island the ogre lifts the
+ * boulder: his walk, his line, the throw and the landing are photographed and
+ * the way to the mountain gate must be open. Passes when all checks hold and
+ * no page errors occurred.
  *
  * Run:  node scripts/e2e/ogre.mjs [baseUrl]
  * Out:  scripts/e2e/out/ogre/*.png + summary.json
@@ -20,6 +24,7 @@ import { chromium } from "playwright";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { installFlood, reach } from "./storyChecks.mjs";
 
 const BASE = process.argv[2] ?? "http://localhost:5199";
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "out", "ogre");
@@ -34,6 +39,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, dev
 await page.routeWebSocket(/.*/, () => {});
 const errors = [];
 const steps = [];
+const checks = [];
 page.on("pageerror", (e) => errors.push(e.message));
 page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
 
@@ -43,7 +49,12 @@ const log = (msg) => {
   steps.push(line);
   console.log(line);
 };
+const check = (name, ok, detail = "") => {
+  checks.push({ name, ok: !!ok, detail: String(detail) });
+  log(`${ok ? "ok  " : "FAIL"} ${name}${detail !== "" ? ` (${detail})` : ""}`);
+};
 const sleep = (ms) => page.waitForTimeout(ms);
+const story = () => page.evaluate(() => window.game.story.e2e);
 const state = () =>
   page.evaluate(() => {
     const s = window.engine?.scene;
@@ -91,6 +102,64 @@ async function skipDialogues(shotName = null) {
   }
 }
 
+// ── What was said ─────────────────────────────────────────────
+
+/** Notes every dialogue line and every bubble read aloud, so a short line is never missed. */
+async function recordLines() {
+  await page.evaluate(async () => {
+    window.said = [];
+    const box = Object.getPrototypeOf(window.game.ui.dialogue);
+    const begin = box.showLine;
+    box.showLine = function () {
+      begin.call(this);
+      window.said.push(`${this.script[this.index].speaker}: ${this.script[this.index].text}`);
+    };
+    const { NarrationManager } = await import("/src/systems/NarrationManager.ts");
+    const narration = NarrationManager.getInstance();
+    const speak = narration.speakLine.bind(narration);
+    narration.speakLine = (text, speaker) => {
+      if (!window.said.at(-1)?.endsWith(text)) window.said.push(`${speaker}: ${text}`);
+      return speak(text, speaker);
+    };
+  });
+}
+const said = () => page.evaluate(() => window.said ?? []);
+const sawLine = async (text) => (await said()).some((l) => l.endsWith(text));
+
+// ── Steering ──────────────────────────────────────────────────
+
+const held = new Set();
+async function hold(keys) {
+  for (const k of held) if (!keys.has(k)) await page.keyboard.up(k);
+  for (const k of keys) if (!held.has(k)) await page.keyboard.down(k);
+  held.clear();
+  for (const k of keys) held.add(k);
+}
+
+/** Steer Tadeo on the island with the arrow keys (the camera looks north: Up = -z, Right = +x). */
+async function walkIsland(x, z, radius = 1, timeout = 10000) {
+  const end = Date.now() + timeout;
+  while (Date.now() < end) {
+    const p = await page.evaluate(() => [window.game.island.player.position.x, window.game.island.player.position.z]);
+    const [dx, dz] = [x - p[0], z - p[1]];
+    if (Math.hypot(dx, dz) < radius) break;
+    const keys = new Set();
+    if (dx > 0.3) keys.add("ArrowRight");
+    if (dx < -0.3) keys.add("ArrowLeft");
+    if (dz > 0.3) keys.add("ArrowDown");
+    if (dz < -0.3) keys.add("ArrowUp");
+    await hold(keys);
+    await sleep(40);
+  }
+  await hold(new Set());
+}
+const player = () => page.evaluate(() => [window.game.island.player.position.x, window.game.island.player.position.z]);
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+
+/** The gate at the east end of the bridge, and the mountain gate at the far end of the trail behind the boulder. */
+const GATE = [53.5, 0.5];
+const MOUNTAIN_GATE = [55.5, -13.5];
+
 const ORDER = ["attack", "heal", "special"];
 
 /** Walk the highlight to `action` with arrow keys and press Space. */
@@ -104,6 +173,83 @@ async function pick(action) {
   }
   if ((await state()).highlighted !== action) throw new Error(`could not highlight ${action}`);
   await page.keyboard.press("Space");
+}
+
+// ── The boulder scene ─────────────────────────────────────────
+
+/** What the scene was seen to do, filled by `watchBoulderScene`. */
+const scene = { mouth: { ogre: null, tadeo: null }, longestFrame: 0, rock: { peak: 0, lastSeen: null }, ogreAtRest: null, phases: [] };
+
+/**
+ * Looks on while the ogre gets up, walks to the boulder, speaks, throws it and sits down by the river; presses Space
+ * on the talks and photographs every beat once. Returns when the quest has moved on to the mountain.
+ */
+async function watchBoulderScene() {
+  const beat = () =>
+    page.evaluate(() => {
+      const g = window.game;
+      const ogre = g.sightings.ogre;
+      const giant = g.story.boulder.prop.group.children[0];
+      return {
+        milestone: g.quest.currentMilestone,
+        busy: g.busy,
+        dialogue: !!document.querySelector(".dialogue.open"),
+        line: window.said.at(-1) ?? "",
+        talking: ogre.talking,
+        ogreAt: [ogre.root.position.x, ogre.root.position.z],
+        rockY: giant.position.y,
+        ...g.story.e2e,
+      };
+    });
+  // Reason: a stall while the scene plays is what a child would see as a stutter
+  await page.evaluate(() => {
+    window.frameWatch = { longest: 0, last: performance.now(), on: true };
+    const tick = (now) => {
+      window.frameWatch.longest = Math.max(window.frameWatch.longest, now - window.frameWatch.last);
+      window.frameWatch.last = now;
+      if (window.frameWatch.on) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  const seen = new Set();
+  const once = async (name, delay = 0) => {
+    if (seen.has(name)) return;
+    seen.add(name);
+    if (delay) await sleep(delay);
+    await shot(name);
+  };
+  const end = Date.now() + 90000;
+  let last = null;
+  while (Date.now() < end) {
+    last = await beat();
+    if (!scene.phases.includes(last.lift)) scene.phases.push(last.lift);
+    scene.rock.peak = Math.max(scene.rock.peak, last.rockY);
+    if (last.lift === "rest") scene.ogreAtRest = last.ogreAt;
+    if (last.milestone >= 9 && !last.busy) break;
+    if (last.dialogue) {
+      // Reason: his mouth moves for his own line and stays shut for Tadeo's
+      if (last.line.startsWith("Oger: Der Fels")) scene.mouth.ogre = last.talking;
+      if (last.line.startsWith("Tadeo: Das ist der Riesenfels")) scene.mouth.tadeo = last.talking;
+      await once(last.lift === "talk" ? "21_tadeo_asks_the_ogre" : "27_chuleta_is_impressed", 700);
+      await page.keyboard.press("Space");
+      await sleep(260);
+      continue;
+    }
+    if (last.lift === "walk") await once("20_ogre_gets_up");
+    if (last.lift === "heave") await once("22_ogre_lifts", 900);
+    if (last.lift === "airborne") await once("23_boulder_flies", 150);
+    if (last.lift === "landed") {
+      await once("24_boulder_lands", 100);
+      await once("25_splash", 500);
+    }
+    if (last.lift === "rest") await once("28_ogre_sits_down", 900);
+    await sleep(40);
+  }
+  scene.longestFrame = await page.evaluate(() => {
+    window.frameWatch.on = false;
+    return window.frameWatch.longest;
+  });
+  if (!(last.milestone >= 9 && !last.busy)) throw new Error(`the boulder scene did not end: ${JSON.stringify(last)}`);
 }
 
 // ── Play ──────────────────────────────────────────────────────
@@ -154,7 +300,21 @@ async function handleSwing() {
   }
 }
 try {
-  await page.goto(`${BASE}/?challenge=ogre`);
+  // The boulder shuts the trail, and the gate to the fight is at the east end of the bridge
+  await page.addInitScript(installFlood);
+  await page.goto(`${BASE}/?quest=8`);
+  await waitFor(() => page.evaluate(() => window.game?.story && window.engine?.scene === window.game.island), "the island", 30000);
+  await sleep(800);
+  await recordLines();
+  let island = await story();
+  check("the boulder and the ogre stand on the island before the fight", island.boulder && island.ogre === "bridge", JSON.stringify(island));
+  check("the boulder closes the trail to the mountain gate", !(await reach(page, GATE, MOUNTAIN_GATE, { loose: true })));
+  await walkIsland(GATE[0], GATE[1] + 1.2);
+  await sleep(500);
+  const prompt = await page.evaluate(() => document.querySelector(".prompt")?.textContent.trim() ?? "");
+  check("the gate is at the east end of the bridge", dist(await player(), GATE) < 4 && prompt.includes("Los geht's"), prompt);
+  await shot("00_gate_at_the_bridge");
+  await page.keyboard.press("Space");
   await waitFor(async () => (await state())?.phase === "intro", "ogre scene", 20000);
   log("ogre gorge loaded");
   await sleep(2600);
@@ -268,13 +428,46 @@ try {
     await sleep(120);
   }
   await waitFor(async () => (await state())?.onIsland, "return to island", 30000);
-  await sleep(1500);
-  await shot("17_back_on_island");
-  log("back on the island");
-  passed = errors.length === 0;
+  log("back on the island: the ogre gets up and goes to the boulder");
+  await watchBoulderScene();
+  await sleep(1200);
+  await shot("30_trail_is_free");
+
+  // ── The story afterwards ──────────────────────────────────
+  const lines = await said();
+  island = await story();
+  check("the ogre lifts the boulder after the fight", !island.boulder && (await sawLine("Der Fels? Den hebe ich dir mit einer Hand!")), JSON.stringify(island));
+  check("no rock or collider of the boulder is left", await page.evaluate(() => {
+    const { colliders } = window.game.island.island;
+    return window.game.story.boulder.circles.every((c) => !colliders.hits(c.x, c.z, 0));
+  }));
+  check("he is the friend by the river afterwards", island.ogre === "friend", island.ogre);
+  const seat = await page.evaluate(() => [window.game.sightings.ogre.root.position.x, window.game.sightings.ogre.root.position.z]);
+  check("he stays where he sat down once the quest moves on", scene.ogreAtRest && dist(scene.ogreAtRest, seat) < 0.3 && dist(seat, [57.5, -3]) < 0.3, JSON.stringify({ seat, scene: scene.ogreAtRest }));
+  check("the scene ran through every beat", ["walk", "talk", "heave", "airborne", "landed", "cheer", "rest"].every((p) => scene.phases.includes(p)), scene.phases.join());
+  check("the boulder was lifted high and thrown, not just made to vanish", scene.rock.peak > 5, `peak ${scene.rock.peak.toFixed(1)} m`);
+  check("his mouth moves for his line and not for Tadeo's", scene.mouth.ogre === true && scene.mouth.tadeo === false, JSON.stringify(scene.mouth));
+  check("no frame stalls during the scene", scene.longestFrame < 250, `longest frame ${scene.longestFrame.toFixed(0)} ms`);
+  check("Tadeo can walk to the mountain gate afterwards", await reach(page, GATE, MOUNTAIN_GATE));
+  const after = await page.evaluate(() => ({ milestone: window.game.quest.currentMilestone, busy: window.game.busy }));
+  check("the quest moved on to the mountain once the scene was over", after.milestone === 9 && !after.busy, JSON.stringify(after));
+  const own = await page.evaluate(async () => {
+    const { DIALOGUES } = await import("/src/data/dialogues.ts");
+    return [...DIALOGUES.ogre_enter, ...DIALOGUES.ogre_defeat, ...DIALOGUES.ogre_boulder, ...DIALOGUES.ogre_boulder_done].map((l) => `${l.speaker}: ${l.text}`);
+  });
+  const words = (l) => l.split(": ").slice(1).join(": ").split(/\s+/).length;
+  // Reason: "Gack!" is Chuleta's cluck, not a sentence
+  const sentences = (l) => (l.replace(/\bGack!?/g, "").match(/[.!?]+(\s|$)/g) ?? []).length;
+  const spoken = lines.filter((l) => /^(Tadeo|Oger|Chuleta): /.test(l));
+  check("the ogre quest's own talks were all heard", own.every((l) => lines.includes(l)), own.filter((l) => !lines.includes(l)).join(" | "));
+  check("every line is one or two short sentences", [...own, ...spoken].every((l) => words(l) <= 14 && sentences(l) <= 2), [...own, ...spoken].filter((l) => words(l) > 14 || sentences(l) > 2).join(" | "));
+  check("nobody says the forbidden words", !/\b(die Alten|Altar|ewiges Eis|besänftigen)/.test(lines.join("\n")));
+  passed = errors.length === 0 && checks.every((c) => c.ok);
 } catch (e) {
   log(`FAILED: ${e.message}`);
   await shot("fail").catch(() => {});
+} finally {
+  await hold(new Set()).catch(() => {});
 }
 
 const summary = {
@@ -286,11 +479,14 @@ const summary = {
   used,
   swings,
   lockedHint,
+  scene,
+  checks,
   errors,
   steps,
   command: "node scripts/e2e/ogre.mjs",
 };
 writeFileSync(join(OUT, "summary.json"), JSON.stringify(summary, null, 2));
+for (const c of checks.filter((k) => !k.ok)) console.log(`FAILED CHECK: ${c.name} ${c.detail}`);
 console.log(passed ? "PASS" : "FAIL", `(${summary.seconds.toFixed(1)}s, errors: ${errors.length})`);
 await browser.close();
 process.exit(passed ? 0 : 1);

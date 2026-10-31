@@ -31,9 +31,9 @@ All text and narration are in German.
 | 3 | Der See | Read the three rune tablets around the lake |
 | 4 | Die Höhle | Torch-lit natural cave: feed a hungry mole glowing mushrooms so he digs through two rockfalls, then touch three crystals in the order the cave paintings show to reach the magic sword |
 | 5 | Der Zauberwald | A thorn hedge closes the gate until the crystal sword's blue light drives it back; then, in the twilight forest, Flocke the fox leads you to five glowing berry sprigs |
-| 6 | Der Oger an der Brücke | Card battle on the bridge (attack, heal, special); block his swings with Space at the right moment; the ogre becomes a friend |
-| 7 | Das Eingeborenendorf | Campfire drum trials and a maths question; reward: the golden key |
-| 8 | Der Berggipfel | Side-view climb with rolling rocks, snowballs and a rope bridge; reward: the golden hammer |
+| 6 | Der Oger an der Brücke | Card battle on the bridge (attack, heal, special); block his swings with Space at the right moment; the ogre becomes a friend and, back on the island, heaves the boulder off the mountain trail with one hand |
+| 7 | Das Eingeborenendorf | The elder tells where the key came from (it lay on his doorstep, for someone clever); campfire drum trials and a maths question; reward: the golden key. The elder then sends you to the ogre for the boulder |
+| 8 | Der Berggipfel | Side-view climb on the old people's path with rolling rocks, snowballs and a rope bridge; reward: the golden hammer, for the ice |
 | 9 | Die Haiattacke | Sail along a trail of stars, then bonk the giant shark with the hammer |
 | 10 | Die Schatzinsel | Dig at the X, break the ice, unlock the chest — and the finale |
 

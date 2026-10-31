@@ -96,7 +96,7 @@ export class Game {
     this.bubble = new Bubble(this.ui.layer);
     this.chuletaBubble = new Bubble(this.ui.layer);
     this.sightings = new Sightings(walkHeight, colliders, this.ui.layer);
-    this.story = new StoryWorld(this.island.island, this.island.rig, this.island.player, this.npcs, this.sightings);
+    this.story = new StoryWorld(this.island.island, this.island.rig, this.island.player, this.npcs, this.sightings, (script, npc) => this.talk(script, npc));
     this.island.scene.add(this.sightings.group, this.story.group);
     this.lake = new Lake({ island: this.island, ui: this.ui, input: engine.input, talk: (script) => this.talk(script) });
     // Reason: coins come after the NPCs so none lands inside a villager, and after the story's rocks and thorns for the same reason
@@ -359,6 +359,7 @@ export class Game {
     // Reason: a debug start has no island on screen yet, and the finale comes straight from the sea
     if (this.engine.scene === this.island) await this.story.beforeQuest(milestone);
     await this.enterChallenge(gate.challenge);
+    this.story.won(milestone);
 
     const reward = QUESTS[milestone - 1].reward as ItemKey | null;
     if (reward) InventoryManager.getInstance().addItem(reward);
@@ -452,11 +453,13 @@ export class Game {
     }
     rig.setZoom(0.62);
     this.ui.dialogue.onLine = (speaker) => {
+      this.sightings.speaking = speaker === "Oger";
       p.avatar.pose = speaker === "Tadeo" ? "talk" : "normal";
       if (npc) npc.avatar.pose = speaker === npc.speaker ? "talk" : "normal";
     };
     await this.ui.say(script);
     this.ui.dialogue.onLine = null;
+    this.sightings.speaking = false;
     p.avatar.pose = "normal";
     if (npc) {
       npc.avatar.pose = "normal";

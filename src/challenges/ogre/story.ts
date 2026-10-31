@@ -15,10 +15,10 @@ import { deckAt } from "./gorgeShape";
 
 /** Inline lines for the friendly ending (spoken between the two halves of `ogre_defeat`). */
 const BERRY_OFFER: DialogueScript = [
-  { speaker: "Tadeo", portrait: "portrait_tadeo", text: "Warte! Du siehst hungrig aus. Möchtest du eine Zauberbeere?" },
+  { speaker: "Tadeo", portrait: "portrait_tadeo", text: "Du siehst hungrig aus. Möchtest du eine Zauberbeere?" },
 ];
 const BERRY_THANKS: DialogueScript = [
-  { speaker: "Oger", portrait: "ogre", text: "Mmmh! Die schmeckt ja wie Kuchen! Danke, kleiner Held. Komm mich mal wieder besuchen!" },
+  { speaker: "Oger", portrait: "ogre", text: "Mmmh! Die schmeckt ja wie Kuchen!" },
 ];
 
 /** Use the rendered ogre portrait for the ogre's lines. */

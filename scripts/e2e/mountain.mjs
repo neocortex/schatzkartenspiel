@@ -1,5 +1,5 @@
 /**
- * E2E proof for the mountain challenge (quest 8, golden hammer).
+ * E2E proof for the mountain challenge (quest 9, golden hammer).
  *
  * Opens `?challenge=mountain`, advances the dialogues with Space and climbs
  * the spiral path with real key presses: ArrowRight is held to walk (and to
@@ -10,7 +10,8 @@
  * on safe ground just before it) and lets the first rolling rock hit Tadeo
  * ("Autsch!" → respawn at the last checkpoint). Passes when the summit is
  * reached, the hammer is handed over, the game is back on the island and no
- * page errors occurred.
+ * page errors occurred. The talk at the start and at the summit says whose
+ * shrine it is and what the hammer is for.
  *
  * Run:  node scripts/e2e/mountain.mjs [baseUrl]
  * Out:  scripts/e2e/out/mountain/*.png + summary.json
@@ -32,6 +33,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, dev
 await page.routeWebSocket(/.*/, () => {});
 const errors = [];
 const steps = [];
+const checks = [];
 page.on("pageerror", (e) => errors.push(e.message));
 page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
 
@@ -40,6 +42,10 @@ const log = (msg) => {
   const line = `[${((Date.now() - t0) / 1000).toFixed(1)}s] ${msg}`;
   steps.push(line);
   console.log(line);
+};
+const check = (name, ok, detail = "") => {
+  checks.push({ name, ok: !!ok, detail: String(detail) });
+  log(`${ok ? "ok  " : "FAIL"} ${name}${detail !== "" ? ` (${detail})` : ""}`);
 };
 const sleep = (ms) => page.waitForTimeout(ms);
 const dialogueOpen = () => page.evaluate(() => !!document.querySelector(".dialogue.open"));
@@ -68,6 +74,27 @@ async function skipDialogues(shotName = null) {
     first = false;
   }
 }
+
+/** Notes every dialogue line and every bubble read aloud, so a short line is never missed. */
+async function recordLines() {
+  await page.evaluate(async () => {
+    window.said = [];
+    const box = Object.getPrototypeOf(window.game.ui.dialogue);
+    const begin = box.showLine;
+    box.showLine = function () {
+      begin.call(this);
+      window.said.push(`${this.script[this.index].speaker}: ${this.script[this.index].text}`);
+    };
+    const { NarrationManager } = await import("/src/systems/NarrationManager.ts");
+    const narration = NarrationManager.getInstance();
+    const speak = narration.speakLine.bind(narration);
+    narration.speakLine = (text, speaker) => {
+      if (!window.said.at(-1)?.endsWith(text)) window.said.push(`${speaker}: ${text}`);
+      return speak(text, speaker);
+    };
+  });
+}
+const said = () => page.evaluate(() => window.said ?? []);
 
 /**
  * Runs in the page: reads the climb state and decides the keys to hold and whether to jump.
@@ -164,7 +191,8 @@ const reached = new Set();
 let last = null;
 try {
   await page.goto(`${BASE}/?challenge=mountain`);
-  await waitFor(() => page.evaluate(() => window.engine?.scene?.name === "mountain"), "mountain scene", 30000);
+  await waitFor(() => page.evaluate(() => window.engine?.scene?.name === "mountain" && window.game?.ui), "mountain scene", 30000);
+  await recordLines();
   log("mountain loaded");
   await sleep(1000);
   await shot("01_intro_hammer");
@@ -318,7 +346,19 @@ try {
   await shot("20_back_on_island");
   const scene = await page.evaluate(() => window.engine.scene.name ?? "island");
   log(`back on the island (scene: ${scene})`);
-  passed = errors.length === 0;
+
+  // ── What was said ─────────────────────────────────────────
+  const lines = await said();
+  const words = (l) => l.split(": ").slice(1).join(": ").split(/\s+/).length;
+  // Reason: "Gack!" is Chuleta's cluck, not a sentence
+  const sentences = (l) => (l.replace(/\bGack!?/g, "").match(/[.!?]+(\s|$)/g) ?? []).length;
+  check("the shrine is the old people's", lines.some((l) => l.startsWith("Chuleta: ") && l.includes("alte Volk")));
+  check("the hammer's job is said", lines.some((l) => l.startsWith("Tadeo: ") && l.includes("für das Eis")));
+  check("Chuleta spots the small island and the fin", lines.some((l) => l.startsWith("Chuleta: ") && l.includes("kleine Insel") && l.includes("Flosse")));
+  check("the climb names no Schatzinsel", !lines.some((l) => l.includes("Schatzinsel")));
+  check("every line is one or two short sentences", lines.every((l) => words(l) <= 14 && sentences(l) <= 2), lines.filter((l) => words(l) > 14 || sentences(l) > 2).join(" | "));
+  check("nobody says the forbidden words", !/\b(die Alten|Altar|ewiges Eis|besänftigen)/.test(lines.join("\n")));
+  passed = errors.length === 0 && checks.every((c) => c.ok);
 } catch (e) {
   log(`FAILED: ${e.message}`);
   await shot("fail").catch(() => {});
@@ -335,10 +375,12 @@ const summary = {
   hits,
   reached: [...reached],
   last,
+  checks,
   errors,
   steps,
 };
 writeFileSync(join(OUT, "summary.json"), JSON.stringify(summary, null, 2));
+for (const c of checks.filter((k) => !k.ok)) console.log(`FAILED CHECK: ${c.name} ${c.detail}`);
 console.log(passed ? "PASS" : "FAIL", JSON.stringify({ seconds: summary.seconds, fps: summary.fps, errors: errors.length }));
 await browser.close();
 process.exit(passed ? 0 : 1);

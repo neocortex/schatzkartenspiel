@@ -284,61 +284,72 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   ],
 
   // -----------------------------------------------------------------------
-  // Milestone 6: Ogre
+  // Quest 8: the ogre. The fight is told in challenges/ogre/story.ts; on the island he lifts the boulder.
   // -----------------------------------------------------------------------
   ogre_enter: [
     {
-      speaker: "Oger",
-      portrait: "",
-      text: "HALT! Wer wagt es, meine Brücke zu überqueren?!",
-    },
-    {
       speaker: "Tadeo",
       portrait: "portrait_tadeo",
-      text: "Ich bin Tadeo! Ich suche den Schatz dieser Insel. Lass mich vorbei!",
+      text: "Ich brauche deine Hilfe!",
     },
     {
       speaker: "Oger",
       portrait: "",
-      text: "HA! Dann musst du zuerst an MIR vorbei! Mach dich bereit zum Kampf!",
+      text: "HA! Erst musst du an mir vorbei!",
     },
   ],
+  // The first line is said before the berry, the rest after the ogre has eaten it
   ogre_defeat: [
     {
       speaker: "Oger",
       portrait: "",
-      text: "Ugh... Du bist stärker als du aussiehst, kleiner Mensch. Geh... die Brücke gehört dir.",
+      text: "Ugh... Du bist stärker, als du aussiehst.",
     },
+    {
+      speaker: "Oger",
+      portrait: "",
+      text: "Oh... Ich war gar nicht immer so böse.",
+    },
+  ],
+  // At the foot of the boulder, back on the island
+  ogre_boulder: [
     {
       speaker: "Tadeo",
       portrait: "portrait_tadeo",
-      text: "Danke! Der Weg über den Fluss ist frei!",
+      text: "Das ist der Riesenfels! Kannst du ihn wegheben?",
     },
     {
-      speaker: "Tadeo",
-      portrait: "portrait_tadeo",
-      text: "Im Süden sehe ich ein Dorf. Vielleicht haben die Bewohner den goldenen Schlüssel!",
+      speaker: "Oger",
+      portrait: "",
+      text: "Der Fels? Den hebe ich dir mit einer Hand!",
+    },
+  ],
+  ogre_boulder_done: [
+    {
+      speaker: "Chuleta",
+      portrait: "",
+      text: "Wow! Mit einer Hand! Gack!",
     },
   ],
 
   // -----------------------------------------------------------------------
-  // Milestone 7: Village
+  // Quest 7: the village. The elder says where the key came from; the trials follow.
   // -----------------------------------------------------------------------
   village_enter: [
     {
-      speaker: "Dorfältester",
-      portrait: "portrait_npc0",
-      text: "Willkommen, junger Reisender! Wir haben von deiner Suche gehört.",
+      speaker: "Tadeo",
+      portrait: "portrait_tadeo",
+      text: "Hast du den Schlüssel für die Truhe?",
     },
     {
       speaker: "Dorfältester",
       portrait: "portrait_npc0",
-      text: "Wir besitzen einen goldenen Schlüssel, der die Schatztruhe öffnen kann. Aber zuerst musst du drei Prüfungen bestehen!",
+      text: "Der alte Schlüssel? Der lag eines Morgens vor meiner Tür.",
     },
     {
       speaker: "Dorfältester",
       portrait: "portrait_npc0",
-      text: "Sprich mit unseren drei Weisen -- der Reihe nach! Jeder hat eine andere Aufgabe für dich.",
+      text: "Mit einem Zettel: Nur für jemanden, der klug ist. Darum gibt es die Prüfungen.",
     },
   ],
   village_simon1_intro: [
@@ -396,11 +407,6 @@ export const DIALOGUES: Record<string, DialogueScript> = {
       portrait: "portrait_npc0",
       text: "Wunderbar! Du hast alle drei Prüfungen bestanden! Hier ist der Goldene Schlüssel!",
     },
-    {
-      speaker: "Dorfältester",
-      portrait: "portrait_npc0",
-      text: "Dir fehlt noch der Hammer. Auf dem höchsten Berg im Norden liegt ein alter Schrein!",
-    },
   ],
   village_simon3_fail: [
     {
@@ -410,26 +416,55 @@ export const DIALOGUES: Record<string, DialogueScript> = {
     },
   ],
 
+  // Back on the island, the key in his hand: where the hammer is, and what stands in the way
+  village_after: [
+    {
+      speaker: "Dorfältester",
+      portrait: "portrait_npc0",
+      text: "Du hast ihn dir verdient! Jetzt fehlt noch der Hammer.",
+    },
+    {
+      speaker: "Dorfältester",
+      portrait: "portrait_npc0",
+      text: "Er liegt oben auf dem Berg.",
+    },
+    {
+      speaker: "Dorfältester",
+      portrait: "portrait_npc0",
+      text: "Aber ein Riesenfels versperrt den Weg. Nur der Oger ist stark genug.",
+    },
+    {
+      speaker: "Chuleta",
+      portrait: "",
+      text: "Ein Monster? Gack! Die Beeren!",
+    },
+  ],
+
   // -----------------------------------------------------------------------
-  // Milestone 8: Mountain
+  // Quest 9: the mountain
   // -----------------------------------------------------------------------
   mountain_enter: [
     {
+      speaker: "Chuleta",
+      portrait: "",
+      text: "Ein alter Schrein! Den hat das alte Volk gebaut.",
+    },
+    {
       speaker: "Tadeo",
       portrait: "portrait_tadeo",
-      text: "Der höchste Berg der Insel! Ganz oben soll ein goldener Hammer in einem Schrein liegen.",
+      text: "Dort oben liegt der goldene Hammer!",
     },
   ],
   mountain_complete: [
     {
       speaker: "Tadeo",
       portrait: "portrait_tadeo",
-      text: "Der Goldene Hammer! Damit kann ich sogar Eis zerschmettern!",
+      text: "Der goldene Hammer! Er ist für das Eis, hier oben im Schnee!",
     },
     {
-      speaker: "Tadeo",
-      portrait: "portrait_tadeo",
-      text: "Ich habe alle vier Gegenstände! Jetzt muss ich zum Steg im Norden und zur Schatzinsel übersetzen!",
+      speaker: "Chuleta",
+      portrait: "",
+      text: "Schau, die kleine Insel! Und da ist die Flosse...",
     },
   ],
 

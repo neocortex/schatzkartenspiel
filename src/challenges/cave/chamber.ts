@@ -191,6 +191,7 @@ export class Chamber {
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
+      fog: false,
       side: THREE.DoubleSide,
     });
     const beam = new THREE.Mesh(beamGeo, beamMat);
@@ -205,6 +206,7 @@ export class Chamber {
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
+      fog: false,
     });
     const pool = new THREE.Mesh(new THREE.PlaneGeometry(7.4, 7.4).rotateX(-Math.PI / 2), poolMat);
     pool.position.y = 0.06;
@@ -221,7 +223,7 @@ export class Chamber {
     }
     const dustGeo = new THREE.BufferGeometry();
     dustGeo.setAttribute("position", new THREE.BufferAttribute(this.dustBase.slice(), 3));
-    const dustMat = new THREE.PointsMaterial({ color: new THREE.Color(2.2, 1.9, 1.3), size: 0.06, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending });
+    const dustMat = new THREE.PointsMaterial({ color: new THREE.Color(2.2, 1.9, 1.3), size: 0.06, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
     this.dust = new THREE.Points(dustGeo, dustMat);
     this.dust.frustumCulled = false;
     this.group.add(this.dust);

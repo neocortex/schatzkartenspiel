@@ -11,10 +11,11 @@ import * as THREE from "three";
 import { Engine, PostSettings } from "../../core/Engine";
 import { CameraRig, Shot } from "../../core/CameraRig";
 import { Colliders } from "../../world/Colliders";
-import { createFeuerherz } from "../../world/models/items";
+import { CARRIED_HEART, createFeuerherz } from "../../world/models/items";
 import { glowTexture, puffTexture } from "../../world/ambient/textures";
 import { audio } from "../../audio/Audio";
 import { DialogueScript } from "../../data/dialogues";
+import { SkyPalette } from "../../world/Sky";
 import { Challenge, ChallengeContext } from "../types";
 import { Stage } from "./kit/stage";
 import { ScreenFx } from "./kit/fx";
@@ -30,7 +31,7 @@ import { Markers } from "./markers";
 import { Bombs, RING_RADIUS } from "./bombs";
 import { BombDirector } from "./director";
 import { Hero } from "./hero";
-import type { VolcanoMode } from "./modes";
+import type { EndingStage, VolcanoLight, VolcanoMode } from "./modes";
 import { LIFTS_NEEDED } from "./rescue";
 
 const TIPS: DialogueScript = [
@@ -42,6 +43,8 @@ const TIPS: DialogueScript = [
   { speaker: "Tadeo", portrait: "portrait_tadeo", text: "Die Brücke ist kaputt! Mit der Leertaste springe ich über die Steine." },
   { speaker: "Tadeo", portrait: "portrait_tadeo", text: "Ich laufe zum goldenen Licht. Los geht's!" },
 ];
+
+const DAYLIGHT: Omit<VolcanoLight, "fog"> = { sun: "#fff0d6", sunIntensity: 2.7, hemiSky: "#ffe7cf", hemiGround: "#7a4434", hemiIntensity: 1.05 };
 
 /** Generous for the player: the drawn ring is bigger than the real danger zone. */
 const HIT_RADIUS = RING_RADIUS * 0.72;
@@ -84,12 +87,20 @@ export class VolcanoChallenge implements Challenge {
   readonly bursts = new Bursts();
   /** Shown above the world while no line is on screen: what Space would do, and where. */
   prompt: { at: THREE.Vector3; verb: string } | null = null;
+  stage!: Stage;
+  peak!: Peak;
+  readonly fx: ScreenFx;
+  /** This run's sky; its own copy, because an ending may change it while the mode stays as it is. */
+  sky!: SkyPalette;
+  /** From 0 (white-hot lava) to 1 (the volcano has gone to rest). */
+  readonly cool = { value: 0 };
+  /** The Feuerherz on Tadeo's back, in the runs that carry it. */
+  carriedHeart: THREE.Group | null = null;
+  /** What the run's ending keeps on stage. */
+  ending: EndingStage | null = null;
   private resolve!: () => void;
   private engine!: Engine;
-  private stage!: Stage;
-  private peak!: Peak;
   private markers!: Markers;
-  private fx: ScreenFx;
   private disposer = new Disposer();
   private yaw = 0;
   private invulnerable = 0;
@@ -127,25 +138,27 @@ export class VolcanoChallenge implements Challenge {
 
   private build(): void {
     const course = (this.course = new Course());
-    const sky = this.mode.sky;
+    const { zenith, horizon, sunGlow } = this.mode.sky;
+    const sky = (this.sky = { zenith: zenith.clone(), horizon: horizon.clone(), sunGlow: sunGlow.clone() });
+    const light = this.mode.light ?? DAYLIGHT;
     this.stage = new Stage({
       scene: this.scene,
       sky,
       sunDir: new THREE.Vector3(-0.45, 0.72, 0.52),
-      sunColor: "#fff0d6",
-      sunIntensity: 2.7,
-      hemiSky: "#ffe7cf",
-      hemiGround: "#7a4434",
-      hemiIntensity: 1.05,
-      fog: { color: sky.horizon.clone().lerp(new THREE.Color("#e7a98c"), 0.3), near: 150, far: 640 },
+      sunColor: light.sun,
+      sunIntensity: light.sunIntensity,
+      hemiSky: light.hemiSky,
+      hemiGround: light.hemiGround,
+      hemiIntensity: light.hemiIntensity,
+      fog: { color: this.mode.light?.fog ?? sky.horizon.clone().lerp(new THREE.Color("#e7a98c"), 0.3), near: 150, far: 640 },
       shadowExtent: 34,
       height: (x, z) => course.terrain(x, z),
     });
     const world = this.stage.world;
-    const terrain = createTerrain(course, world);
+    const terrain = createTerrain(course, world, this.cool);
     this.disposer.own(terrain.material);
     this.scene.add(terrain.mesh);
-    const lava = createLava(course, world);
+    const lava = createLava(course, world, this.cool);
     this.scene.add(lava.group);
 
     const colliders = new Colliders();
@@ -174,9 +187,9 @@ export class VolcanoChallenge implements Challenge {
     });
     this.hero.addTo(this.scene);
     if (this.mode.carriesHeart) {
-      const heart = createFeuerherz();
-      heart.scale.setScalar(0.58);
-      heart.position.set(0, 0.16, -0.3);
+      const heart = (this.carriedHeart = createFeuerherz());
+      heart.scale.setScalar(CARRIED_HEART.scale);
+      heart.position.copy(CARRIED_HEART.at);
       this.hero.avatar.back.add(heart);
       this.disposer.ownMaterials(heart);
     }
@@ -189,6 +202,7 @@ export class VolcanoChallenge implements Challenge {
     this.yaw = this.trailYaw(this.playerS);
     this.updateCamera(0);
     this.rig.snap();
+    this.ending = this.mode.prepare?.(this) ?? null;
     this.update(0, 0);
   }
 
@@ -210,9 +224,14 @@ export class VolcanoChallenge implements Challenge {
     this.peak.erupt(2);
     this.rig.addShake(0.5);
     await wait(2600);
-    await ui.say("volcano_enter");
-    this.hero.avatar.pose = "talk";
-    await ui.say(TIPS);
+    if (this.mode.opening) {
+      this.hero.avatar.pose = "talk";
+      await ui.say(this.mode.opening);
+    } else {
+      await ui.say("volcano_enter");
+      this.hero.avatar.pose = "talk";
+      await ui.say(TIPS);
+    }
     this.hero.avatar.pose = "normal";
     this.hero.facing = this.course.checkpoints[0].facing;
     this.cinematic = null;
@@ -241,6 +260,11 @@ export class VolcanoChallenge implements Challenge {
     const head = this.hero.position.clone().add(new THREE.Vector3(0, 2.2, 0));
     this.bursts.twinkle(head, 40, 2.2, new THREE.Color(3, 2.4, 0.8), 0.4);
     this.fx.pop(word, head, this.camera, "#ffe14a", 56);
+  }
+
+  /** Hands a group's materials to this challenge's clean-up (they must be its own, no shared toon/mat() ones). */
+  ownGroup(group: THREE.Object3D): void {
+    this.ownedGroups.push(group);
   }
 
   /** Resolves on the next press of Space that no dialogue took. */
@@ -307,6 +331,7 @@ export class VolcanoChallenge implements Challenge {
     this.peak.update(dt, time);
     this.set.update(dt, time, hp, this.camera);
     this.set.rescue?.update(dt);
+    this.ending?.update(dt, time);
 
     if (this.invulnerable > 0) {
       this.invulnerable -= dt;
@@ -314,8 +339,9 @@ export class VolcanoChallenge implements Challenge {
     }
     if (this.state === "play" && !paused) {
       this.checkpoints();
-      if (this.playerS >= this.course.goalS + 3) void this.win();
       this.status();
+      // Reason: last, because the ending starts right here and takes the status pill away
+      if (this.playerS >= this.course.goalS + 3) void this.win();
     }
     this.updateCamera(dt);
     this.showPrompt(paused);

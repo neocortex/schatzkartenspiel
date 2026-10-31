@@ -197,6 +197,12 @@ function heartbeat(t: number): number {
 const MOTES = 6;
 
 /**
+ * Where Tadeo carries the Feuerherz on his back, the same in every scene.
+ * Reason: at the follow camera he is about a hundred pixels tall, and a child has to see at a glance that he has it.
+ */
+export const CARRIED_HEART = { at: new THREE.Vector3(0, 0.2, -0.42), scale: 0.95 };
+
+/**
  * The Feuerherz, the volcano's glowing heart: about 1 unit wide, centred on the origin, tip down. It is not an
  * item Tadeo collects, so it is no `ItemKey`.
  */

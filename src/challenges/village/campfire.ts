@@ -29,6 +29,8 @@ const FLAMES: [number, number, number, number, number][] = [
 export class Campfire {
   readonly group = new THREE.Group();
   readonly light: THREE.PointLight;
+  /** Multiplies the fire's light: at night it has to light the whole circle by itself. */
+  power = 1;
   private flames: THREE.InstancedMesh;
   private halo: THREE.Sprite;
   private haloMat: THREE.SpriteMaterial;
@@ -128,7 +130,7 @@ export class Campfire {
     this.roar = Math.max(0, this.roar - dt * 0.6);
     const r = this.roar;
     const flick = Math.sin(time * 11.3) * 0.5 + Math.sin(time * 17.1 + 1.7) * 0.3 + Math.sin(time * 6.1) * 0.2;
-    this.light.intensity = 24 + flick * 4 + r * 40;
+    this.light.intensity = (24 + flick * 4 + r * 40) * this.power;
     this.light.position.x = Math.sin(time * 7.3) * 0.06;
     this.light.position.z = Math.cos(time * 5.9) * 0.06;
     const boost = 1 + r * 0.9;

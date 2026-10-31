@@ -22,6 +22,8 @@ const CARVING = new THREE.Color("#6f6455");
 
 /** Width of the hollow; the heart sits in it at a little under this size. */
 const HEART_W = 1.6;
+/** The Feuerherz's scale when it lies in the hollow. */
+export const HEART_IN_HOLLOW = HEART_W * 0.92;
 /** Where the hollow's centre sits on the slab. */
 const HEART_Y = 1.62;
 const SLAB_DEPTH = 0.5;
@@ -327,7 +329,7 @@ export class Altar {
     this.inlay.applyMatrix4(slabAt);
     this.inlay.visible = false;
 
-    this.heart.scale.setScalar(HEART_W * 0.92);
+    this.heart.scale.setScalar(HEART_IN_HOLLOW);
     this.heart.applyMatrix4(placeAt(0, HEART_Y, 0.27));
     this.heart.applyMatrix4(slabAt);
     this.heart.visible = false;

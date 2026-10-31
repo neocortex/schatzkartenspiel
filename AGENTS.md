@@ -15,7 +15,7 @@ Graphics quality ("wow") and joy matter more than anything else. It is live at h
   `npm run voices -- --dry-run` shows what would be rendered without spending credits
 - `npx tsc --noEmit -p .` — type-check (must be clean)
 - E2E: start `npx vite --port 5199`, then `node scripts/e2e/<name>.mjs` (world, island, volcano, cave, forest,
-  ogre, village, mountain, sea, treasure, fishing, hens, voices, fps). Proof goes to `scripts/e2e/out/<name>/`.
+  ogre, village, mountain, sea, treasure, finale, fishing, hens, voices, fps). Proof goes to `scripts/e2e/out/<name>/`.
 
 ## Architecture
 

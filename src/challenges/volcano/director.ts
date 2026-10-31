@@ -21,6 +21,8 @@ export class BombDirector {
   dangerous = false;
   /** Seconds without dangerous bombs (after a respawn). */
   grace = 0;
+  /** True = the volcano has gone quiet: no bombs of any kind any more. */
+  stopped = false;
   /** Bombs ever launched at a spot near a hop rock; the rules below keep it at zero. */
   bombsNearRocks = 0;
   private timer = 1.4;
@@ -39,6 +41,7 @@ export class BombDirector {
   }
 
   update(dt: number, player: THREE.Vector3, playerS: number, velocity: THREE.Vector3): void {
+    if (this.stopped) return;
     const c = this.course;
     this.grace = Math.max(0, this.grace - dt);
     this.showTimer -= dt;

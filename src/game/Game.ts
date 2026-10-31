@@ -57,6 +57,7 @@ const GATES: Record<number, { at: P2; challenge: ChallengeName; back?: P2 }> = {
   9: { at: [55.5, -13.5], challenge: "mountain" },
   10: { at: LANDMARKS.northDockEnd, challenge: "sea" },
   11: { at: LANDMARKS.northDockEnd, challenge: "treasure" },
+  12: { at: LANDMARKS.volcanoGate, challenge: "finale" },
 };
 
 const TALK_RANGE = 2.8;
@@ -325,6 +326,7 @@ export class Game {
       this.ui.hud.setVisible(true);
       this.islandAudio();
       await this.engine.fade(0, 800);
+      if (this.quest.currentMilestone === QUESTS.length) this.story.rumble(QUESTS.length);
       void this.ui.hud.showBanner("Willkommen zurück!", this.quest.currentQuest.name);
       this.busy = false;
       return;
@@ -355,20 +357,24 @@ export class Game {
 
   /** Fade into a challenge scene, wait for the win, then reward and return to the island. */
   private async playChallenge(milestone: number): Promise<void> {
+    if (milestone === 12) return this.finale();
     const gate = GATES[milestone];
-    // Reason: a debug start has no island on screen yet, and the finale comes straight from the sea
+    // Reason: a debug start has no island on screen yet, and the treasure comes straight from the sea
     if (this.engine.scene === this.island) await this.story.beforeQuest(milestone);
     await this.enterChallenge(gate.challenge);
     this.story.won(milestone);
 
     const reward = QUESTS[milestone - 1].reward as ItemKey | null;
     if (reward) InventoryManager.getInstance().addItem(reward);
-    if (milestone === 11) return this.ending();
-    if (milestone === 10) {
-      // Reason: the boat trip ends on the treasure island, so the finale follows straight away
+    if (milestone === 10 || milestone === 11) {
+      // Reason: the boat trip ends on the treasure island, and the eruption sends Tadeo straight back: no walk in between
       this.quest.completeMilestone();
-      this.saveAt(LANDMARKS.northDockEnd);
-      return this.playChallenge(11);
+      this.saveAt(milestone === 10 ? LANDMARKS.northDockEnd : LANDMARKS.volcanoGate);
+      if (milestone === 11) {
+        await this.engine.fade(1, 700);
+        await this.ui.sayOverBlack("finale_sail_back");
+      }
+      return this.playChallenge(milestone + 1);
     }
 
     const back = gate.back ?? gate.at;
@@ -428,6 +434,13 @@ export class Game {
   private chuletaSay(text: string): void {
     this.chuletaBubble.say(text, 4800);
     NarrationManager.getInstance().speakLine(text, "Chuleta");
+  }
+
+  /** The last quest: up the volcano with the heart, then the festival, then the end card. */
+  private async finale(): Promise<void> {
+    await this.enterChallenge("finale");
+    await this.enterChallenge("festival");
+    await this.ending();
   }
 
   private async ending(): Promise<void> {

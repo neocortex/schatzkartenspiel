@@ -10,7 +10,7 @@
  *     speaks the rhyme and Tadeo repeats it → quest 5 starts
  *  6. Village (debug start): chat with a villager
  *  6b. The new cast: portraits, faces in the dialogue box, Paco beside the elder, the mole in the cave, the Hüter on the lake
- *  7. Quest 12 (debug start): the island runs without a gate
+ *  7. Quest 12 (debug start): the goal is the volcano gate, and away from it the island is free
  *  8. A save from an older version offers no Continue, and starting over keeps coins and hats
  *  9. Mashing Space through the whole opening skips nothing and leaves the game correct
  *
@@ -615,11 +615,13 @@ if (!hueterStart.error) {
   check("the Hüter fades away", await page.evaluate(() => !window.hueter.root.visible));
 }
 
-// ── 7. Quest 12 has no gate on the island yet: the game must still run (page errors are checked at the end)
+// ── 7. Quest 12's gate is the volcano: Tadeo starts far from it, so no prompt shows and the game must still run
 await page.goto(`${BASE}?quest=12`);
 await wait(4000);
 s = await state();
-check("a game at quest 12 is free and has no goal", s.milestone === 12 && !s.dialogue && !s.busy && s.prompt === null, JSON.stringify(s));
+check("a game at quest 12 is free, with no prompt away from the gate", s.milestone === 12 && !s.dialogue && !s.busy && s.prompt === null, JSON.stringify(s));
+const finalGoal = await page.evaluate(() => window.game.objectives()[0]?.verb ?? null);
+check("quest 12 has a goal", finalGoal === "Los geht's!", String(finalGoal));
 
 // ── 8. A save from an older version ─────────────────────────
 // Seed a version 3 save plus three coins and a prize hat, then reload onto the title screen

@@ -617,4 +617,72 @@ export const DIALOGUES: Record<string, DialogueScript> = {
       text: "Da! Der Vulkan spuckt Feuer! Schnell zurück!",
     },
   ],
+  finale_sail_back: [
+    {
+      speaker: "Erzähler",
+      portrait: "",
+      text: "Tadeo segelt zurück, so schnell er kann.",
+    },
+  ],
+  finale_climb: [
+    {
+      speaker: "Tadeo",
+      portrait: "portrait_tadeo",
+      text: "Das Herz muss zurück in den alten Stein!",
+    },
+    {
+      speaker: "Tadeo",
+      portrait: "portrait_tadeo",
+      text: "Ich laufe zum goldenen Licht. Los geht's!",
+    },
+  ],
+  finale_hueter_thanks: [
+    {
+      speaker: "Hüter",
+      portrait: "",
+      text: "Danke, Tadeo. Jetzt kann ich endlich ruhen.",
+    },
+  ],
+  festival_talk: [
+    {
+      speaker: "Käpt'n Paco",
+      portrait: "",
+      text: "Ich muss euch etwas sagen. Der Pirat... das war ich.",
+    },
+    {
+      speaker: "Käpt'n Paco",
+      portrait: "",
+      text: "Ich war jung und dumm. Es tut mir leid.",
+    },
+    {
+      speaker: "Käpt'n Paco",
+      portrait: "",
+      text: "Und die Flaschenpost war auch von mir.",
+    },
+    {
+      speaker: "Tadeo",
+      portrait: "portrait_tadeo",
+      text: "P wie Paco!",
+    },
+    {
+      speaker: "Dorfältester",
+      portrait: "portrait_npc0",
+      text: "Du hast uns Tadeo geschickt. Das hast du gut gemacht.",
+    },
+    {
+      speaker: "Tadeo",
+      portrait: "portrait_tadeo",
+      text: "Das Gold ist für das Dorf!",
+    },
+    {
+      speaker: "Tadeo",
+      portrait: "portrait_tadeo",
+      text: "Und was ist das? Ein Plan... für eine Rakete!",
+    },
+    {
+      speaker: "Chuleta",
+      portrait: "",
+      text: "Gack! Ein goldenes Ei!",
+    },
+  ],
 };

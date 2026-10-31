@@ -131,7 +131,7 @@ export class Fox {
    * Lead the way to `goal` (or just sit by Tadeo when null). The fox waits
    * when Tadeo is far behind and comes back if he wanders off.
    */
-  update(dt: number, time: number, player: THREE.Vector3, goal: THREE.Vector3 | null, nav: NavGrid, sparks: Bursts): void {
+  update(dt: number, time: number, player: THREE.Vector3, goal: THREE.Vector3 | null, nav: NavGrid | null, sparks: Bursts): void {
     const toPlayer = Math.hypot(player.x - this.position.x, player.z - this.position.z);
     let dest: THREE.Vector3 | null = null;
     if (this.mode === "hop") {
@@ -149,7 +149,8 @@ export class Fox {
       if (dest) this.mode = "run";
     }
 
-    if (dest) this.follow(dt, dest, nav, toPlayer);
+    // Reason: without a path map he stays where he was put (a guest at the festival)
+    if (dest && nav) this.follow(dt, dest, nav, toPlayer);
     else this.speed = Math.max(0, this.speed - dt * 12);
     // Reason: when not running, keep an eye on Tadeo — it makes the helper feel alive
     if (this.mode !== "run") this.turnTo(Math.atan2(player.x - this.position.x, player.z - this.position.z), dt * 5);

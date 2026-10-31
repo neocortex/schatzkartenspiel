@@ -13,7 +13,7 @@ import { DIALOGUES, DialogueScript } from "../../data/dialogues";
 import { SmokeSystem } from "../../world/ambient/Smoke";
 import { WorldUniforms } from "../../world/Terrain";
 import { Director, Shot, shot } from "../shared/director";
-import { Particles, createConfetti, confettiBurst } from "../shared/particles";
+import { Particles } from "../shared/particles";
 import { Owned } from "../shared/dispose";
 import { Ground, X_AT } from "./terrain";
 import { createLagoon } from "./water";
@@ -25,7 +25,7 @@ import { TreasureChest } from "./chest";
 import { Eruption } from "./eruption";
 import { TadeoRig } from "./tadeo";
 import { TreasureHud } from "./hud";
-import { Fireworks, createSand, createShards, createCoins, createGems, createSparkles } from "./fx";
+import { createSand, createShards, createCoins, createGems, createSparkles } from "./fx";
 
 export interface TreasureState {
   phase: "arrive" | "walk" | "dig" | "reveal" | "hammer" | "key" | "open" | "erupt" | "done";
@@ -92,8 +92,6 @@ export class TreasureStage {
   readonly coins: Particles;
   readonly gems: Particles;
   readonly sparkles: Particles;
-  readonly confetti: Particles;
-  readonly fireworks: Fireworks;
   readonly shock: THREE.Mesh;
   readonly state: TreasureState = {
     phase: "arrive",
@@ -125,7 +123,6 @@ export class TreasureStage {
   meterOn = false;
   /** Hole depth and sand-pile height the ground eases towards. */
   readonly dig = { hole: 0, pile: 0 };
-  disposed = false;
   private smoke: SmokeSystem;
   private timers: Timer[] = [];
   private waiter: { keys: readonly string[]; resolve: (k: string) => void } | null = null;
@@ -172,9 +169,6 @@ export class TreasureStage {
     this.coins = createCoins(floor, this.owned);
     this.gems = createGems(floor, this.owned);
     this.sparkles = createSparkles(this.owned);
-    this.confetti = createConfetti(1000, floor);
-    this.owned.add(this.confetti.mesh.material as THREE.Material);
-    this.fireworks = new Fireworks(this.owned);
     this.shock = new THREE.Mesh(
       new THREE.RingGeometry(0.6, 0.85, 40).rotateX(-Math.PI / 2),
       this.owned.add(new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 2.2, 2.6), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })),
@@ -183,7 +177,7 @@ export class TreasureStage {
 
     this.scene.add(
       this.daylight.group, this.ground.mesh, lagoon, scenery.group, this.xmark.group, this.critters.group, this.chest.group, this.eruption.group, this.smoke.group,
-      this.sand.mesh, this.shards.mesh, this.coins.mesh, this.gems.mesh, this.sparkles.mesh, this.confetti.mesh, this.fireworks.sparks.mesh, this.shock,
+      this.sand.mesh, this.shards.mesh, this.coins.mesh, this.gems.mesh, this.sparkles.mesh, this.shock,
     );
     this.director.cut(shot(30, 18, 40, 0, 1, -3));
     this.syncState();
@@ -290,13 +284,6 @@ export class TreasureStage {
     this.shockT = 0;
   }
 
-  /** Confetti cannons on both sides of the chest. */
-  confettiCannons(strength = 1): void {
-    for (const sx of [-1, 1]) {
-      confettiBurst(this.confetti, new THREE.Vector3(sx * 4.2, 0.9, 1.2), new THREE.Vector3(-sx * 0.45, 1, 0.1), Math.round(170 * strength), 11);
-    }
-  }
-
   // ── Frame ─────────────────────────────────────────────────
 
   update(dt: number, time: number): void {
@@ -365,8 +352,6 @@ export class TreasureStage {
     this.coins.update(dt, this.camera, time);
     this.gems.update(dt, this.camera, time);
     this.sparkles.update(dt, this.camera, time);
-    this.confetti.update(dt, this.camera, time);
-    this.fireworks.update(dt, this.camera, time);
     this.shockT += dt;
     const k = Math.min(this.shockT / 0.4, 1);
     this.shock.scale.setScalar(1 + k * 2.6);
@@ -411,7 +396,6 @@ export class TreasureStage {
   }
 
   dispose(): void {
-    this.disposed = true;
     this.ui.dialogue.onLine = null;
     this.hud.dispose();
     this.owned.disposeScene(this.scene);

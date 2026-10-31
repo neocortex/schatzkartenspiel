@@ -12,7 +12,6 @@ import { shot, Shot } from "../shared/director";
 import { TreasureStage, CHEST_AT, ease, lines } from "./stage";
 import { X_AT, PILE_AT } from "./terrain";
 import { ERUPT_FROM, LANDING } from "./scenery";
-import { lootBurst } from "./fx";
 import { key, bar, dots } from "./hud";
 import { takeNote, takeHeart, takePlan, takeGold } from "./reveals";
 
@@ -360,22 +359,4 @@ function swingToVolcano(s: TreasureStage, seconds: number): Promise<void> {
     s.camera.fov = THREE.MathUtils.lerp(FOV_NORMAL, FOV_ERUPT, smoother(t));
     s.camera.updateProjectionMatrix();
   });
-}
-
-/** Endless celebration under the end card: hops, confetti, coin showers, fireworks. */
-export async function party(s: TreasureStage): Promise<void> {
-  const t = s.tadeo;
-  s.fireworks.auto = true;
-  let beat = 0;
-  while (!s.disposed) {
-    await s.sleep(1.7);
-    beat++;
-    // Reason: Tadeo keeps turning to face the orbiting camera so he is never seen from behind for long
-    t.actor.faceTo(s.camera.position.x, s.camera.position.z);
-    t.avatar.pose = "cheer";
-    t.actor.jump(5 + Math.random() * 1.5);
-    if (beat % 3 === 0) s.confettiCannons(0.6);
-    if (beat % 4 === 1) lootBurst(s.coins, s.gems, CHEST_AT.clone().add(new THREE.Vector3(0, 0.9, 0.1)), 24, 8, 0.7);
-    if (beat % 2 === 0) s.sparkleAt(t.actor.position.clone().add(new THREE.Vector3(0, 2.2, 0)), 20, "#ffd75e", 2);
-  }
 }

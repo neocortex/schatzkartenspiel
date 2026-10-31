@@ -33,5 +33,7 @@ export type ChallengeName =
   | "mountain"
   | "sea"
   | "treasure"
+  | "finale"
+  | "festival"
   | "fishing"
   | "hens";

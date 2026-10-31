@@ -77,7 +77,7 @@ const FIREWORK_COLORS: [string, string][] = [
   ["#2fe0ff", "#b45cff"],
 ];
 
-/** Fireworks over the lagoon: call `launch()` (or set `auto`) and update every frame. */
+/** Fireworks far in front of the camera: call `launch()` (or set `auto`) and update every frame. */
 export class Fireworks {
   readonly sparks: Particles;
   /** Launch a new rocket every so often by itself. */
@@ -87,10 +87,10 @@ export class Fireworks {
 
   constructor(owned: Owned) {
     const material = owned.add(new THREE.MeshBasicMaterial({ map: glowTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
-    this.sparks = new Particles({ geometry: new THREE.PlaneGeometry(0.9, 0.9), material, max: 2600, gravity: 3.2, drag: 1.5, billboard: true, fade: "color", renderOrder: 6 });
+    this.sparks = new Particles({ geometry: new THREE.PlaneGeometry(0.5, 0.5), material, max: 2600, gravity: 3.2, drag: 1.5, billboard: true, fade: "color", renderOrder: 6 });
   }
 
-  /** Fire one rocket from the sea in front of the camera so its burst lands in view. */
+  /** Fire one rocket from the ground far in front of the camera so its burst lands in view. */
   launch(camera: THREE.Camera): void {
     const fwd = new THREE.Vector3();
     camera.getWorldDirection(fwd);
@@ -106,7 +106,7 @@ export class Fireworks {
       pos: from,
       vel: new THREE.Vector3((Math.random() - 0.5) * 2, up, (Math.random() - 0.5) * 2),
       fuse: up / g,
-      colors: [new THREE.Color(pair[0]).multiplyScalar(4), new THREE.Color(pair[1]).multiplyScalar(4)],
+      colors: [new THREE.Color(pair[0]).multiplyScalar(2.6), new THREE.Color(pair[1]).multiplyScalar(2.6)],
     });
     audio.playSfx("sfx_wave", 0.18, 1.9);
   }

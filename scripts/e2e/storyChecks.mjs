@@ -354,8 +354,7 @@ export async function storyChecks({ page, BASE, check, shot, wait, brightness })
     const got = await story();
     const goal = await page.evaluate(() => window.game.objectives()[0] ?? null);
     const pos = await player();
-    // Reason: quest 12 has no gate of its own yet, the volcano gate is where it starts
-    const reachable = await reach(page, pos, goal?.at ?? VOLCANO_GATE, { radius: (goal?.radius ?? 3.5) - 0.1 });
+    const reachable = await reach(page, pos, goal.at, { radius: goal.radius - 0.1 });
     check(`Continue at quest ${m} matches the island and the goal is reachable`, sameFields(got, EXPECTED[m]) && reachable, JSON.stringify({ got, goal: goal?.at, reachable }));
   }
   await page.evaluate(() => localStorage.removeItem("schatzkarten_save"));

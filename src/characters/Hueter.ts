@@ -13,7 +13,7 @@
 import * as THREE from "three";
 import { merge, part } from "../core/geo";
 import { BILLBOARD_GLSL, particleMesh, quadGeometry } from "../world/ambient/particles";
-import { ball, withSway } from "../world/models/shapes";
+import { ball, rbox, withSway } from "../world/models/shapes";
 import { stoneHead } from "../world/models/regionSites";
 
 const RISE_SECONDS = 3;
@@ -194,6 +194,15 @@ function figureGeometry(): THREE.BufferGeometry {
   return merge([...headParts, robeGeometry(), ...sleeves]);
 }
 
+/** The corners of his mouth, turned up: hidden until he has found his rest. */
+function smileGeometry(): THREE.BufferGeometry {
+  const corners = [-1, 1].map((side) => rbox(0.42, 0.2, 0.25, INK, { pos: [side * 0.74, 1.04, 1.02], rot: [0, 0, side * 0.62] }, 0.08));
+  const geo = merge(corners);
+  geo.scale(HEAD_SCALE, HEAD_SCALE, HEAD_SCALE);
+  geo.translate(0, HEAD_Y, 0);
+  return withSway(geo, () => 0);
+}
+
 /** A full robe with soft vertical folds, deepest low down, that narrows into his tail. */
 function robeGeometry(): THREE.BufferGeometry {
   const outline = [[0.12, 0], [0.3, 0.35], [0.52, 0.9], [0.74, 1.5], [0.9, 2.1], [0.97, 2.6], [0.86, 3], [0.45, 3.3]];
@@ -214,6 +223,7 @@ export class Hueter {
   readonly root = new THREE.Group();
   private figure = new THREE.Group();
   private halo: THREE.Mesh;
+  private grin: THREE.Mesh;
   private uniforms = {
     uTime: { value: 0 },
     uOpacity: { value: 0 },
@@ -265,7 +275,10 @@ export class Hueter {
       }),
     );
     shell.renderOrder = ORDER.shell;
-    this.figure.add(depth, shell);
+    this.grin = new THREE.Mesh(smileGeometry(), shell.material);
+    this.grin.renderOrder = ORDER.shell;
+    this.grin.visible = false;
+    this.figure.add(depth, shell, this.grin);
 
     // Reason: drawn before the depth pass, or the invisible depth surface would hide the glow behind him
     this.halo = new THREE.Mesh(
@@ -297,6 +310,15 @@ export class Hueter {
 
     this.root.add(this.figure, water, motes);
     this.root.visible = false;
+  }
+
+  /** He has found his rest, and it shows. */
+  smile(): void {
+    this.grin.visible = true;
+  }
+
+  get smiling(): boolean {
+    return this.grin.visible;
   }
 
   /** Rise out of the water with bright rings. Resolves when he hovers at full strength. */

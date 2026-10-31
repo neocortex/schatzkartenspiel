@@ -96,7 +96,7 @@ is the `CAST` table in `scripts/voice/generate.mjs`; changing a voice there re-r
 | Parameter | Effect |
 |-----------|--------|
 | `?quest=N` | Start at quest N (skips the title; earlier rewards are in the inventory) |
-| `?challenge=<name>` | Jump straight into a challenge: `volcano`, `cave`, `forest`, `ogre`, `village`, `mountain`, `sea`, `treasure`, `fishing`, `hens` |
+| `?challenge=<name>` | Jump straight into a challenge: `volcano`, `cave`, `forest`, `ogre`, `village`, `mountain`, `sea`, `treasure`, `finale`, `fishing`, `hens` |
 | `?notitle` | Skip the title screen |
 | `?coins=N` | Pretend N coins are collected (outfits) |
 | `?spawn=x,z` | Start Tadeo at a world position |
@@ -118,7 +118,7 @@ npm run test:e2e              # all tests in a row (~15 min) → scripts/e2e/out
 node scripts/e2e/world.mjs    # one test: walks every region path, landmarks, region animals, fps
 node scripts/e2e/island.mjs   # likewise: title, intro, quests 1–3, coins, village, fps
 node scripts/e2e/volcano.mjs  # likewise: cave, forest, ogre, village, mountain, sea,
-                              # treasure, fishing, hens
+                              # treasure, finale, fishing, hens
 node scripts/e2e/voices.mjs   # recordings play, changing lines, browser speech fallback
 node scripts/e2e/fps.mjs      # 60 fps cap on fast screens, no dropped frames at 60 Hz
 ```

@@ -7,6 +7,7 @@
 
 import * as THREE from "three";
 import { audio } from "../../audio/Audio";
+import { CARRIED_HEART } from "../../world/models/items";
 import { shot } from "../shared/director";
 import { TreasureStage, CHEST_AT, ease, lines } from "./stage";
 import { lootBurst } from "./fx";
@@ -125,13 +126,12 @@ export async function takeHeart(s: TreasureStage): Promise<void> {
   await s.say(lines("treasure_heart", 1));
 
   const back = t.avatar.back;
-  const carried = new THREE.Vector3(0, 0.16, -0.3);
-  await glide(s, heart, back.localToWorld(carried.clone()), 0.58, 0.8, 0.3);
+  await glide(s, heart, back.localToWorld(CARRIED_HEART.at.clone()), CARRIED_HEART.scale, 0.8, 0.3);
   // Reason: the same place and size as in the volcano course, where he carries it home
   back.add(heart);
-  heart.position.copy(carried);
+  heart.position.copy(CARRIED_HEART.at);
   heart.rotation.set(0, 0, 0);
-  heart.scale.setScalar(0.58);
+  heart.scale.setScalar(CARRIED_HEART.scale);
   t.avatar.pose = "normal";
   // Reason: the light sits where the next thing floats, and a strong one burns its colours away
   s.chest.glow(2.5, "#ffc65a");

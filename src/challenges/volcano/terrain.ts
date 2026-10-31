@@ -43,7 +43,7 @@ function lines(bands: [number, number][], end: number): number[] {
 
 const grain = new Noise2D(77);
 
-export function createTerrain(course: Course, world: WorldUniforms): { mesh: THREE.Mesh; material: THREE.Material } {
+export function createTerrain(course: Course, world: WorldUniforms, cool: { value: number }): { mesh: THREE.Mesh; material: THREE.Material } {
   // Reason: fine spacing on the playable strip, medium on the cone, coarse out at the horizon
   const xs = lines([[-200, 4], [-152, 1.2], [-66, 0.55], [50, 4]], 160);
   const zs = lines([[-210, 4], [-160, 1.2], [-90, 0.55], [72, 4]], 150);
@@ -90,7 +90,7 @@ export function createTerrain(course: Course, world: WorldUniforms): { mesh: THR
   geo.computeVertexNormals();
   geo.computeBoundingSphere();
 
-  const material = terrainMaterial(world);
+  const material = terrainMaterial(world, cool);
   const mesh = new THREE.Mesh(geo, material);
   mesh.receiveShadow = true;
   mesh.castShadow = true;
@@ -156,6 +156,7 @@ function paint(course: Course, x: number, z: number, y: number, slope: number, o
 
 const TERRAIN_GLSL = /* glsl */ `
 uniform float uTime;
+uniform float uCool;
 varying vec3 vWPos;
 varying vec2 vLava;
 ${NOISE_GLSL}
@@ -177,10 +178,11 @@ float crackDist(vec2 p) {
 }
 `;
 
-function terrainMaterial(world: WorldUniforms): THREE.MeshStandardMaterial {
+function terrainMaterial(world: WorldUniforms, cool: { value: number }): THREE.MeshStandardMaterial {
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.93, metalness: 0 });
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = world.uTime;
+    shader.uniforms.uCool = cool;
     shader.vertexShader = shader.vertexShader
       .replace("#include <common>", "#include <common>\nattribute vec2 aLava;\nvarying vec3 vWPos;\nvarying vec2 vLava;")
       .replace(
@@ -208,7 +210,7 @@ function terrainMaterial(world: WorldUniforms): THREE.MeshStandardMaterial {
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.08, 0.03, 0.02), crack * 0.6);
         vec3 lavaGlow = crackCol * crack * pulse + vec3(0.9, 0.18, 0.03) * vLava.x * vLava.x * (0.75 + 0.25 * pulse);`,
       )
-      .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance += lavaGlow;");
+      .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance += lavaGlow * (1.0 - 0.8 * uCool);");
   };
   return mat;
 }

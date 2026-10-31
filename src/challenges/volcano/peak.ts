@@ -15,16 +15,21 @@ export class Peak {
   /** Where bombs leave the crater. */
   readonly vent = new THREE.Vector3(VOLCANO.x, VOLCANO.rim + 1.5, VOLCANO.z);
   readonly glowMaterial: THREE.SpriteMaterial;
+  /** How far the volcano has gone to rest: 0 is a full eruption, 1 a thin thread of smoke and a faint glow. */
+  rest = 0;
   private glow: THREE.Sprite;
   private light: THREE.PointLight;
   private flare = 0;
+  private plume: THREE.ShaderMaterial;
+  private fountain: THREE.ShaderMaterial;
 
   constructor(smoke: SmokeSystem, private bursts: Bursts) {
     const floor = this.vent.clone().setY(VOLCANO.rim - 7.5);
-    smoke.add([floor], "volcano");
-    this.group.add(
-      smoke.sparks([floor.clone().setY(VOLCANO.rim - 4)], { perSource: 160, life: 3.4, up: [10, 21], lateral: 5.5, gravity: 9, size: 1.1, intensity: 7, wind: 2.5 }),
-    );
+    const plume = smoke.add([floor], "volcano");
+    this.plume = (plume.children[0] as THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>).material;
+    const fountain = smoke.sparks([floor.clone().setY(VOLCANO.rim - 4)], { perSource: 160, life: 3.4, up: [10, 21], lateral: 5.5, gravity: 9, size: 1.1, intensity: 7, wind: 2.5 });
+    this.fountain = fountain.material as THREE.ShaderMaterial;
+    this.group.add(fountain);
 
     this.glowMaterial = new THREE.SpriteMaterial({
       map: glowTexture(),
@@ -54,8 +59,11 @@ export class Peak {
     this.flare = Math.max(0, this.flare - dt * 2.2);
     // Reason: two out-of-phase sines read as an irregular, breathing glow rather than a metronome
     const pulse = 0.8 + 0.12 * Math.sin(time * 1.7) + 0.08 * Math.sin(time * 4.3);
-    this.glowMaterial.opacity = Math.min(1, pulse + this.flare * 0.3);
+    const fire = 1 - this.rest;
+    this.glowMaterial.opacity = Math.min(1, pulse + this.flare * 0.3) * (0.18 + 0.82 * fire);
     this.glow.scale.setScalar(16 + pulse * 3 + this.flare * 8);
-    this.light.intensity = 2600 * pulse + this.flare * 4000;
+    this.light.intensity = (2600 * pulse + this.flare * 4000) * (0.06 + 0.94 * fire);
+    this.fountain.uniforms.uIntensity.value = 7 * fire;
+    this.plume.uniforms.uOpacity.value = 0.9 * (0.12 + 0.88 * fire);
   }
 }

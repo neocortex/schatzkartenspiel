@@ -54,6 +54,13 @@ export class GameUI {
     this.dialogue.update(dt, input);
   }
 
+  /** A dialogue read on a black screen. Reason: the fade sits above the UI, so the UI steps in front of it for this. */
+  async sayOverBlack(script: string | DialogueScript): Promise<void> {
+    this.layer.style.zIndex = "101";
+    await this.say(script);
+    this.layer.style.zIndex = "";
+  }
+
   /** Play a dialogue from `DIALOGUES` by key, or an inline script. */
   say(script: string | DialogueScript): Promise<void> {
     const lines = typeof script === "string" ? DIALOGUES[script] : script;

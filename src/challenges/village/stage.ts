@@ -157,14 +157,14 @@ export class VillageStage {
   }
 
   /** Big cheer: confetti cannons, sparkles, the fire roars, villagers jump. */
-  celebrate(strength = 1): void {
+  celebrate(strength = 1, sparkles = true): void {
     for (const sx of [-1, 1]) {
       confettiBurst(this.confetti, new THREE.Vector3(sx * 6.4, 2.9, -4.6), new THREE.Vector3(-sx * 0.5, 1, 0.55), Math.round(160 * strength), 10);
       confettiBurst(this.confetti, new THREE.Vector3(sx * 8, 2.4, 3), new THREE.Vector3(-sx * 0.6, 1, -0.2), Math.round(90 * strength), 9);
     }
     this.plaza.fire.flare();
     this.crowd.cheer(3);
-    this.sparkleAt(this.tadeo.position.clone().add(new THREE.Vector3(0, 1, 0)), 40, "#ffd75e");
+    if (sparkles) this.sparkleAt(this.tadeo.position.clone().add(new THREE.Vector3(0, 1, 0)), 40, "#ffd75e");
   }
 
   sparkleAt(at: THREE.Vector3, count: number, color: THREE.ColorRepresentation, speed = 3): void {

@@ -152,6 +152,8 @@ function rugTexture(): THREE.CanvasTexture {
 export class Decor {
   readonly group = new THREE.Group();
   readonly torchFlames: THREE.Vector3[] = [];
+  /** Where the lanterns hang, for the glow they give at night. */
+  readonly lanterns: THREE.Vector3[] = [];
   private mats: LandmarkMaterials;
 
   constructor(world: WorldUniforms, smoke: SmokeSystem, owned: Owned, rugAt: THREE.Vector3, rugRadius: number) {
@@ -176,6 +178,7 @@ export class Decor {
       const z = RING.z + Math.sin(a) * 10.4;
       addModel(town, lanternPost(3.4), placeAt(x, 0, z, faceDir(RING.x - x, RING.z - z) + Math.PI / 2));
       tops.push([x, 3.35, z]);
+      this.lanterns.push(new THREE.Vector3(x, 3.35, z));
     }
     for (let i = 0; i < tops.length - 1; i++) addModel(town, bunting(tops[i], tops[i + 1], 0.6, i * 3));
 

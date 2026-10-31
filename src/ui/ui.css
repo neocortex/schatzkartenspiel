@@ -616,3 +616,11 @@
   color: #fff;
   text-shadow: 0 3px 0 rgba(0, 0, 0, 0.4);
 }
+.endcard .end-teaser {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  color: #ffe9a8;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.45);
+}

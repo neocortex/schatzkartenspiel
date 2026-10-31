@@ -210,6 +210,18 @@ export class Bombs {
     return true;
   }
 
+  /** Whatever is still in the air bursts into harmless sparkles. */
+  fizzle(): void {
+    for (const b of this.bombs) {
+      if (b.state !== "flying") continue;
+      if (b.ring) this.markers.release(b.ring);
+      b.ring = null;
+      b.state = "idle";
+      b.root.visible = false;
+      this.bursts.twinkle(b.root.position.clone(), 26, 3.4, new THREE.Color(3.2, 2.5, 1), 0.5);
+    }
+  }
+
   /** Advance all bombs; returns the impacts that happened this frame. */
   update(dt: number, onWhistle?: (b: Bomb) => void): Impact[] {
     const impacts: Impact[] = [];

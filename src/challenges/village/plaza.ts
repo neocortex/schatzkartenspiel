@@ -26,15 +26,23 @@ const DUSK: SkyPalette = {
   sunGlow: new THREE.Color("#ffb46a"),
 };
 
+/** Deep blue, with just enough glow left at the horizon for the rooftops and trees to stand out against it. */
+const NIGHT: SkyPalette = {
+  zenith: new THREE.Color("#050a2e"),
+  horizon: new THREE.Color("#23357f"),
+  sunGlow: new THREE.Color("#000000"),
+};
+
 const STAR_VERT = /* glsl */ `
 uniform float uTime;
+uniform float uNight;
 attribute float aSeed;
 varying float vBright;
 void main() {
   vec3 d = normalize(position);
   float tw = 0.65 + 0.35 * sin(uTime * (1.5 + aSeed * 3.0) + aSeed * 40.0);
-  // Stars fade in towards the zenith, away from the sunset glow
-  vBright = tw * smoothstep(0.12, 0.5, d.y) * (0.5 + aSeed);
+  // Stars fade in towards the zenith, away from the sunset glow; at night there is no glow to keep away from
+  vBright = tw * mix(smoothstep(0.12, 0.5, d.y), smoothstep(0.02, 0.14, d.y) * 1.5, uNight) * (0.5 + aSeed);
   vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   gl_Position = p.xyww;
   gl_PointSize = 1.5 + aSeed * 2.5;
@@ -73,12 +81,20 @@ export class Plaza {
   private smoke: SmokeSystem;
   private cat: CritterMesh;
   private noise = new Noise2D(808);
+  private sky: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+  private night = { value: 0 };
+  private moonGlow = new THREE.Group();
+  private hemi = new THREE.HemisphereLight("#8796e6", "#5a3e2c", 1.0);
+  private rim = new THREE.DirectionalLight("#86a6ff", 0.9);
+  private decor: Decor;
+  private owned: Owned;
 
   constructor(
     owned: Owned,
     fireAt: THREE.Vector3,
     rugAt: THREE.Vector3,
   ) {
+    this.owned = owned;
     const sunDir = new THREE.Vector3(-0.82, 0.07, -0.56).normalize();
     this.world = {
       uTime: { value: 0 },
@@ -89,10 +105,11 @@ export class Plaza {
       uSunDir: { value: sunDir },
     };
     this.smoke = new SmokeSystem(this.world);
-    this.group.add(createSkyDome(sunDir, DUSK), this.stars(), this.moon(owned));
+    this.sky = createSkyDome(sunDir, DUSK) as THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+    this.group.add(this.sky, this.stars(), this.moon(owned));
 
     // Lights: warm low sun from the left, cool sky fill, a blue rim from behind
-    this.group.add(new THREE.HemisphereLight("#8796e6", "#5a3e2c", 1.0));
+    this.group.add(this.hemi);
     this.sun = new THREE.DirectionalLight("#ffb27a", 1.7);
     this.sun.position.set(-14, 11, 7);
     this.sun.castShadow = true;
@@ -105,20 +122,68 @@ export class Plaza {
     sc.near = 1;
     sc.far = 60;
     this.group.add(this.sun, this.sun.target);
-    const rim = new THREE.DirectionalLight("#86a6ff", 0.9);
-    rim.position.set(6, 7, -12);
-    this.group.add(rim);
+    this.rim.position.set(6, 7, -12);
+    this.group.add(this.rim);
 
     this.group.add(this.ground(owned));
     this.group.add(this.vegetation(owned));
     this.group.add(this.fireflies());
     this.fire = new Campfire(fireAt, this.world, this.smoke, owned);
     this.group.add(this.fire.group);
-    this.group.add(new Decor(this.world, this.smoke, owned, rugAt, 2.75).group);
+    this.decor = new Decor(this.world, this.smoke, owned, rugAt, 2.75);
+    this.group.add(this.decor.group);
     this.group.add(this.smoke.group);
 
     this.cat = new CritterMesh({ name: "ceremony-cat", geometry: catModel(), count: 1, animate: CAT_ANIM, castShadow: true, selfLit: 0.12 });
     this.group.add(this.cat.mesh);
+  }
+
+  /**
+   * The same plaza after dark: a deep blue sky full of stars with a big moon, and the warm light of the fire and
+   * the lanterns against it. Moonlight is the only cool light left, just enough to keep the far side of faces readable.
+   */
+  setNight(): void {
+    const u = this.sky.material.uniforms;
+    u.uZenith.value = NIGHT.zenith;
+    u.uHorizon.value = NIGHT.horizon;
+    u.uSunGlow.value = NIGHT.sunGlow;
+    // Reason: the dome paints a sun disc at this direction; straight down, it shows none
+    u.uSunDir.value = new THREE.Vector3(0, -1, 0);
+    this.night.value = 1;
+    this.moonGlow.scale.setScalar(1.7);
+
+    this.hemi.color.set("#4256b0");
+    this.hemi.groundColor.set("#33241c");
+    this.hemi.intensity = 0.8;
+    this.sun.color.set("#a4b8ff");
+    this.sun.intensity = 0.55;
+    this.sun.position.set(9, 15, -10);
+    this.rim.intensity = 0.5;
+    this.fire.power = 2.3;
+
+    // Reason: smoke keeps its daytime white otherwise, and the chimneys look like cotton wool in the night sky
+    this.smoke.group.traverse((o) => {
+      const u = ((o as THREE.Mesh).material as THREE.ShaderMaterial | undefined)?.uniforms;
+      if (u?.uColorA) {
+        u.uColorA.value.multiplyScalar(0.3);
+        u.uColorB.value.multiplyScalar(0.3);
+      }
+    });
+
+    const glowMaterial = this.owned.add(new THREE.SpriteMaterial({ map: glowTexture(), color: new THREE.Color(1.2, 0.66, 0.26), blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    for (const at of this.decor.lanterns) {
+      const glow = new THREE.Sprite(glowMaterial);
+      glow.position.copy(at);
+      glow.scale.setScalar(2.7);
+      glow.renderOrder = 3;
+      this.group.add(glow);
+    }
+    // Reason: the lanterns stand behind the fire's reach; two lights pick the houses and the back benches out of the dark
+    for (const x of [-9, 9]) {
+      const light = new THREE.PointLight("#ffb765", 34, 26, 2);
+      light.position.set(x, 3.4, -8.5);
+      this.group.add(light);
+    }
   }
 
   /** Height of the ground (flat plaza, rolling hills further out). */
@@ -276,7 +341,7 @@ export class Plaza {
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     geo.setAttribute("aSeed", new THREE.BufferAttribute(seed, 1));
     const mat = new THREE.ShaderMaterial({
-      uniforms: { uTime: this.world.uTime },
+      uniforms: { uTime: this.world.uTime, uNight: this.night },
       vertexShader: STAR_VERT,
       fragmentShader: STAR_FRAG,
       transparent: true,
@@ -290,7 +355,7 @@ export class Plaza {
   }
 
   private moon(owned: Owned): THREE.Group {
-    const g = new THREE.Group();
+    const g = this.moonGlow;
     const dir = new THREE.Vector3(0.42, 0.36, -0.83).normalize().multiplyScalar(700);
     const disc = new THREE.Mesh(new THREE.SphereGeometry(16, 24, 16), owned.add(new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.1, 1.8), fog: false })));
     const halo = new THREE.Sprite(owned.add(new THREE.SpriteMaterial({ map: glowTexture(), color: new THREE.Color(0.7, 0.75, 1.0), blending: THREE.AdditiveBlending, depthWrite: false, fog: false })));

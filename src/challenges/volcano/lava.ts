@@ -28,6 +28,7 @@ void main() {
 
 const FRAG = /* glsl */ `
 uniform float uTime;
+uniform float uCool;
 varying vec3 vWPos;
 varying vec2 vUv;
 ${NOISE_GLSL}
@@ -70,7 +71,8 @@ void main() {
   float bub = vnoise(vWPos.xz * 0.8 + vec2(0.0, uTime * 0.4));
   hot += smoothstep(0.75, 0.95, bub) * (0.5 + 0.5 * sin(uTime * 3.0 + bub * 20.0)) * 0.45;
   #endif
-  hot = clamp(hot, 0.0, 1.25);
+  // Cooling: the seams go first, then the whole flow settles to a dull, dark red
+  hot = clamp(hot, 0.0, 1.25) * mix(1.0, 0.36, uCool);
   vec3 col = mix(vec3(0.16, 0.05, 0.035), vec3(1.9, 0.26, 0.04), smoothstep(0.1, 0.4, hot));
   col = mix(col, vec3(3.6, 1.1, 0.12), smoothstep(0.42, 0.72, hot));
   col = mix(col, vec3(5.5, 3.4, 1.0), smoothstep(0.85, 1.15, hot));
@@ -79,7 +81,8 @@ void main() {
 }
 `;
 
-export function lavaMaterial(world: WorldUniforms, flow: boolean): THREE.ShaderMaterial {
+/** `cool` goes from 0 (white-hot) to 1 (the volcano has gone to rest). */
+export function lavaMaterial(world: WorldUniforms, flow: boolean, cool: { value: number } = { value: 0 }): THREE.ShaderMaterial {
   const mat = new THREE.ShaderMaterial({
     uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog]),
     vertexShader: VERT,
@@ -88,6 +91,7 @@ export function lavaMaterial(world: WorldUniforms, flow: boolean): THREE.ShaderM
     fog: true,
   });
   mat.uniforms.uTime = world.uTime;
+  mat.uniforms.uCool = cool;
   return mat;
 }
 
@@ -99,10 +103,10 @@ export interface LavaSet {
 }
 
 /** River ribbons in their channels plus the crater lake. */
-export function createLava(course: Course, world: WorldUniforms): LavaSet {
+export function createLava(course: Course, world: WorldUniforms, cool: { value: number }): LavaSet {
   const group = new THREE.Group();
-  const flow = lavaMaterial(world, true);
-  const pool = lavaMaterial(world, false);
+  const flow = lavaMaterial(world, true, cool);
+  const pool = lavaMaterial(world, false, cool);
   const mouths: THREE.Vector3[] = [];
 
   course.rivers.forEach((r, i) => {

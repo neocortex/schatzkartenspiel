@@ -98,7 +98,8 @@ export class Fireworks {
     const dist = 42 + Math.random() * 26;
     const from = camera.position.clone().add(new THREE.Vector3(Math.sin(yaw) * dist, 0, Math.cos(yaw) * dist));
     from.y = 0;
-    const height = 13 + Math.random() * 9;
+    // Reason: as a share of the distance, so near and far rockets alike burst in the top third, above the end card's headline
+    const height = dist * (0.38 + Math.random() * 0.12);
     const g = 9.8;
     const up = Math.sqrt(2 * g * height);
     const pair = FIREWORK_COLORS[Math.floor(Math.random() * FIREWORK_COLORS.length)];

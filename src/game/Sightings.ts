@@ -85,12 +85,17 @@ export class Sightings {
   befriend(): void {
     this.beaten = true;
     this.placeOgre("friend");
+    // Reason: Tadeo is within his greeting's reach when the island fades in; the boulder scene is next, so no greeting
+    this.cooldown = 14;
   }
 
   /** The ogre gets up, walks to `at` and stands there facing `facing`; the scene owns him until `ogreRest`. */
   ogreLift(at: P2, facing: number): Promise<void> {
     this.scripted = true;
     this.speaking = false;
+    // Reason: a greeting still running would sit him down, or keep its bubble up, in the middle of the scene
+    this.poseTimer = 0;
+    this.bubble.say("", 0);
     this.ogre.setPose("idle", 5);
     return this.walkTo(at, facing);
   }

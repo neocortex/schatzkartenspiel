@@ -178,7 +178,9 @@ async function pick(action) {
 // ── The boulder scene ─────────────────────────────────────────
 
 /** What the scene was seen to do, filled by `watchBoulderScene`. */
-const scene = { mouth: { ogre: null, tadeo: null }, longestFrame: 0, rock: { peak: 0, lastSeen: null }, ogreAtRest: null, phases: [] };
+const scene = { mouth: { ogre: null, tadeo: null }, longestFrame: 0, rock: { peak: 0, lastSeen: null }, ogreAtRest: null, phases: [], sat: [], bubbles: 0 };
+/** The scene's phases in which the ogre is on his feet; he sits only in his seat by the river, before and after. */
+const ON_HIS_FEET = ["walk", "talk", "heave", "airborne", "landed", "cheer"];
 
 /**
  * Looks on while the ogre gets up, walks to the boulder, speaks, throws it and sits down by the river; presses Space
@@ -196,6 +198,8 @@ async function watchBoulderScene() {
         dialogue: !!document.querySelector(".dialogue.open"),
         line: window.said.at(-1) ?? "",
         talking: ogre.talking,
+        pose: ogre.pose,
+        bubble: g.sightings.bubble.speaking,
         ogreAt: [ogre.root.position.x, ogre.root.position.z],
         rockY: giant.position.y,
         ...g.story.e2e,
@@ -218,10 +222,17 @@ async function watchBoulderScene() {
     if (delay) await sleep(delay);
     await shot(name);
   };
+  // Reason: the ogre's pose and the greeting bubble are looked at on every look at the scene, also while a child would still be reading
+  const note = (b) => {
+    if (b.pose === "sit" && ON_HIS_FEET.includes(b.lift)) scene.sat.push(`${b.lift}`);
+    // The quest is still 8 until the scene is over: any bubble up until then is the arrival greeting
+    if (b.bubble && b.milestone === 8) scene.bubbles++;
+  };
   const end = Date.now() + 90000;
   let last = null;
   while (Date.now() < end) {
     last = await beat();
+    note(last);
     if (!scene.phases.includes(last.lift)) scene.phases.push(last.lift);
     scene.rock.peak = Math.max(scene.rock.peak, last.rockY);
     if (last.lift === "rest") scene.ogreAtRest = last.ogreAt;
@@ -231,6 +242,14 @@ async function watchBoulderScene() {
       if (last.line.startsWith("Oger: Der Fels")) scene.mouth.ogre = last.talking;
       if (last.line.startsWith("Tadeo: Das ist der Riesenfels")) scene.mouth.tadeo = last.talking;
       await once(last.lift === "talk" ? "21_tadeo_asks_the_ogre" : "27_chuleta_is_impressed", 700);
+      // A child reads before pressing Space: look at the ogre for two more seconds
+      if (last.lift === "talk" && !seen.has("read")) {
+        seen.add("read");
+        for (let i = 0; i < 7; i++) {
+          await sleep(300);
+          note(await beat());
+        }
+      }
       await page.keyboard.press("Space");
       await sleep(260);
       continue;
@@ -444,6 +463,8 @@ try {
   check("he is the friend by the river afterwards", island.ogre === "friend", island.ogre);
   const seat = await page.evaluate(() => [window.game.sightings.ogre.root.position.x, window.game.sightings.ogre.root.position.z]);
   check("he stays where he sat down once the quest moves on", scene.ogreAtRest && dist(scene.ogreAtRest, seat) < 0.3 && dist(seat, [57.5, -3]) < 0.3, JSON.stringify({ seat, scene: scene.ogreAtRest }));
+  check("he stays on his feet from the moment he walks to the boulder until the throw is done", scene.sat.length === 0, `sitting during: ${scene.sat.join()}`);
+  check("no greeting bubble comes up before or during the scene", scene.bubbles === 0, `${scene.bubbles} looks with a bubble up`);
   check("the scene ran through every beat", ["walk", "talk", "heave", "airborne", "landed", "cheer", "rest"].every((p) => scene.phases.includes(p)), scene.phases.join());
   check("the boulder was lifted high and thrown, not just made to vanish", scene.rock.peak > 5, `peak ${scene.rock.peak.toFixed(1)} m`);
   check("his mouth moves for his line and not for Tadeo's", scene.mouth.ogre === true && scene.mouth.tadeo === false, JSON.stringify(scene.mouth));

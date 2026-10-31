@@ -116,15 +116,33 @@ async function recordLines() {
   });
 }
 
-/** Runs in the page, every frame of the sea scene: what mood the shark is in, and where each thrown berry flies. */
+/**
+ * Runs in the page, every frame of the sea scene: what mood the shark is in, where each thrown berry flies,
+ * and how far the jaw opens from each landing until the next leap (or, after the last berry, the wave goodbye).
+ */
 function watchFight() {
   const sc = window.engine.scene;
-  const watch = { moods: [], flights: [] };
+  const watch = { moods: [], flights: [], mouthAfterFeed: [] };
   window.seaWatch = watch;
   let flight = null;
+  let fed = 0;
+  let mouth = null;
   const tick = () => {
     if (window.engine.scene !== sc) return;
     if (watch.moods.at(-1) !== sc.shark.mood) watch.moods.push(sc.shark.mood);
+    if (sc.fight.leaping || sc.shark.waving) mouth = null;
+    if (sc.fight.throws > fed) {
+      fed = sc.fight.throws;
+      mouth = { landed: performance.now(), ms: 0, jaw: 0, jawAtMs: 0 };
+      watch.mouthAfterFeed.push(mouth);
+    }
+    if (mouth) {
+      mouth.ms = Math.round(performance.now() - mouth.landed);
+      if (sc.shark.jawOpen > mouth.jaw) {
+        mouth.jaw = sc.shark.jawOpen;
+        mouth.jawAtMs = mouth.ms;
+      }
+    }
     const berry = sc.scene.getObjectByName("thrownBerry");
     if (berry?.visible) {
       const y = berry.position.y;
@@ -300,9 +318,13 @@ try {
       await sleep(120);
       await shot(`10_berry_${n}_flying`);
       await waitFor(async () => (await state()).throws >= n, `berry ${n} landing`, 8000);
+      const landed = Date.now();
       await shot(`11_chomp_${n}`);
       await sleep(600);
       await shot(`12_chewing_${n}`);
+      // Reason: 3.5 s of game time plus the 0.1 s hit stop: the swallow is done and the shark is still up, showing its face
+      await sleep(3600 - (Date.now() - landed));
+      await shot(`12a_swallowed_${n}`);
       await waitFor(async () => !(await state()).leaping, "leap over", 8000);
       continue;
     }
@@ -329,6 +351,8 @@ try {
   check("each throw flies a berry, a press too early none", watch.flights.length === 3, JSON.stringify(watch.flights));
   check("the berry arcs for about 0.35 s", watch.flights.every((f) => f.ms > 250 && f.ms < 550 && f.arc > 0.2), JSON.stringify(watch.flights));
   check("the berry lands in the mouth", watch.flights.every((f) => f.gap < 0.9), JSON.stringify(watch.flights));
+  // Reason: chewing opens the jaw up to 0.2 and at rest it stands at 0.15; a leap opens it to 1.2. The length proves each watch covered the whole swallow
+  check("the mouth stays small from each landing until the next leap", watch.mouthAfterFeed.length === 3 && watch.mouthAfterFeed.every((m) => m.jaw < 0.3 && m.ms > 4000), JSON.stringify(watch.mouthAfterFeed.map(({ ms, jaw, jawAtMs }) => ({ ms, jaw: +jaw.toFixed(2), jawAtMs }))));
   await sleep(4000);
   await shot("15_treasure_island_ahead");
   await waitFor(dialogueOpen, "X dialogue", 40000);

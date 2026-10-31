@@ -264,6 +264,8 @@ export class SharkFight {
     this.throws++;
     const calm = this.throws >= THROWS_NEEDED;
     shark.chew(CHEW_TIME);
+    // Reason: chewing only holds the jaw while it lasts; after the swallow it would fling back to the leap's wide open mouth
+    shark.mouth = 0.15;
     shark.bounce(0.9);
     shark.mood = calm ? "happy" : "grin";
     audio.playSfx("sfx_dig", 1, 0.75);
@@ -300,7 +302,6 @@ export class SharkFight {
     shark.root.rotation.set(REAR_PITCH, yaw, 0);
     await tl.tween(0.6, (k) => shark.root.position.set(to.x, lerp(-3.2, REAR_Y, ease.outBack(k)), to.z));
     await tl.wait(1.4);
-    shark.mouth = 0.15;
     // Back down to the water before it swims on
     await tl.tween(0.5, (k) => {
       shark.root.position.y = lerp(REAR_Y, CRUISE_Y, ease.inOut(k));

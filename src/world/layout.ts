@@ -65,24 +65,24 @@ export const LANDMARKS = {
   /** Trigger at the foot of the volcano (quest 2). */
   volcanoGate: [-56, 14] as P2,
   lake: [2, 2] as P2,
-  /** The three stone tablets around the lake (quest 3). */
+  /** The three stone tablets around the lake (quest 4). */
   tablets: [
     [-14, -9] as P2,
     [17, -9] as P2,
     [2, 19] as P2,
   ],
   caveHill: [-64, -34] as P2,
-  /** Cave mouth on the south face of the hill (quest 4). */
+  /** Cave mouth on the south face of the hill (quest 5). */
   caveMouth: [-60, -22] as P2,
   forest: [-14, 40] as P2,
-  /** Forest entrance (quest 5). */
+  /** Forest entrance (quest 6). */
   forestGate: [-12, 26] as P2,
   bridge: [44, 0] as P2,
   village: [64, 42] as P2,
   /** Village gate (quest 7). */
   villageGate: [52, 30] as P2,
   mountain: [66, -46] as P2,
-  /** Trailhead at the mountain foot (quest 8). */
+  /** Trailhead at the mountain foot (quest 9). */
   mountainGate: [52, -22] as P2,
   northDock: [-30, -58] as P2,
   northDockEnd: [-36, -76] as P2,

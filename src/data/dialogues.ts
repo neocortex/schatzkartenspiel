@@ -106,7 +106,7 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   ],
 
   // -----------------------------------------------------------------------
-  // Milestone 4: Cave
+  // Milestone 5: Cave
   // -----------------------------------------------------------------------
   cave_enter: [
     {
@@ -261,7 +261,7 @@ export const DIALOGUES: Record<string, DialogueScript> = {
   ],
 
   // -----------------------------------------------------------------------
-  // Milestone 5: Forest
+  // Milestone 6: Forest
   // -----------------------------------------------------------------------
   forest_enter: [
     {

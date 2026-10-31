@@ -1,5 +1,5 @@
 /**
- * Quest 6 — the ogre on the river bridge. A turn-based boss fight in a sunny
+ * Quest 8 — the ogre on the river bridge. A turn-based boss fight in a sunny
  * gorge: Tadeo picks Angreifen / Heilen / Spezial from big cards, the ogre
  * answers with club swipes and a telegraphed slam. Each swing can be blocked
  * with Space at the right moment (a ring closes over Tadeo and turns green).

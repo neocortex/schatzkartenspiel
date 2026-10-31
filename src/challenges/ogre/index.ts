@@ -1,5 +1,5 @@
 /**
- * Quest 6 challenge entry: the ogre boss fight on the river bridge.
+ * Quest 8 challenge entry: the ogre boss fight on the river bridge.
  */
 
 import { ChallengeFactory } from "../types";

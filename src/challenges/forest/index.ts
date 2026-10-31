@@ -1,5 +1,5 @@
 /**
- * Forest challenge (quest 5): the enchanted forest. Tadeo collects five
+ * Forest challenge (quest 6): the enchanted forest. Tadeo collects five
  * glowing magic berries in a twilight glade full of fireflies, light shafts
  * and glowing mushrooms. Flocke the fox trots ahead and shows the way to the
  * next berry. Thorn bushes only bounce Tadeo back with an "Autsch!" — there

@@ -279,7 +279,7 @@ export const DIALOGUES: Record<string, DialogueScript> = {
     {
       speaker: "Tadeo",
       portrait: "portrait_tadeo",
-      text: "Ich muss weiter nach Osten. Dort führt eine Brücke über den Fluss.",
+      text: "Jetzt zurück ins Dorf! Dort wartet der Schlüssel.",
     },
   ],
 
